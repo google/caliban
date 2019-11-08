@@ -1,7 +1,7 @@
 """
 CLI utilities.
 """
-from argparse import REMAINDER
+from argparse import REMAINDER, ONE_OR_MORE
 
 from absl.flags import argparse_flags
 
@@ -21,8 +21,8 @@ def boolean_arg(parser, flag, default, help=None, **kwargs):
                       action="store_false")
 
 
-def add_extra_args(base_parser):
-  base_parser.add_argument_group('pass-through arguments').add_argument(
+def add_script_args(parser):
+  parser.add_argument_group('pass-through arguments').add_argument(
       "script_args",
       nargs=REMAINDER,
       default=[],
@@ -43,6 +43,17 @@ def require_module(parser):
                       help="Local module to run.")
 
 
+def setup_extras(parser):
+  parser.add_argument("-e",
+                      "--extras",
+                      nargs=ONE_OR_MORE,
+                      help="setup.py dependency keys.")
+
+
+def gpu_flag(parser):
+  boolean_arg(parser, "GPU", False, help="Set to enable GPU usage.")
+
+
 def parse_flags(argv):
   """Internally generates a parser and parses the supplied argument from invoking
 the app.
@@ -58,20 +69,23 @@ Docker and AI Platform model training and development script.
   # Create a shell.
   shell = subdocker.add_parser(
       'shell', help='Start an interactive shell with this dir mounted.')
-  boolean_arg(shell, "GPU", False, help="Set to enable GPU usage.")
+  gpu_flag(shell)
+  setup_extras(shell)
 
   # Run directly.
   run = subdocker.add_parser('run', help='Run a job inside a Docker container.')
-  boolean_arg(run, "GPU", False, help="Set to enable GPU usage.")
+  gpu_flag(run)
+  setup_extras(run)
 
   run_named = run.add_argument_group('required named arguments')
   require_module(run_named)
-  add_extra_args(run)
+  add_script_args(run)
 
   # Cloud submission
   cloud = subdocker.add_parser('cloud',
                                help='Submit the docker container to Cloud.')
-  boolean_arg(cloud, "GPU", False, help="Set to enable GPU usage.")
+  gpu_flag(cloud)
+  setup_extras(cloud)
   boolean_arg(cloud,
               "stream_logs",
               True,
@@ -79,6 +93,6 @@ Docker and AI Platform model training and development script.
 
   cloud_named = cloud.add_argument_group('required named arguments')
   require_module(cloud_named)
-  add_extra_args(cloud)
+  add_script_args(cloud)
 
   return parser.parse_args(argv[1:])

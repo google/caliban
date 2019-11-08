@@ -35,6 +35,38 @@ def base_image_id(use_gpu: bool) -> str:
   return "{}:{}".format(DEV_CONTAINER_ROOT, base_image_suffix(use_gpu))
 
 
+def extras_string(extras: List[str]) -> str:
+  ret = "."
+  if len(extras) > 0:
+    ret += f"[{' '.join(extras)}]"
+  return ret
+
+
+def _dependency_entries(workdir: str,
+                        user_id: int,
+                        user_group: int,
+                        requirements_path: Optional[str] = None,
+                        setup_extras: Optional[List[str]] = None) -> str:
+  """setup_extras is a list of extra modules in your setup.py.... an empty list
+means just install setup.py itself.
+  """
+  ret = ""
+
+  if setup_extras is not None:
+    ret += f"""
+COPY --chown={user_id}:{user_group} setup.py {workdir}
+RUN /bin/bash -c "pip install {extras_string(setup_extras)}"
+"""
+
+  if requirements_path is not None:
+    ret += f"""
+COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
+RUN /bin/bash -c "pip install -r {requirements_path}"
+"""
+
+  return ret
+
+
 def _package_entries(workdir: str, user_id: int, user_group: int,
                      package: Package) -> str:
   owner = f"{user_id}:{user_group}"
@@ -61,6 +93,8 @@ ENV GOOGLE_APPLICATION_CREDENTIALS={docker_creds}
 def _dockerfile_template(workdir: str,
                          use_gpu: bool,
                          package: Optional[Package] = None,
+                         requirements_path: Optional[str] = None,
+                         setup_extras: Optional[List[str]] = None,
                          credentials_path: Optional[str] = None) -> str:
   """This generates a Dockerfile that installs the dependencies that this package
   needs to create a local base image for development. The goal here is to make
@@ -80,19 +114,16 @@ FROM {image_id}
 # access the folder.
 RUN mkdir -m 777 {workdir} {CREDS_DIR}
 
-# You CAN remove the chown stuff if you're sure you're never going to pip
-# install inside the container as the user. That would allow us to cache this
-# step across various users. Maybe that's not necessary.
-COPY --chown={uid}:{gid} setup.py {workdir}
-
 WORKDIR {workdir}
 
 USER {uid}:{gid}
-
-# TODO handle installation for requirements.txt, or various submodules. This
-# current example has a hardcoded tf2 extra.
-RUN /bin/bash -c "pip install .[tf2]"
 """
+  dockerfile += _dependency_entries(workdir,
+                                    uid,
+                                    gid,
+                                    requirements_path=requirements_path,
+                                    setup_extras=setup_extras)
+
   if credentials_path is not None:
     dockerfile += _credentials_entries(credentials_path, uid, gid)
 
@@ -124,9 +155,9 @@ def docker_image_id(output: str) -> str:
 
 
 def build_image(use_gpu: bool,
-                package: Optional[Package] = None,
                 workdir: Optional[str] = None,
-                credentials_path: Optional[str] = None) -> str:
+                credentials_path: Optional[str] = None,
+                **kwargs) -> str:
   """Better way of building a docker image.
 """
   if workdir is None:
@@ -136,8 +167,8 @@ def build_image(use_gpu: bool,
     cmd = ["docker", "build", "--rm", "-f-", os.getcwd()]
     dockerfile = _dockerfile_template(workdir,
                                       use_gpu,
-                                      package=package,
-                                      credentials_path=cred_path)
+                                      credentials_path=cred_path,
+                                      **kwargs)
 
     logging.info(f"Running command: {' '.join(cmd)}")
 
@@ -184,21 +215,15 @@ def local_base_args(workdir: str,
 def submit_local(use_gpu: bool,
                  package: Package,
                  args: Optional[List[str]] = None,
-                 workdir: Optional[str] = None,
-                 creds_path: Optional[str] = None) -> None:
-  """For now... first build, then submit. But we really want to do something
-  else.
+                 **kwargs) -> None:
+  """Build and run a docker container locally.
+
+  kwargs are all extra arguments taken by dockerfile_template.
   """
   if args is None:
     args = []
 
-  if workdir is None:
-    workdir = DEFAULT_WORKDIR
-
-  image_id = build_image(use_gpu,
-                         package=package,
-                         workdir=workdir,
-                         credentials_path=creds_path)
+  image_id = build_image(use_gpu, package=package, **kwargs)
   command = _run_cmd(use_gpu) + [image_id] + args
 
   subprocess.call(command)
@@ -207,18 +232,16 @@ def submit_local(use_gpu: bool,
 def start_shell(use_gpu: bool,
                 workdir: Optional[str] = None,
                 image_id: Optional[str] = None,
-                creds_path: Optional[str] = None) -> None:
+                **kwargs) -> None:
   """Start a live interpreter.
 
-  TODO really it should take one or the other here.
+  kwargs are all extra arguments taken by dockerfile_template.
   """
   if workdir is None:
     workdir = DEFAULT_WORKDIR
 
   if image_id is None:
-    image_id = build_image(use_gpu,
-                           workdir=workdir,
-                           credentials_path=creds_path)
+    image_id = build_image(use_gpu, workdir=workdir, **kwargs)
 
   args = local_base_args(workdir, {"-it": None})
   command = _run_cmd(use_gpu) + u.expand_args(args) + [image_id]
