@@ -52,7 +52,7 @@ Docker and AI Platform model training and development script.
     """,
                                          prog="caliban")
 
-  subparsers = parser.add_subparsers(dest="command")
+  subparsers = parser.add_subparsers(dest="command", required=True)
 
   # Local Commands
   local_parser = subparsers.add_parser('local', help='Execute a job locally.')
@@ -90,4 +90,4 @@ Docker and AI Platform model training and development script.
   require_module(cloud_named)
   add_extra_args(cloud)
 
-  return parser.parse_known_args(argv[1:])
+  return parser.parse_args(argv[1:])

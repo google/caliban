@@ -4,6 +4,7 @@ from setuptools import setup
 setup(
     name='caliban',
     version='0.1',
+    python_requires='>3.7.0',
     install_requires=[
         'absl-py', 'pyyaml', 'oauth2client', 'commentjson',
         'google-cloud-storage'
