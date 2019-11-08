@@ -21,18 +21,55 @@ submitting those containers up to Cloud.
 
 ## Prerequisites
 
-Before you run anything you need a solid Cloud and Docker installation.
+Before you can install and use Caliban to manage your research workflows, you'll
+need a solid Cloud and Docker installation. Follow these steps to get set up:
 
-- environment variables we use
+- Configure your machine for Cloud access using the tutorial at Blueshift's
+  [Setting up
+  Cloud](https://g3doc.corp.google.com/company/teams/blueshift/guide/cloud.md?cl=head)
+  page.
+- You need Docker on your machine. Use Blueshift's [Working with
+  Docker](https://g3doc.corp.google.com/company/teams/blueshift/guide/docker.md?cl=head)
+  tutorial, also found at https://go/blueshift-dev.
+- If you want to run the tutorial in GPU mode, you'll need to make sure your
+  CUDA drivers are up to date, and that you have a big-iron GPU installed in
+  your workstation. The [Workstation GPU
+  installation](https://g3doc.corp.google.com/company/teams/blueshift/guide/gpu_install.md?cl=head)
+  tutorial will get you sorted.
+
+Once that's all set, verify that you're running python 3.7 or above:
+
+```bash
+$ python3 --version
+Python 3.7.3
+```
 
 ## Getting Caliban
 
-How to install using pipx.
+First, install `pipx`:
+
+```bash
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+```
+
+`pipx` is a tool that lets you install command line utilities written in Python
+into their own virtual environments, completely isolated from your system python
+packages or other virtualenvs.
+
+Once `pipx` is installed, use it to install `caliban`:
+
+```bash
+pipx install -e --spec git+sso://team/blueshift/caliban caliban
+```
 
 ## Using Caliban
 
-If you want to practice, go to Hello World. Read below for information on the
-specific commands exposed by Caliban.
+If you want to practice using Caliban with a proper getting-started style guide,
+head over to Blueshift's [Hello
+World](https://team.git.corp.google.com/blueshift/hello-world/) repository.
+
+Read on for information on the specific commands exposed by Caliban.
 
 ### caliban shell
 
