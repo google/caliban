@@ -14,6 +14,8 @@
 >
 > -- <cite>Shakespeare, The Tempest</cite>
 
+## Overview
+
 Caliban is a tool for running python code inside of Docker containers, then
 submitting those containers up to Cloud.
 
@@ -23,7 +25,7 @@ Before you run anything you need a solid Cloud and Docker installation.
 
 - environment variables we use
 
-## Installation
+## Getting Caliban
 
 How to install using pipx.
 
