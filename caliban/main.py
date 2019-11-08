@@ -43,6 +43,12 @@ def run_app(arg_input):
   command = args["command"]
   use_gpu = args["GPU"]
 
+  # Get extra dependencies in case you want to install your requirements via a
+  # setup.py file.
+  setup_extras = None
+  if os.path.exists("setup.py"):
+    setup_extras = args.get("extras", [])
+
   creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
   # TODO These have defaults... the project default is probably not good. We
@@ -50,12 +56,19 @@ def run_app(arg_input):
   project_id = os.environ.get("PROJECT_ID", "research-3141")
   region = os.environ.get("REGION", "us-central1")
 
+  reqs = "requirements.txt"
+  template_args = {
+      "requirements_path": reqs if os.path.exists(reqs) else None,
+      "credentials_path": creds_path,
+      "setup_extras": setup_extras
+  }
+
   if command == "shell":
-    docker.start_shell(use_gpu, creds_path=creds_path)
+    docker.start_shell(use_gpu, **template_args)
 
   elif command == "run":
     package = docker.Package(args["package_path"], args["module"])
-    docker.submit_local(use_gpu, package, script_args, creds_path=creds_path)
+    docker.submit_local(use_gpu, package, script_args, **template_args)
 
   elif command == "cloud":
     package = docker.Package(args["package_path"], args["module"])
@@ -64,7 +77,7 @@ def run_app(arg_input):
                          region,
                          project_id,
                          script_args=script_args,
-                         creds_path=creds_path)
+                         **template_args)
   else:
     logging.info(f"Unknown command: {command}")
     sys.exit(1)

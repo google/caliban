@@ -44,7 +44,7 @@ def submit_package(use_gpu: bool,
                    project_id: str,
                    stream_logs: bool = True,
                    script_args: Optional[List[str]] = None,
-                   creds_path: Optional[str] = None) -> None:
+                   **kwargs) -> None:
   """Submit a container to the cloud.
 
   Cloud API docs for the endpoint we use here:
@@ -52,6 +52,8 @@ def submit_package(use_gpu: bool,
 
   Use this when we configure hyper-parameter sweeps to run lots of experiments:
   https://cloud.google.com/ml-engine/reference/rest/v1/projects.jobs#hyperparameterspec
+
+  kwargs are extra arguments to d._dockerfile_template.
   """
   if script_args is None:
     script_args = []
@@ -67,7 +69,7 @@ def submit_package(use_gpu: bool,
   logging.info(
       f"Running remote job with {use_gpu} and {package}, args: {script_args}")
 
-  image_id = d.build_image(use_gpu, package, credentials_path=creds_path)
+  image_id = d.build_image(use_gpu, package=package, **kwargs)
   image_tag = d.push_uuid_tag(project_id, image_id)
 
   training_input = {
