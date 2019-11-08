@@ -7,7 +7,7 @@ setup(
     python_requires='>3.7.0',
     install_requires=[
         'absl-py', 'pyyaml', 'oauth2client', 'commentjson',
-        'google-cloud-storage'
+        'google-cloud-storage', 'google-api-python-client'
     ],
     extras_require={
         # These are required for local development, but not for actually running

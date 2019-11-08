@@ -2,20 +2,17 @@
 
 Run like this:
 
-# Run the job locally
-caliban local -m trainer.train
-
 # Start a shell:
-caliban docker shell
+caliban shell
 
 # Watch a local job fail, since it no longer has local access.
-caliban docker run -m trainer.train -p trainer
+caliban run -e tf2 -m trainer.train -p trainer
 
 # Run a local job via Docker successfully:
-caliban docker run -m trainer.train -p trainer --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+caliban run -e tf2 -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 
 # Submit a remote job
-caliban docker cloud -m trainer.train -p trainer --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+caliban cloud -e tf2 -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 """
 
 from __future__ import absolute_import, division, print_function
@@ -47,7 +44,7 @@ def run_app(arg_input):
   # setup.py file.
   setup_extras = None
   if os.path.exists("setup.py"):
-    setup_extras = args.get("extras", [])
+    setup_extras = args.get("extras") or []
 
   creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
