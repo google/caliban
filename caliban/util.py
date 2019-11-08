@@ -1,10 +1,13 @@
 """
 Utilities for our job runner.
 """
+import io
 import itertools as it
 import os
 import shutil
+import subprocess
 import sys
+from contextlib import redirect_stdout
 from typing import Dict, List
 
 from absl import flags
@@ -48,10 +51,29 @@ class TempCopy(object):
     self.path = os.path.join(temp_dir, base_path)
 
     # TODO - if that path already exists in this folder, do NOT delete it! Throw
-    # an error here.
+    # an error here. This should really nest under a temp dir.
     shutil.copy2(self.original_path, self.path)
     return base_path
 
   def __exit__(self, exc_type, exc_val, exc_tb):
     if self.path is not None:
       os.remove(self.path)
+
+
+def capture_stdout(cmd: List[str], input_str: str) -> str:
+  """Executes the supplied command with the supplied string of std input, then
+  streams the output to stdout, and returns it as a string.
+  """
+  buf = io.StringIO()
+  with subprocess.Popen(cmd,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        bufsize=1,
+                        encoding="utf-8") as p:
+    p.stdin.write(input_str)
+    p.stdin.close()
+    for line in p.stdout:
+      print(line, end='')
+      buf.write(line)
+
+  return buf.getvalue()

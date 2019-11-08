@@ -15,8 +15,9 @@ import os
 import subprocess
 from typing import Dict, List, Optional
 
-import caliban.util as u
 from absl import logging
+
+import caliban.util as u
 
 Package = collections.namedtuple('Package', ['package_path', 'main_module'])
 
@@ -139,17 +140,11 @@ def build_image(use_gpu: bool,
                                       credentials_path=cred_path)
 
     logging.info(f"Running command: {' '.join(cmd)}")
-    logging.info("This builds an image with your dependencies staged.")
-    logging.info("Hold tight for the output - we can't currently stream it!")
 
     try:
-      p = subprocess.run(cmd,
-                         input=dockerfile,
-                         encoding='utf-8',
-                         capture_output=True,
-                         check=True)
-      logging.info(p.stdout)
-      return docker_image_id(p.stdout)
+      output = u.capture_stdout(cmd, input_str=dockerfile)
+      return docker_image_id(output)
+
     except subprocess.CalledProcessError as e:
       logging.error(e.output)
       logging.error(e.stderr)

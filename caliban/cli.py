@@ -1,6 +1,8 @@
 """
 CLI utilities.
 """
+from argparse import REMAINDER
+
 from absl.flags import argparse_flags
 
 
@@ -21,9 +23,8 @@ def boolean_arg(parser, flag, default, help=None, **kwargs):
 
 def add_extra_args(base_parser):
   base_parser.add_argument_group('pass-through arguments').add_argument(
-      '--',
-      dest='catchall',
-      nargs='*',
+      "script_args",
+      nargs=REMAINDER,
       default=[],
       help=
       """This is a catch-all for arguments you want to pass through to your script.
@@ -52,19 +53,9 @@ Docker and AI Platform model training and development script.
     """,
                                          prog="caliban")
 
-  subparsers = parser.add_subparsers(dest="command", required=True)
+  subdocker = parser.add_subparsers(dest="command", required=True)
 
-  # Local Commands
-  local_parser = subparsers.add_parser('local', help='Execute a job locally.')
-  rn = local_parser.add_argument_group('required named arguments')
-  rn.add_argument("-m", "--module", required=True, help="Local module to run.")
-  add_extra_args(local_parser)
-
-  # Docker Runner
-  docker_parser = subparsers.add_parser('docker',
-                                        help='Execute a job using Docker.')
-
-  subdocker = docker_parser.add_subparsers(dest="mode")
+  # Create a shell.
   shell = subdocker.add_parser(
       'shell', help='Start an interactive shell with this dir mounted.')
   boolean_arg(shell, "GPU", False, help="Set to enable GPU usage.")

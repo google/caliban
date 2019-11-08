@@ -43,7 +43,7 @@ def submit_package(use_gpu: bool,
                    region: str,
                    project_id: str,
                    stream_logs: bool = True,
-                   user_args: Optional[List[str]] = None,
+                   script_args: Optional[List[str]] = None,
                    creds_path: Optional[str] = None) -> None:
   """Submit a container to the cloud.
 
@@ -53,8 +53,8 @@ def submit_package(use_gpu: bool,
   Use this when we configure hyper-parameter sweeps to run lots of experiments:
   https://cloud.google.com/ml-engine/reference/rest/v1/projects.jobs#hyperparameterspec
   """
-  if user_args is None:
-    user_args = []
+  if script_args is None:
+    script_args = []
 
   # TODO make this configurable. BUT bake in knowledge from the links below
   # about what regions actually support GPU usage.
@@ -65,7 +65,7 @@ def submit_package(use_gpu: bool,
   job_id = f"test_job_{timestamp}"
 
   logging.info(
-      f"Running remote job with {use_gpu} and {package}, args: {user_args}")
+      f"Running remote job with {use_gpu} and {package}, args: {script_args}")
 
   image_id = d.build_image(use_gpu, package, credentials_path=creds_path)
   image_tag = d.push_uuid_tag(project_id, image_id)
@@ -83,7 +83,7 @@ def submit_package(use_gpu: bool,
       },
       "scaleTier": "CUSTOM",
       "masterType": master_type,
-      "args": user_args,
+      "args": script_args,
       "region": region
   }
   job_spec = {"jobId": job_id, "trainingInput": training_input}

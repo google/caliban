@@ -7,6 +7,8 @@ from __future__ import absolute_import, division, print_function
 import commentjson
 import yaml
 
+from typing import Any, Dict, List
+
 METACONFIG_ARGS = [
     'uses_metaconfig', 'job_name', 'numjobs', 'docker_tag', 'DOCKERFILE',
     'hypertype', 'DOCKERFILEGPU', 'setup_loc', 'module', 'runtime_version',
@@ -73,3 +75,14 @@ def get_reserved_args(metaconf):
       ]
 
   return reserved_args
+
+
+def extract_script_args(m: Dict[str, Any]) -> List[str]:
+  """Strip off the "--" argument if it was passed in as a separator."""
+  script_args = m.get("script_args")
+  if script_args is None or script_args == []:
+    return script_args
+
+  head, *tail = script_args
+
+  return tail if head == "--" else script_args

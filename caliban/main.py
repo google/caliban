@@ -27,25 +27,21 @@ import sys
 
 import caliban.cli as cli
 import caliban.cloud as cloud
+import caliban.config as c
 import caliban.docker as docker
 from absl import app, logging
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
 
-def run_local_package(module, args):
-  """This is actually running locally, just passing it on through to python.. but
-calling out to a subprocess, which we should not be doing."""
-  return subprocess.call(['python', "-m", module] + args)
-
-
-def run_app(arg_tuple):
+def run_app(arg_input):
   """Any argument not absorbed by Abseil's flags gets passed along to here.
   """
-  logging.info('Welcome to Caliban.')
-  arg_input, user_args = arg_tuple
   args = vars(arg_input)
+  script_args = c.extract_script_args(args)
+
   command = args["command"]
+  use_gpu = args["GPU"]
 
   creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
@@ -54,30 +50,21 @@ def run_app(arg_tuple):
   project_id = os.environ.get("PROJECT_ID", "research-3141")
   region = os.environ.get("REGION", "us-central1")
 
-  # Local runner.
-  if command == "local":
-    run_local_package(args['module'], user_args)
+  if command == "shell":
+    docker.start_shell(use_gpu, creds_path=creds_path)
 
-  # Docker commands.
-  elif command == "docker":
-    mode = args["mode"]
-    use_gpu = args["GPU"]
+  elif command == "run":
+    package = docker.Package(args["package_path"], args["module"])
+    docker.submit_local(use_gpu, package, script_args, creds_path=creds_path)
 
-    if mode == "shell":
-      docker.start_shell(use_gpu, creds_path=creds_path)
-
-    elif mode == "run":
-      package = docker.Package(args["package_path"], args["module"])
-      docker.submit_local(use_gpu, package, user_args, creds_path=creds_path)
-
-    elif mode == "cloud":
-      package = docker.Package(args["package_path"], args["module"])
-      cloud.submit_package(use_gpu,
-                           package,
-                           region,
-                           project_id,
-                           user_args=user_args,
-                           creds_path=creds_path)
+  elif command == "cloud":
+    package = docker.Package(args["package_path"], args["module"])
+    cloud.submit_package(use_gpu,
+                         package,
+                         region,
+                         project_id,
+                         script_args=script_args,
+                         creds_path=creds_path)
   else:
     logging.info(f"Unknown command: {command}")
     sys.exit(1)
