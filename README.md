@@ -96,6 +96,16 @@ More info to file on the process: https://www.gerritcodereview.com/user-review-u
 
 And info from internally on how code review works: https://g3doc.corp.google.com/company/teams/gerritcodereview/users/intro-codelab.md?cl=head#create-a-change
 
+Then to develop locally, reinstall Caliban like this from the project directory:
+
+```bash
+pipx install -e --spec . caliban --force
+```
+
+This will allow you to edit the source in your checked-out copy and have it get
+picked up by the global alias.
+
+
 ## Testing
 
 This is how to configure tests.
