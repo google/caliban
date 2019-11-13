@@ -6,10 +6,10 @@ Run like this:
 caliban shell
 
 # Watch a local job fail, since it no longer has local access.
-caliban run -e tf2 -m trainer.train -p trainer
+caliban run -m trainer.train -p trainer
 
 # Run a local job via Docker successfully:
-caliban run -e tf2 -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+caliban run -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 
 # Submit a remote job
 caliban cloud -e tf2 -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
@@ -19,7 +19,6 @@ from __future__ import absolute_import, division, print_function
 
 import logging as ll
 import os
-import subprocess
 import sys
 
 import caliban.cli as cli
