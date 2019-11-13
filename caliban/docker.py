@@ -90,12 +90,19 @@ ENV GOOGLE_APPLICATION_CREDENTIALS={docker_creds}
 """
 
 
+def _inject_notebook_template():
+  return f"""
+RUN pip install jupyterlab
+"""
+
+
 def _dockerfile_template(workdir: str,
                          use_gpu: bool,
                          package: Optional[Package] = None,
                          requirements_path: Optional[str] = None,
                          setup_extras: Optional[List[str]] = None,
-                         credentials_path: Optional[str] = None) -> str:
+                         credentials_path: Optional[str] = None,
+                         inject_notebook: bool = False) -> str:
   """This generates a Dockerfile that installs the dependencies that this package
   needs to create a local base image for development. The goal here is to make
   it fast to reboot within a particular project.
@@ -123,6 +130,9 @@ USER {uid}:{gid}
                                     gid,
                                     requirements_path=requirements_path,
                                     setup_extras=setup_extras)
+
+  if inject_notebook:
+    dockerfile += _inject_notebook_template()
 
   if credentials_path is not None:
     dockerfile += _credentials_entries(credentials_path, uid, gid)
@@ -234,6 +244,26 @@ def start_shell(use_gpu: bool,
                 image_id: Optional[str] = None,
                 **kwargs) -> None:
   """Start a live interpreter.
+
+  kwargs are all extra arguments taken by dockerfile_template.
+  """
+  if workdir is None:
+    workdir = DEFAULT_WORKDIR
+
+  if image_id is None:
+    image_id = build_image(use_gpu, workdir=workdir, **kwargs)
+
+  args = local_base_args(workdir, {"-it": None})
+  command = _run_cmd(use_gpu) + u.expand_args(args) + [image_id]
+
+  subprocess.call(command)
+
+
+def start_notebook(use_gpu: bool,
+                   workdir: Optional[str] = None,
+                   image_id: Optional[str] = None,
+                   **kwargs) -> None:
+  """Start a notebook.
 
   kwargs are all extra arguments taken by dockerfile_template.
   """

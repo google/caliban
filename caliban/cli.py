@@ -95,4 +95,9 @@ Docker and AI Platform model training and development script.
   require_module(cloud_named)
   add_script_args(cloud)
 
+  # Cloud submission
+  notebook = subdocker.add_parser('notebook', help='Generate Jupyterlab.')
+  gpu_flag(notebook)
+  setup_extras(notebook)
+
   return parser.parse_args(argv[1:])
