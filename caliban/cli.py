@@ -64,7 +64,7 @@ Docker and AI Platform model training and development script.
     """,
                                          prog="caliban")
 
-  subdocker = parser.add_subparsers(dest="command", required=True)
+  subdocker = parser.add_subparsers(dest="command")
 
   # Create a shell.
   shell = subdocker.add_parser(
