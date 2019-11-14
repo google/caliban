@@ -6,13 +6,13 @@ Run like this:
 caliban shell
 
 # Watch a local job fail, since it no longer has local access.
-caliban run -m trainer.train -p trainer
+caliban run trainer.train
 
 # Run a local job via Docker successfully:
-caliban run -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+caliban run trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 
 # Submit a remote job
-caliban cloud -e tf2 -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+caliban cloud trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 """
 
 from __future__ import absolute_import, division, print_function
@@ -21,11 +21,12 @@ import logging as ll
 import os
 import sys
 
+from absl import app, logging
+
 import caliban.cli as cli
 import caliban.cloud as cloud
 import caliban.config as c
 import caliban.docker as docker
-from absl import app, logging
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
@@ -37,7 +38,7 @@ def run_app(arg_input):
   script_args = c.extract_script_args(args)
 
   command = args["command"]
-  use_gpu = args["GPU"]
+  use_gpu = args["gpu"]
 
   # Get extra dependencies in case you want to install your requirements via a
   # setup.py file.
@@ -56,22 +57,25 @@ def run_app(arg_input):
   template_args = {
       "requirements_path": reqs if os.path.exists(reqs) else None,
       "credentials_path": creds_path,
-      "setup_extras": setup_extras
+      "setup_extras": setup_extras,
+      "extra_dirs": args.get("dirs")
   }
 
   if command == "shell":
     docker.start_shell(use_gpu, **template_args)
 
   elif command == "run":
-    package = docker.Package(args["package_path"], args["module"])
+    package = args["module"]
     docker.submit_local(use_gpu, package, script_args, **template_args)
 
   elif command == "cloud":
-    package = docker.Package(args["package_path"], args["module"])
+    stream_logs = args["stream_logs"]
+    package = args["module"]
     cloud.submit_package(use_gpu,
                          package,
                          region,
                          project_id,
+                         stream_logs=stream_logs,
                          script_args=script_args,
                          **template_args)
   else:

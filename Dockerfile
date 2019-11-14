@@ -17,8 +17,14 @@ FROM $BASE_IMAGE
 
 LABEL maintainer="samritchie@google.com"
 
+# Install git so that users can declare git dependencies, and python3 plus
+# python3-virtualenv so we can generate an isolated Python environment inside
+# the container.
+#
+# TODO we COULD use venv, the new python3 business. No urgency at all to change
+# this as this is hidden from the user now.
 RUN apt-get update && apt-get install \
-  -y --no-install-recommends python3 python3-virtualenv
+  -y --no-install-recommends git python3 python3-virtualenv
 
 # This follows the style laid out here to set up a fresh, activated virtualenv
 # inside the image:

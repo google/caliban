@@ -3,11 +3,12 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
-from typing import List, Optional
 import subprocess
+from typing import List, Optional
 
 import caliban.docker as d
-from absl import app, logging
+import caliban.util as u
+from absl import logging
 from googleapiclient import discovery, errors
 
 
@@ -39,7 +40,7 @@ def stream_ml_logs(job_id: str) -> None:
 
 
 def submit_package(use_gpu: bool,
-                   package: d.Package,
+                   package: u.Package,
                    region: str,
                    project_id: str,
                    stream_logs: bool = True,
