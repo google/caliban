@@ -305,12 +305,13 @@ def start_notebook(use_gpu: bool,
 
   args = local_base_args(workdir, {
       "-it": None,
-      "-p": f"{port}:8888",
+      "-p": f"{port}:{port}",
       "--entrypoint": "/opt/venv/bin/python"
   })
   jupyter_cmd = "lab" if lab else "notebook"
   command = _run_cmd(use_gpu) + u.expand_args(args) + [image_id] + [
-      "-m", "jupyter", jupyter_cmd, "--ip=0.0.0.0", "--no-browser"
+      "-m", "jupyter", jupyter_cmd, "--ip=0.0.0.0", f"--port={port}",
+      "--no-browser"
   ]
   logging.info(f"Running command: {' '.join(command)}")
   subprocess.call(command)
