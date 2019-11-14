@@ -97,9 +97,17 @@ Docker and AI Platform model training and development script.
               help="Set to stream logs after job submission.")
   add_script_args(cloud)
 
-  # Cloud submission
-  notebook = subdocker.add_parser('notebook', help='Generate Jupyterlab.')
+  # Jupyter support.
+  notebook = subdocker.add_parser('notebook',
+                                  help='Run a local Jupyter notebook instance.')
   gpu_flag(notebook)
   setup_extras(notebook)
+  notebook.add_argument("-p",
+                        "--port",
+                        type=int,
+                        help="Local port to use for Jupyter.")
+  notebook.add_argument("--lab",
+                        action="store_true",
+                        help="run Jupyterlab, vs just jupyter.")
 
   return parser.parse_args(argv[1:])

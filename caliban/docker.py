@@ -14,8 +14,9 @@ import os
 import subprocess
 from typing import Dict, List, Optional
 
-import caliban.util as u
 from absl import logging
+
+import caliban.util as u
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
 TF_VERSIONS = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
@@ -34,7 +35,7 @@ def base_image_id(use_gpu: bool) -> str:
 def extras_string(extras: List[str]) -> str:
   ret = "."
   if len(extras) > 0:
-    ret += f"[{' '.join(extras)}]"
+    ret += f"[{','.join(extras)}]"
   return ret
 
 
@@ -131,7 +132,9 @@ FROM {image_id}
 
 # The directory is created by root. This sets permissions so that any user can
 # access the folder.
-RUN mkdir -m 777 {workdir} {CREDS_DIR}
+RUN mkdir -m 777 {workdir} {CREDS_DIR} /home/{uid}
+
+ENV HOME=/home/{uid}
 
 WORKDIR {workdir}
 
@@ -251,7 +254,7 @@ def submit_local(use_gpu: bool,
 
   image_id = build_image(use_gpu, package=package, **kwargs)
   command = _run_cmd(use_gpu) + [image_id] + args
-
+  logging.info(f"Running command: {' '.join(command)}")
   subprocess.call(command)
 
 
@@ -271,11 +274,13 @@ def start_shell(use_gpu: bool,
 
   args = local_base_args(workdir, {"-it": None})
   command = _run_cmd(use_gpu) + u.expand_args(args) + [image_id]
-
+  logging.info(f"Running command: {' '.join(command)}")
   subprocess.call(command)
 
 
 def start_notebook(use_gpu: bool,
+                   port: Optional[int] = None,
+                   lab: Optional[bool] = None,
                    workdir: Optional[str] = None,
                    image_id: Optional[str] = None,
                    **kwargs) -> None:
@@ -283,13 +288,29 @@ def start_notebook(use_gpu: bool,
 
   kwargs are all extra arguments taken by dockerfile_template.
   """
+  if port is None:
+    port = 8888
+
+  if lab is None:
+    lab = False
+
   if workdir is None:
     workdir = DEFAULT_WORKDIR
 
   if image_id is None:
-    image_id = build_image(use_gpu, workdir=workdir, **kwargs)
+    image_id = build_image(use_gpu,
+                           workdir=workdir,
+                           inject_notebook=True,
+                           **kwargs)
 
-  args = local_base_args(workdir, {"-it": None})
-  command = _run_cmd(use_gpu) + u.expand_args(args) + [image_id]
-
+  args = local_base_args(workdir, {
+      "-it": None,
+      "-p": f"{port}:8888",
+      "--entrypoint": "/opt/venv/bin/python"
+  })
+  jupyter_cmd = "lab" if lab else "notebook"
+  command = _run_cmd(use_gpu) + u.expand_args(args) + [image_id] + [
+      "-m", "jupyter", jupyter_cmd, "--ip=0.0.0.0", "--no-browser"
+  ]
+  logging.info(f"Running command: {' '.join(command)}")
   subprocess.call(command)

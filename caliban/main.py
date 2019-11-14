@@ -64,6 +64,11 @@ def run_app(arg_input):
   if command == "shell":
     docker.start_shell(use_gpu, **template_args)
 
+  if command == "notebook":
+    port = args.get("port")
+    lab = args.get("lab")
+    docker.start_notebook(use_gpu, port=port, lab=lab, **template_args)
+
   elif command == "run":
     package = args["module"]
     docker.submit_local(use_gpu, package, script_args, **template_args)
