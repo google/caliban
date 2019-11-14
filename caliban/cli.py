@@ -55,7 +55,7 @@ def extra_dirs(parser):
 
 
 def gpu_flag(parser):
-  boolean_arg(parser, "GPU", False, help="Set to enable GPU usage.")
+  boolean_arg(parser, "gpu", True, help="Set to enable GPU usage.")
 
 
 def parse_flags(argv):

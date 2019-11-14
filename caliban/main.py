@@ -38,7 +38,7 @@ def run_app(arg_input):
   script_args = c.extract_script_args(args)
 
   command = args["command"]
-  use_gpu = args["GPU"]
+  use_gpu = args["gpu"]
 
   # Get extra dependencies in case you want to install your requirements via a
   # setup.py file.
