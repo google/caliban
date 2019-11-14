@@ -110,7 +110,7 @@ Feel free to kill this process. You can always resume streaming by running:
     """)
     stream_ml_logs(job_id)
   else:
-    logging.info("""You can stream the logs with the following command:
+    logging.info(f"""You can stream the logs with the following command:
 
 {stream_command}
 """)
