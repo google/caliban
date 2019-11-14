@@ -50,6 +50,14 @@ def setup_extras(parser):
                       help="setup.py dependency keys.")
 
 
+def extra_dirs(parser):
+  parser.add_argument(
+      "-d",
+      "--dirs",
+      nargs=ONE_OR_MORE,
+      help="Extra directories to include. Try to list these from big to small!")
+
+
 def gpu_flag(parser):
   boolean_arg(parser, "GPU", False, help="Set to enable GPU usage.")
 
@@ -74,6 +82,7 @@ Docker and AI Platform model training and development script.
 
   # Run directly.
   run = subdocker.add_parser('run', help='Run a job inside a Docker container.')
+  extra_dirs(run)
   gpu_flag(run)
   setup_extras(run)
 
@@ -84,6 +93,7 @@ Docker and AI Platform model training and development script.
   # Cloud submission
   cloud = subdocker.add_parser('cloud',
                                help='Submit the docker container to Cloud.')
+  extra_dirs(cloud)
   gpu_flag(cloud)
   setup_extras(cloud)
   boolean_arg(cloud,

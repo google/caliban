@@ -56,7 +56,8 @@ def run_app(arg_input):
   template_args = {
       "requirements_path": reqs if os.path.exists(reqs) else None,
       "credentials_path": creds_path,
-      "setup_extras": setup_extras
+      "setup_extras": setup_extras,
+      "extra_dirs": args.get("dirs")
   }
 
   if command == "shell":

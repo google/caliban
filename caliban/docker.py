@@ -90,12 +90,28 @@ ENV GOOGLE_APPLICATION_CREDENTIALS={docker_creds}
 """
 
 
+def _entry(workdir: str, user_id: int, user_group: int, dirname: str) -> str:
+  owner = f"{user_id}:{user_group}"
+  return f"""# Copy {dirname} into the Docker container.
+COPY --chown={owner} {dirname} {workdir}/{dirname}
+"""
+
+
+def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
+                       extra_dirs: List[str]) -> str:
+  ret = ""
+  for d in extra_dirs:
+    ret += f"\n{_entry(workdir, user_id, user_group, d)}"
+  return ret
+
+
 def _dockerfile_template(workdir: str,
                          use_gpu: bool,
                          package: Optional[Package] = None,
                          requirements_path: Optional[str] = None,
                          setup_extras: Optional[List[str]] = None,
-                         credentials_path: Optional[str] = None) -> str:
+                         credentials_path: Optional[str] = None,
+                         extra_dirs: Optional[List[str]] = None) -> str:
   """This generates a Dockerfile that installs the dependencies that this package
   needs to create a local base image for development. The goal here is to make
   it fast to reboot within a particular project.
@@ -127,8 +143,12 @@ USER {uid}:{gid}
   if credentials_path is not None:
     dockerfile += _credentials_entries(credentials_path, uid, gid)
 
+  if extra_dirs is not None:
+    dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
+
   if package is not None:
     dockerfile += _package_entries(workdir, uid, gid, package)
+
   return dockerfile
 
 
