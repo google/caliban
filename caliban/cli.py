@@ -1,9 +1,11 @@
 """
 CLI utilities.
 """
-from argparse import REMAINDER, ONE_OR_MORE
+from argparse import ONE_OR_MORE, REMAINDER
 
 from absl.flags import argparse_flags
+
+import caliban.util as u
 
 
 # pylint: disable=redefined-builtin
@@ -32,14 +34,8 @@ any unfamiliar arguments will just pass right through.""")
 
 
 def require_module(parser):
-  # TODO validate that this actually exists on the filesystem.
-  parser.add_argument("-p",
-                      "--package_path",
-                      required=True,
-                      help="Path to your code.")
-  parser.add_argument("-m",
-                      "--module",
-                      required=True,
+  parser.add_argument("module",
+                      type=u.validated_package,
                       help="Local module to run.")
 
 
@@ -82,17 +78,16 @@ Docker and AI Platform model training and development script.
 
   # Run directly.
   run = subdocker.add_parser('run', help='Run a job inside a Docker container.')
+  require_module(run)
   extra_dirs(run)
   gpu_flag(run)
   setup_extras(run)
-
-  run_named = run.add_argument_group('required named arguments')
-  require_module(run_named)
   add_script_args(run)
 
   # Cloud submission
   cloud = subdocker.add_parser('cloud',
                                help='Submit the docker container to Cloud.')
+  require_module(cloud)
   extra_dirs(cloud)
   gpu_flag(cloud)
   setup_extras(cloud)
@@ -100,9 +95,6 @@ Docker and AI Platform model training and development script.
               "stream_logs",
               True,
               help="Set to stream logs after job submission.")
-
-  cloud_named = cloud.add_argument_group('required named arguments')
-  require_module(cloud_named)
   add_script_args(cloud)
 
   return parser.parse_args(argv[1:])

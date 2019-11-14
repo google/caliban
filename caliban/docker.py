@@ -10,16 +10,12 @@ docker run --runtime=nvidia --rm nvidia/cuda:9.0-runtime nvidia-smi
 
 from __future__ import absolute_import, division, print_function
 
-import collections
 import os
 import subprocess
 from typing import Dict, List, Optional
 
-from absl import logging
-
 import caliban.util as u
-
-Package = collections.namedtuple('Package', ['package_path', 'main_module'])
+from absl import logging
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
 TF_VERSIONS = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
@@ -68,7 +64,7 @@ RUN /bin/bash -c "pip install -r {requirements_path}"
 
 
 def _package_entries(workdir: str, user_id: int, user_group: int,
-                     package: Package) -> str:
+                     package: u.Package) -> str:
   owner = f"{user_id}:{user_group}"
   return f"""
 # Copy all project code into the docker container.
@@ -107,7 +103,7 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
 
 def _dockerfile_template(workdir: str,
                          use_gpu: bool,
-                         package: Optional[Package] = None,
+                         package: Optional[u.Package] = None,
                          requirements_path: Optional[str] = None,
                          setup_extras: Optional[List[str]] = None,
                          credentials_path: Optional[str] = None,
@@ -233,7 +229,7 @@ def local_base_args(workdir: str,
 
 
 def submit_local(use_gpu: bool,
-                 package: Package,
+                 package: u.Package,
                  args: Optional[List[str]] = None,
                  **kwargs) -> None:
   """Build and run a docker container locally.

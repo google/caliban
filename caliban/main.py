@@ -6,13 +6,13 @@ Run like this:
 caliban shell
 
 # Watch a local job fail, since it no longer has local access.
-caliban run -m trainer.train -p trainer
+caliban run trainer.train
 
 # Run a local job via Docker successfully:
-caliban run -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+caliban run trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 
 # Submit a remote job
-caliban cloud -e tf2 -m trainer.train -p trainer -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+caliban cloud trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 """
 
 from __future__ import absolute_import, division, print_function
@@ -21,11 +21,12 @@ import logging as ll
 import os
 import sys
 
+from absl import app, logging
+
 import caliban.cli as cli
 import caliban.cloud as cloud
 import caliban.config as c
 import caliban.docker as docker
-from absl import app, logging
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
@@ -64,12 +65,12 @@ def run_app(arg_input):
     docker.start_shell(use_gpu, **template_args)
 
   elif command == "run":
-    package = docker.Package(args["package_path"], args["module"])
+    package = args["module"]
     docker.submit_local(use_gpu, package, script_args, **template_args)
 
   elif command == "cloud":
     stream_logs = args["stream_logs"]
-    package = docker.Package(args["package_path"], args["module"])
+    package = args["module"]
     cloud.submit_package(use_gpu,
                          package,
                          region,

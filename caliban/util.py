@@ -1,16 +1,19 @@
 """
 Utilities for our job runner.
 """
+import argparse
+import collections
 import io
 import itertools as it
 import os
 import shutil
 import subprocess
 import sys
-from contextlib import redirect_stdout
 from typing import Dict, List
 
 from absl import flags
+
+Package = collections.namedtuple('Package', ['package_path', 'main_module'])
 
 
 def expand_args(items: Dict[str, str]) -> List[str]:
@@ -37,6 +40,10 @@ def parse_flags_with_usage(args, known_only=False):
 
 
 class TempCopy(object):
+  """Inside the scope of this class, generates a temporary file and cleans it up
+  at the end.
+
+  """
 
   def __init__(self, original_path):
     self.original_path = original_path
@@ -77,3 +84,43 @@ def capture_stdout(cmd: List[str], input_str: str) -> str:
       buf.write(line)
 
   return buf.getvalue()
+
+
+def path_to_module(path_str: str) -> str:
+  return path_str.replace(".py", "").replace("/", ".")
+
+
+def module_to_path(module_name: str) -> str:
+  return path_to_module(module_name).replace(".", "/") + ".py"
+
+
+def generate_package(path: str) -> Package:
+  """Takes in a string and generates a package instance that we can use for
+  imports.
+
+  """
+  module = path_to_module(path)
+  items = module.split(".")
+  root = "." if len(items) == 1 else items[0]
+  return Package(root, module)
+
+
+def validated_package(path: str) -> Package:
+  """similar to generate_package but runs argparse validation on packages that
+  don't actually exist in the filesystem.
+
+  """
+  p = generate_package(path)
+
+  if not os.path.isdir(p.package_path):
+    raise argparse.ArgumentTypeError(
+        f"""Directory '{p.package_path}' doesn't exist in directory. Modules must be
+nested in a folder that exists in the current directory.""")
+
+  filename = module_to_path(p.main_module)
+  if not os.path.isfile(os.path.join(os.getcwd(), filename)):
+    raise argparse.ArgumentTypeError(
+        f"""File '{filename}' doesn't exist locally; modules must live inside the
+current directory.""")
+
+  return p
