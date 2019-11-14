@@ -6,10 +6,11 @@ import collections
 import io
 import itertools as it
 import os
+import re
 import shutil
 import subprocess
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from absl import flags
 
@@ -124,6 +125,126 @@ nested in a folder that exists in the current directory.""")
 current directory.""")
 
   return p
+
+
+def parse_kv_pair(s: str) -> Tuple[str, str]:
+  """
+    Parse a key, value pair, separated by '='
+
+    On the command line (argparse) a declaration will typically look like:
+        foo=hello
+    or
+        foo="hello world"
+    """
+  items = s.split('=')
+  k = items[0].strip()  # Remove whitespace around keys
+
+  if len(items) <= 1:
+    raise argparse.ArgumentTypeError(
+        f"Couldn't parse label '{s}' into k=v format.")
+
+  v = '='.join(items[1:])
+  return (k, v)
+
+
+def _is_key(k: Optional[str]) -> bool:
+  """Returns True if the argument is a valid argparse optional arg input, False
+  otherwise.
+
+  Strings that start with - or -- are considered valid for now.
+
+  """
+  return k is not None and len(k) > 0 and k[0] == "-"
+
+
+def _truncate(s: str, max_length: int) -> str:
+  """Returns the input string s truncated to be at most max_length characters
+  long.
+
+  """
+  return s if len(s) <= max_length else s[0:max_length]
+
+
+def _clean_label(s: Optional[str], is_key: bool) -> str:
+  """Processes the string into the sanitized format required by AI platform
+  labels.
+
+  https://cloud.google.com/ml-engine/docs/resource-labels
+
+  """
+  if s is None:
+    return ""
+
+  # lowercase, letters, - and _ are valid, so strip the leading dashes, make
+  # everything lowercase and then kill any remaining unallowed characters.
+  cleaned = re.sub(r'[^a-z0-9_-]', '', s.lstrip("-").lower())
+
+  # Keys must start with a letter. If is_key is set and the cleaned version
+  # starts with something else, append `k`.
+  if is_key and cleaned != "" and not cleaned[0].isalpha():
+    cleaned = "k" + cleaned
+
+  # key and value for labels can be at most 63 characters long.
+  return _truncate(cleaned, 63)
+
+
+def key_label(k: Optional[str]) -> str:
+  """converts the argument into a valid label, suitable for submission as a label
+  key to Cloud.
+
+  """
+  return _clean_label(k, True)
+
+
+def value_label(v: Optional[str]) -> str:
+  """converts the argument into a valid label, suitable for submission as a label
+  value to Cloud.
+
+  """
+  return _clean_label(v, False)
+
+
+def partition(seq: List[str], n: int) -> List[List[str]]:
+  """Generate groups of n items from seq by scanning across the sequence and
+  taking chunks of n, offset by 1.
+
+  """
+  for i in range(0, max(1, len(seq) - n + 1), 1):
+    yield seq[i:i + n]
+
+
+def script_args_to_labels(script_args: Optional[List[str]]) -> Dict[str, str]:
+  """Converts the arguments supplied to our scripts into a dictionary usable as
+  labels valid for Cloud submission.
+
+  """
+  ret = {}
+  if script_args is None or len(script_args) == 0:
+    return ret
+
+  def process_pair(k, v):
+    if _is_key(k):
+      clean_k = key_label(k)
+      if clean_k != "":
+        ret[clean_k] = "" if _is_key(v) else value_label(v)
+
+  for k, v in partition(script_args, 2):
+    process_pair(k, v)
+
+  # Handle the case where the final argument in the list is a boolean flag.
+  # This won't get picked up by partition.
+  if len(script_args) > 1:
+    process_pair(script_args[-1], None)
+
+  return ret
+
+
+def sanitize_labels(pairs: List[Tuple[str, str]]) -> Dict[str, str]:
+  """Turns a list of unsanitized key-value pairs (represented by a tuple) into a
+  dictionary suitable to submit to Cloud as a label dict.
+
+  """
+  return {key_label(k): value_label(v) for (k, v) in pairs if key_label(k)}
 
 
 def validated_directory(path: str) -> str:

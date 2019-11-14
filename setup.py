@@ -12,7 +12,7 @@ setup(
     extras_require={
         # These are required for local development, but not for actually
         # running the application.
-        'dev': ['python-language-server[all]', 'nose'],
+        'dev': ['python-language-server[all]', 'nose', 'hypothesis'],
     },
     packages=find_packages(),
     description='Docker-based job runner for AI research.',

@@ -4,12 +4,22 @@ from __future__ import absolute_import, division, print_function
 
 import datetime
 import subprocess
-from typing import List, Optional
+from typing import Dict, List, Optional
+
+from absl import logging
+from googleapiclient import discovery, errors
 
 import caliban.docker as d
 import caliban.util as u
-from absl import logging
-from googleapiclient import discovery, errors
+
+
+def job_url(project_id: str, job_id: str) -> str:
+  """Returns a URL that will load the default page for the newly launched cloud
+  job.
+
+  """
+  prefix = "https://pantheon.corp.google.com/ai-platform/jobs"
+  return f"{prefix}/{job_id}?projectId={project_id}"
 
 
 def create_ml_job(job_spec, parent):
@@ -20,6 +30,7 @@ def create_ml_job(job_spec, parent):
   try:
     response = request.execute()
     logging.info("Request succeeded!")
+    logging.info("Response:")
     logging.info(response)
     return response
 
@@ -45,6 +56,8 @@ def submit_package(use_gpu: bool,
                    project_id: str,
                    stream_logs: bool = True,
                    script_args: Optional[List[str]] = None,
+                   job_name: Optional[str] = None,
+                   labels: Optional[Dict[str, str]] = None,
                    **kwargs) -> None:
   """Submit a container to the cloud.
 
@@ -59,13 +72,21 @@ def submit_package(use_gpu: bool,
   if script_args is None:
     script_args = []
 
+  custom_name = True
+
+  if job_name is None:
+    custom_name = False
+    job_name = "default_name"
+
+  if labels is None:
+    labels = {}
+
   # TODO make this configurable. BUT bake in knowledge from the links below
   # about what regions actually support GPU usage.
   master_type = "standard_p100" if use_gpu else "complex_model_l"
 
-  # TODO take a custom job name.
   timestamp = datetime.datetime.now().strftime('_%Y_%m_%d_%H_%M_%S')
-  job_id = f"test_job_{timestamp}"
+  job_id = f"{job_name}_{timestamp}"
 
   logging.info(
       f"Running remote job with {use_gpu} and {package}, args: {script_args}")
@@ -89,15 +110,33 @@ def submit_package(use_gpu: bool,
       "args": script_args,
       "region": region
   }
-  job_spec = {"jobId": job_id, "trainingInput": training_input}
+
+  cloud_labels = {"gpu_enabled": str(use_gpu).lower()}
+
+  if custom_name:
+    # Don't supply a job_id label if we're using the default name.
+    cloud_labels.update({"job_id": job_name})
+
+  cloud_labels.update(u.script_args_to_labels(script_args))
+  cloud_labels.update(labels)
+
+  job_spec = {
+      "jobId": job_id,
+      "trainingInput": training_input,
+      "labels": cloud_labels
+  }
 
   # Store the full project ID in a variable in the format the API needs.
   parent = f"projects/{project_id}"
+
+  logging.debug(f"Submitting job with job spec: {job_spec}")
+  logging.debug(f"parent: {parent}")
 
   create_ml_job(job_spec, parent)
 
   logging.info(f"Job submission successful for job ID {job_id}")
   stream_command = " ".join(_stream_cmd(job_id))
+  url = job_url(project_id, job_id)
 
   if stream_logs:
     logging.info(f"""Streaming logs for {job_id}.
@@ -107,11 +146,18 @@ Feel free to kill this process. You can always resume streaming by running:
 {stream_command}
 
 (Also note that the log streamer will NOT exit when the job completes!)
-    """)
+
+Visit the following page to see info on your job:
+
+{url}
+""")
     stream_ml_logs(job_id)
   else:
     logging.info(f"""You can stream the logs with the following command:
 
 {stream_command}
+
+Visit the following page to see info on your job:
+
+{url}
 """)
-    logging.info(stream_command)

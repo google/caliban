@@ -27,6 +27,7 @@ import caliban.cli as cli
 import caliban.cloud as cloud
 import caliban.config as c
 import caliban.docker as docker
+import caliban.util as u
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
@@ -47,11 +48,6 @@ def run_app(arg_input):
     setup_extras = args.get("extras") or []
 
   creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-
-  # TODO These have defaults... the project default is probably not good. We
-  # should error if this doesn't exist.
-  project_id = os.environ.get("PROJECT_ID", "research-3141")
-  region = os.environ.get("REGION", "us-central1")
 
   reqs = "requirements.txt"
   template_args = {
@@ -74,14 +70,24 @@ def run_app(arg_input):
     docker.submit_local(use_gpu, package, script_args, **template_args)
 
   elif command == "cloud":
+    # TODO These have defaults... the project default is probably not good. We
+    # should error if this doesn't exist.
+    project_id = os.environ.get("PROJECT_ID", "research-3141")
+    region = os.environ.get("REGION", "us-central1")
+
     stream_logs = args["stream_logs"]
     package = args["module"]
+    job_name = args.get("name")
+    labels = u.sanitize_labels(args.get("label") or [])
+
     cloud.submit_package(use_gpu,
                          package,
                          region,
                          project_id,
                          stream_logs=stream_logs,
                          script_args=script_args,
+                         job_name=job_name,
+                         labels=labels,
                          **template_args)
   else:
     logging.info(f"Unknown command: {command}")
