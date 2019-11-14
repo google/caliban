@@ -68,11 +68,13 @@ def run_app(arg_input):
     docker.submit_local(use_gpu, package, script_args, **template_args)
 
   elif command == "cloud":
+    stream_logs = args["stream_logs"]
     package = docker.Package(args["package_path"], args["module"])
     cloud.submit_package(use_gpu,
                          package,
                          region,
                          project_id,
+                         stream_logs=stream_logs,
                          script_args=script_args,
                          **template_args)
   else:

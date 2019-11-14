@@ -7,7 +7,7 @@ from typing import List, Optional
 import subprocess
 
 import caliban.docker as d
-from absl import app, logging
+from absl import logging
 from googleapiclient import discovery, errors
 
 
