@@ -1,7 +1,7 @@
 """
 CLI utilities.
 """
-from argparse import ONE_OR_MORE, REMAINDER
+from argparse import REMAINDER
 
 from absl.flags import argparse_flags
 
@@ -42,15 +42,16 @@ def require_module(parser):
 def setup_extras(parser):
   parser.add_argument("-e",
                       "--extras",
-                      nargs=ONE_OR_MORE,
+                      action="append",
                       help="setup.py dependency keys.")
 
 
 def extra_dirs(parser):
   parser.add_argument(
       "-d",
-      "--dirs",
-      nargs=ONE_OR_MORE,
+      "--dir",
+      action="append",
+      type=u.validated_directory,
       help="Extra directories to include. Try to list these from big to small!")
 
 

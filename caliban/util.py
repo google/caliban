@@ -124,3 +124,14 @@ nested in a folder that exists in the current directory.""")
 current directory.""")
 
   return p
+
+
+def validated_directory(path: str) -> str:
+  """This validates that the supplied directory exists locally.
+
+  """
+  if not os.path.isdir(path):
+    raise argparse.ArgumentTypeError(
+        f"""Directory '{path}' doesn't exist in this directory. Check yourself!"""
+    )
+  return path
