@@ -6,15 +6,32 @@ import collections
 import io
 import itertools as it
 import os
+import platform
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Dict, List, Optional, Tuple
 
 from absl import flags
 
 Package = collections.namedtuple('Package', ['package_path', 'main_module'])
+
+
+def is_mac() -> bool:
+  """Returns True if the current code is executing on a Mac, False otherwise.
+
+  """
+  return platform.system() == "Darwin"
+
+
+def is_linux() -> bool:
+  """Returns True if the current code is executing on a Linux system, False
+  otherwise.
+
+  """
+  return platform.system() == "Darwin"
 
 
 def expand_args(items: Dict[str, str]) -> List[str]:
@@ -41,31 +58,44 @@ def parse_flags_with_usage(args, known_only=False):
 
 
 class TempCopy(object):
-  """Inside the scope of this class, generates a temporary file and cleans it up
-  at the end.
+  """Inside its scope, this class:
+
+  - generates a temporary file at tmp_name containing a copy of the file at
+    original_path, and
+  - deletes the new file at tmp_name when the scope exits.
+
+  The temporary file will live inside the current directory where python's
+  being executed; it's a hidden file, but it will be live for the duration of
+  TempCopy's scope.
+
+  We did NOT use a tmp directory here because the changing UUID name
+  invalidates the docker image each time a new temp path / directory is
+  generated.
 
   """
 
-  def __init__(self, original_path):
-    self.original_path = original_path
-    self.path = None
+  def __init__(self, original_path, tmp_name=None):
+    if tmp_name is None:
+      self.tmp_path = ".caliban_tmp_dev_key.json"
+
+    # handle tilde!
+    self.original_path = os.path.expanduser(original_path)
+    self.relative_path = None
+    self.full_path = None
 
   def __enter__(self):
     if self.original_path is None:
       return None
 
-    temp_dir = os.getcwd()
-    base_path = os.path.basename(self.original_path)
-    self.path = os.path.join(temp_dir, base_path)
-
-    # TODO - if that path already exists in this folder, do NOT delete it! Throw
-    # an error here. This should really nest under a temp dir.
+    current_dir = os.getcwd()
+    self.path = os.path.join(current_dir, self.tmp_path)
     shutil.copy2(self.original_path, self.path)
-    return base_path
+    return self.tmp_path
 
   def __exit__(self, exc_type, exc_val, exc_tb):
     if self.path is not None:
       os.remove(self.path)
+      self.path = None
 
 
 def capture_stdout(cmd: List[str], input_str: str) -> str:

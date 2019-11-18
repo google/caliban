@@ -1,11 +1,11 @@
 # This builds the base images that we can use for development at Blueshift.
 # Tensorflow 2.0 by default, but we can override the image when we call docker.
 #
-# docker build -t gcr.io/blueshift-playground/blueshift:cpu - <Dockerfile
+# docker build -t gcr.io/blueshift-playground/blueshift:cpu -f- . <Dockerfile
 #
 # docker push gcr.io/blueshift-playground/blueshift:cpu
 #
-# docker build --build-arg BASE_IMAGE=tensorflow/tensorflow:2.0.0-gpu-py3 -t gcr.io/blueshift-playground/blueshift:gpu - <Dockerfile
+# docker build --build-arg BASE_IMAGE=tensorflow/tensorflow:2.0.0-gpu-py3 -t gcr.io/blueshift-playground/blueshift:gpu -f- . <Dockerfile
 #
 # docker push gcr.io/blueshift-playground/blueshift:gpu
 #
@@ -14,6 +14,10 @@
 ARG BASE_IMAGE=tensorflow/tensorflow:2.0.0-py3
 
 FROM $BASE_IMAGE
+
+# TODO figure out how to wire this in.... should work now that it's after the
+# FROM. Try wiring it in below.
+ARG NODE_VERSION=13
 
 LABEL maintainer="samritchie@google.com"
 
@@ -25,6 +29,8 @@ LABEL maintainer="samritchie@google.com"
 # this as this is hidden from the user now.
 RUN apt-get update && apt-get install \
   -y --no-install-recommends git python3 python3-virtualenv
+
+COPY scripts/bashrc /etc/bash.bashrc
 
 # This follows the style laid out here to set up a fresh, activated virtualenv
 # inside the image:

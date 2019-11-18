@@ -22,9 +22,23 @@ def job_url(project_id: str, job_id: str) -> str:
   return f"{prefix}/{job_id}?projectId={project_id}"
 
 
+def _stream_cmd(job_id: str) -> List[str]:
+  return ["gcloud", "ai-platform", "jobs", "stream-logs", job_id]
+
+
+def stream_ml_logs(job_id: str) -> None:
+  """
+  TODO this should validate whether or not the job actually exists.
+  """
+  subprocess.call(_stream_cmd(job_id))
+
+
 def create_ml_job(job_spec, parent):
   """This submits the actual job."""
-  ml = discovery.build('ml', 'v1')
+
+  #cache_discovery=False prevents an error bubbling up from a missing file
+  #cache, which no user of this code is going to be using.
+  ml = discovery.build('ml', 'v1', cache_discovery=False)
   request = ml.projects().jobs().create(body=job_spec, parent=parent)
 
   try:
@@ -37,17 +51,6 @@ def create_ml_job(job_spec, parent):
   except errors.HttpError as err:
     logging.error("There was an error submitting the job. Check the details:")
     logging.error(err._get_reason())
-
-
-def _stream_cmd(job_id: str) -> List[str]:
-  return ["gcloud", "ai-platform", "jobs", "stream-logs", job_id]
-
-
-def stream_ml_logs(job_id: str) -> None:
-  """
-  TODO this should validate whether or not the job actually exists.
-  """
-  subprocess.call(_stream_cmd(job_id))
 
 
 def submit_package(use_gpu: bool,
@@ -88,8 +91,8 @@ def submit_package(use_gpu: bool,
   timestamp = datetime.datetime.now().strftime('_%Y_%m_%d_%H_%M_%S')
   job_id = f"{job_name}_{timestamp}"
 
-  logging.info(
-      f"Running remote job with {use_gpu} and {package}, args: {script_args}")
+  logging.info(f"Running remote job with GPU: {use_gpu} and package: \
+{package}, args: {script_args}")
 
   image_id = d.build_image(use_gpu, package=package, **kwargs)
   image_tag = d.push_uuid_tag(project_id, image_id)
@@ -114,8 +117,8 @@ def submit_package(use_gpu: bool,
   cloud_labels = {"gpu_enabled": str(use_gpu).lower()}
 
   if custom_name:
-    # Don't supply a job_id label if we're using the default name.
-    cloud_labels.update({"job_id": job_name})
+    # Don't supply a job_name label if we're using the default name.
+    cloud_labels.update({"job_name": job_name})
 
   cloud_labels.update(u.script_args_to_labels(script_args))
   cloud_labels.update(labels)

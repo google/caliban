@@ -1,6 +1,6 @@
 """Docker and AI Platform model training and development script.
 
-Run like this:
+Run like this in the hello-world project for an example:
 
 # Start a shell:
 caliban shell
@@ -8,11 +8,11 @@ caliban shell
 # Watch a local job fail, since it no longer has local access.
 caliban run trainer.train
 
-# Run a local job via Docker successfully:
-caliban run trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+# Run a local job on the Mac via Docker successfully:
+caliban run -e cpu --nogpu trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 
 # Submit a remote job
-caliban cloud trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
+caliban cloud -e gpu trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
 """
 
 from __future__ import absolute_import, division, print_function
@@ -32,6 +32,19 @@ import caliban.util as u
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
 
+def mac_gpu_check(mode: str, use_gpu: bool):
+  """If the command depends on 'docker run' and is running on a Mac, fail
+fast."""
+  if use_gpu and mode in ("shell", "notebook", "run"):
+    print(f"'caliban {mode}' doesn't support GPU usage on Macs! Please pass \
+--nogpu to use this command.")
+    print()
+    print(
+        "GPU mode is fine for 'caliban cloud' from a mac; just nothing that runs \
+locally.")
+    sys.exit(1)
+
+
 def run_app(arg_input):
   """Any argument not absorbed by Abseil's flags gets passed along to here.
   """
@@ -40,6 +53,9 @@ def run_app(arg_input):
 
   command = args["command"]
   use_gpu = args["gpu"]
+
+  if u.is_mac():
+    mac_gpu_check(command, use_gpu)
 
   # Get extra dependencies in case you want to install your requirements via a
   # setup.py file.
@@ -58,12 +74,18 @@ def run_app(arg_input):
   }
 
   if command == "shell":
-    docker.start_shell(use_gpu, **template_args)
+    mount_home = not args['bare']
+    docker.run_interactive(use_gpu, mount_home=mount_home, **template_args)
 
-  if command == "notebook":
+  elif command == "notebook":
     port = args.get("port")
     lab = args.get("lab")
-    docker.start_notebook(use_gpu, port=port, lab=lab, **template_args)
+    mount_home = not args['bare']
+    docker.run_notebook(use_gpu,
+                        port=port,
+                        lab=lab,
+                        mount_home=mount_home,
+                        **template_args)
 
   elif command == "run":
     package = args["module"]

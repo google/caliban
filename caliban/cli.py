@@ -59,64 +59,88 @@ def gpu_flag(parser):
   boolean_arg(parser, "gpu", True, help="Set to enable GPU usage.")
 
 
-def parse_flags(argv):
-  """Internally generates a parser and parses the supplied argument from invoking
-the app.
-
-  Note - this """
-  parser = argparse_flags.ArgumentParser(description="""
-Docker and AI Platform model training and development script.
-    """,
-                                         prog="caliban")
-
-  subdocker = parser.add_subparsers(dest="command")
-
-  # Create a shell.
-  shell = subdocker.add_parser(
+def shell_parser(base):
+  """Configure the Shell subparser."""
+  parser = base.add_parser(
       'shell', help='Start an interactive shell with this dir mounted.')
-  gpu_flag(shell)
-  setup_extras(shell)
+  gpu_flag(parser)
+  setup_extras(parser)
+  parser.add_argument(
+      "--bare",
+      action="store_true",
+      help="Skip mounting the $HOME directory; load a bare shell.")
 
-  # Jupyter support.
-  notebook = subdocker.add_parser('notebook',
-                                  help='Run a local Jupyter notebook instance.')
-  gpu_flag(notebook)
-  setup_extras(notebook)
-  notebook.add_argument("-p",
-                        "--port",
-                        type=int,
-                        help="Local port to use for Jupyter.")
-  notebook.add_argument("--lab",
-                        action="store_true",
-                        help="run Jupyterlab, vs just jupyter.")
 
-  # Run directly.
-  run = subdocker.add_parser('run', help='Run a job inside a Docker container.')
-  require_module(run)
-  extra_dirs(run)
-  gpu_flag(run)
-  setup_extras(run)
-  add_script_args(run)
+def notebook_parser(base):
+  """Configure the notebook subparser."""
+  parser = base.add_parser('notebook',
+                           help='Run a local Jupyter notebook instance.')
+  gpu_flag(parser)
+  setup_extras(parser)
+  parser.add_argument("-p",
+                      "--port",
+                      type=int,
+                      help="Local port to use for Jupyter.")
+  parser.add_argument("--lab",
+                      action="store_true",
+                      help="run Jupyterlab, vs just jupyter.")
+  parser.add_argument(
+      "--bare",
+      action="store_true",
+      help="Skip mounting the $HOME directory; run an isolated Jupyter lab.")
 
-  # Cloud submission
-  cloud = subdocker.add_parser('cloud',
-                               help='Submit the docker container to Cloud.')
-  require_module(cloud)
-  cloud.add_argument("--name", help="Set a job name to see in the cloud.")
-  extra_dirs(cloud)
-  gpu_flag(cloud)
-  setup_extras(cloud)
-  cloud.add_argument("-l",
-                     "--label",
-                     metavar="KEY=VALUE",
-                     action="append",
-                     type=u.parse_kv_pair,
-                     help="Extra label k=v pair to submit to Cloud.")
-  boolean_arg(cloud,
+
+def local_run_parser(base):
+  """Configure the subparser for `caliban run`."""
+  parser = base.add_parser('run', help='Run a job inside a Docker container.')
+  require_module(parser)
+  extra_dirs(parser)
+  gpu_flag(parser)
+  setup_extras(parser)
+  add_script_args(parser)
+
+
+def cloud_parser(base):
+  """Configure the cloud subparser."""
+  parser = base.add_parser('cloud',
+                           help='Submit the docker container to Cloud.')
+  require_module(parser)
+  parser.add_argument("--name", help="Set a job name to see in the cloud.")
+  extra_dirs(parser)
+  gpu_flag(parser)
+  setup_extras(parser)
+  parser.add_argument("-l",
+                      "--label",
+                      metavar="KEY=VALUE",
+                      action="append",
+                      type=u.parse_kv_pair,
+                      help="Extra label k=v pair to submit to Cloud.")
+  boolean_arg(parser,
               "stream_logs",
               False,
               help="Set to stream logs after job submission.")
+  add_script_args(parser)
 
-  add_script_args(cloud)
 
-  return parser.parse_args(argv[1:])
+def caliban_parser():
+  """Creates and returns the argparse instance for the entire Caliban app."""
+  parser = argparse_flags.ArgumentParser(description=f"""Docker and AI
+  Platform model training and development script. For detailed
+  documentation, visit the Git repo at
+  https://team.git.corp.google.com/blueshift/caliban/ """,
+                                         prog="caliban")
+
+  subparser = parser.add_subparsers(dest="command")
+  shell_parser(subparser)
+  notebook_parser(subparser)
+  local_run_parser(subparser)
+  cloud_parser(subparser)
+  return parser
+
+
+def parse_flags(argv):
+  """Function required by absl.app.run. Internally generates a parser and returns
+  the results of parsing caliban arguments.
+
+  """
+  return caliban_parser().parse_args(argv[1:])
