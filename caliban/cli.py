@@ -3,9 +3,10 @@ CLI utilities.
 """
 from argparse import REMAINDER
 
-from absl.flags import argparse_flags
-
+import caliban.cloud as c
 import caliban.util as u
+from absl.flags import argparse_flags
+from caliban import __version__
 
 
 # pylint: disable=redefined-builtin
@@ -81,6 +82,9 @@ def notebook_parser(base):
                       "--port",
                       type=int,
                       help="Local port to use for Jupyter.")
+  parser.add_argument("-jv",
+                      "--jupyter_version",
+                      help="Jupyterlab version to install via pip.")
   parser.add_argument("--lab",
                       action="store_true",
                       help="run Jupyterlab, vs just jupyter.")
@@ -109,6 +113,14 @@ def cloud_parser(base):
   extra_dirs(parser)
   gpu_flag(parser)
   setup_extras(parser)
+  parser.add_argument(
+      "--region",
+      choices=c.valid_regions(zone="americas"),
+      help="Region to use for Cloud job submission and image persistence.")
+  parser.add_argument(
+      "--project_id",
+      help="ID of the GCloud AI Platform project to use for Cloud job \
+submission and image persistence.")
   parser.add_argument("-l",
                       "--label",
                       metavar="KEY=VALUE",
@@ -124,11 +136,15 @@ def cloud_parser(base):
 
 def caliban_parser():
   """Creates and returns the argparse instance for the entire Caliban app."""
+
   parser = argparse_flags.ArgumentParser(description=f"""Docker and AI
   Platform model training and development script. For detailed
   documentation, visit the Git repo at
   https://team.git.corp.google.com/blueshift/caliban/ """,
                                          prog="caliban")
+  parser.add_argument('--version',
+                      action='version',
+                      version=f"%(prog)s {__version__}")
 
   subparser = parser.add_subparsers(dest="command")
   shell_parser(subparser)

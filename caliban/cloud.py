@@ -12,6 +12,32 @@ from googleapiclient import discovery, errors
 import caliban.docker as d
 import caliban.util as u
 
+US_REGIONS = ["us-west1", "us-west2", "us-central1", "us-east1", "us-east4"]
+EURO_REGIONS = ["europe-west1", "europe-west4", "europe-north1"]
+ASIA_REGIONS = ["asia-southeast1", "asia-east1", "asia-northeast1"]
+DEFAULT_REGION = "us-central1"
+
+
+def valid_regions(zone: Optional[str] = None) -> List[str]:
+  """Returns valid region strings for Cloud, for the globe or for a particular
+  region if specified.
+
+  """
+  if zone is None:
+    return US_REGIONS + EURO_REGIONS + ASIA_REGIONS
+
+  z = zone.lower()
+
+  if "americas" == z:
+    return US_REGIONS
+  elif "europe" == z:
+    return EURO_REGIONS
+  elif "asia" == z:
+    return ASIA_REGIONS
+  else:
+    raise ValueError(
+        f"invalid zone: {zone}. Must be one of 'americas', 'europe', 'asia'.")
+
 
 def job_url(project_id: str, job_id: str) -> str:
   """Returns a URL that will load the default page for the newly launched cloud

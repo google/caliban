@@ -80,10 +80,12 @@ def run_app(arg_input):
   elif command == "notebook":
     port = args.get("port")
     lab = args.get("lab")
+    version = args.get("jupyter_version")
     mount_home = not args['bare']
     docker.run_notebook(use_gpu,
                         port=port,
                         lab=lab,
+                        version=version,
                         mount_home=mount_home,
                         **template_args)
 
@@ -94,7 +96,7 @@ def run_app(arg_input):
   elif command == "cloud":
     # TODO These have defaults... the project default is probably not good. We
     # should error if this doesn't exist.
-    project_id = os.environ.get("PROJECT_ID", "research-3141")
+    project_id = c.extract_project_id(args)
     region = os.environ.get("REGION", "us-central1")
 
     stream_logs = args["stream_logs"]

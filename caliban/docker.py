@@ -208,6 +208,7 @@ def _dockerfile_template(workdir: str,
                          requirements_path: Optional[str] = None,
                          setup_extras: Optional[List[str]] = None,
                          credentials_path: Optional[str] = None,
+                         jupyter_version: Optional[str] = None,
                          inject_notebook: bool = False,
                          shell_cmd: Optional[str] = None,
                          extra_dirs: Optional[List[str]] = None) -> str:
@@ -267,7 +268,7 @@ USER {uid}:{gid}
                                     setup_extras=setup_extras)
 
   if inject_notebook:
-    dockerfile += _notebook_entries()
+    dockerfile += _notebook_entries(version=jupyter_version)
 
   if credentials_path is not None:
     dockerfile += _credentials_entries(credentials_path, uid, gid)
@@ -454,6 +455,7 @@ current working directory (and optionally the user's home directory) mounted.
 def run_notebook(use_gpu: bool,
                  port: Optional[int] = None,
                  lab: Optional[bool] = None,
+                 version: Optional[bool] = None,
                  **kwargs) -> None:
   """Start a notebook in the current working directory; the process will run
   inside of a Docker container that's identical to the environment available to
@@ -467,6 +469,7 @@ def run_notebook(use_gpu: bool,
   - port: the port to pass to Jupyter when it boots, useful if you have
     multiple instances running on one machine.
   - lab: if True, starts jupyter lab, else jupyter notebook.
+  - version: explicit Jupyter version to install.
 
   kwargs are all extra arguments taken by run_interactive.
 
@@ -489,6 +492,7 @@ def run_notebook(use_gpu: bool,
                   entrypoint_args=args,
                   run_options={"-p": f"{port}:{port}"},
                   inject_notebook=True,
+                  jupyter_version=version,
                   **kwargs)
 
 

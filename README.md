@@ -196,7 +196,7 @@ optional arguments:
   --bare                Skip mounting the $HOME directory; load a bare shell.
 ```
 
-### caliban notebook (experimental)
+### caliban notebook
 
 This command generates the same isolated environment as the other commands, but
 instead of running your code or dropping you into a shell, runs a local instance
@@ -239,7 +239,7 @@ isn't supported on non-Linux machines.
 
 ```bash
 usage: caliban notebook [-h] [--helpfull] [--gpu] [--nogpu] [-e EXTRAS]
-                        [-p PORT] [--lab] [--bare]
+                        [-p PORT] [-jv JUPYTER_VERSION] [--lab] [--bare]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -249,6 +249,8 @@ optional arguments:
   -e EXTRAS, --extras EXTRAS
                         setup.py dependency keys.
   -p PORT, --port PORT  Local port to use for Jupyter.
+  -jv JUPYTER_VERSION, --jupyter_version JUPYTER_VERSION
+                        Jupyterlab version to install via pip.
   --lab                 run Jupyterlab, vs just jupyter.
   --bare                Skip mounting the $HOME directory; run an isolated
                         Jupyter lab.
@@ -394,6 +396,16 @@ The additional options available to cloud are:
   `job_name:{name}` label to your job. It's useful to pass the same name for
   MANY jobs and use this field to group various experiment runs. (If you think
   this flag should be named something else, tell samritchie@google.com)
+- **region**: The Cloud region you specify with this flag is used for AI
+  Platform job submission. Any value listed in the "Americas" section of [AI
+  Platform's region docs](https://cloud.google.com/ml-engine/docs/regions) is
+  valid (Let us know if you need global regions!). If you don't specify a region
+  Caliban will examine your environment for a `$REGION` variable and use this if
+  supplied; if that's not set it will default to `"us-central1"`.
+- **project_id**: This is the ID of the Cloud project that Caliban will use to
+  push Docker containers and to submit AI platform jobs. By default Caliban will
+  examine your environment for a `$PROJECT_ID` variable; if neither is set and
+  you attempt to run a Cloud command, Caliban will exit.
 - **--label**: You can use this flag to pass many labels to `caliban cloud`;
   just pass the flag over and over. Labels must be of the form `k=v`; `--label
   epochs=2`, for example. If you pass any labels identical to your flags these
@@ -413,8 +425,8 @@ We'll add more GPU types soon!
 
 ```bash
 usage: caliban cloud [-h] [--helpfull] [--name NAME] [-d DIR] [--gpu]
-                     [--nogpu] [-e EXTRAS] [-l KEY=VALUE] [--stream_logs]
-                     [--nostream_logs]
+                     [--nogpu] [-e EXTRAS] [-r REGION] [-p PROJECT_ID]
+                     [-l KEY=VALUE] [--stream_logs] [--nostream_logs]
                      module ...
 
 positional arguments:
@@ -430,6 +442,12 @@ optional arguments:
   --nogpu               explicitly set gpu to False.
   -e EXTRAS, --extras EXTRAS
                         setup.py dependency keys.
+  --region {us-west1,us-west2,us-central1,us-east1,us-east4}
+                        Region to use for Cloud job submission and image
+                        persistence.
+  --project_id PROJECT_ID
+                        ID of the GCloud AI Platform project to use for Cloud
+                        job submission and image persistence.
   -l KEY=VALUE, --label KEY=VALUE
                         Extra label k=v pair to submit to Cloud.
   --stream_logs         Set to stream logs after job submission. (defaults to
@@ -455,7 +473,11 @@ f=`git rev-parse --git-dir`/hooks/commit-msg ; mkdir -p $(dirname $f) ; curl -Lo
 - create a branch
 - work!
 - commit
-- `git push origin HEAD:refs/for/master`
+- Run the following command:
+
+```bash
+git push origin HEAD:refs/for/master
+```
 
 More info to file on the process: https://www.gerritcodereview.com/user-review-ui.html
 
@@ -480,6 +502,24 @@ picked up by the global alias.
 ## Testing
 
 This is how to configure tests: https://g3doc.corp.google.com/devtools/kokoro/g3doc/userdocs/general/gob_scm.md?cl=head
+
+## Releasing
+
+We use [versioneer](https://github.com/warner/python-versioneer) for project
+versioning. You don't need to do anything with versioneer, as it's already
+installed... but for reference, to install it, run:
+
+```bash
+pipx install versioneer
+```
+
+This links up versioning with git tags. All you need to do now to create a new
+version is to run the following in the master branch, when it's time to release:
+
+```bash
+git tag 1.0
+git push; git push --tags
+```
 
 # Trouble?
 
