@@ -137,6 +137,9 @@ into the Docker container.
   return f"""
 COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
 
+# Use the credentials file to activate gcloud, gsutil inside the container.
+RUN gcloud auth activate-service-account --key-file={container_creds}
+
 ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
 """
 

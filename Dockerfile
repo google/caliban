@@ -18,6 +18,7 @@ FROM $BASE_IMAGE
 # TODO figure out how to wire this in.... should work now that it's after the
 # FROM. Try wiring it in below.
 ARG NODE_VERSION=13
+ARG GCLOUD_LOC=/usr/local/gcloud
 
 LABEL maintainer="samritchie@google.com"
 
@@ -27,8 +28,29 @@ LABEL maintainer="samritchie@google.com"
 #
 # TODO we COULD use venv, the new python3 business. No urgency at all to change
 # this as this is hidden from the user now.
-RUN apt-get update && apt-get install \
-  -y --no-install-recommends git python3 python3-virtualenv
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  git \
+  python3 \
+  python3-virtualenv \
+  wget && \
+  rm -rf /var/lib/apt/lists/*
+
+# install the google cloud SDK.
+RUN wget -nv \
+  https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz && \
+  mkdir -m 777 ${GCLOUD_LOC} && \
+  tar xvzf google-cloud-sdk.tar.gz -C ${GCLOUD_LOC} && \
+  rm google-cloud-sdk.tar.gz && \
+  ${GCLOUD_LOC}/google-cloud-sdk/install.sh --usage-reporting=false \
+  --path-update=false --bash-completion=false \
+  --disable-installation-options && \
+  rm -rf /root/.config/* && \
+  ln -s /root/.config /config && \
+  # Remove the backup directory that gcloud creates
+  rm -rf ${GCLOUD_LOC}/google-cloud-sdk/.install/.backup
+
+# Path configuration
+ENV PATH $PATH:${GCLOUD_LOC}/google-cloud-sdk/bin
 
 COPY scripts/bashrc /etc/bash.bashrc
 

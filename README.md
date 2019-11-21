@@ -156,6 +156,16 @@ Caliban will copy in your Cloud credentials and set the required
 `$GOOGLE_APPLICATION_CREDENTIALS` env variable, so all Cloud interaction from
 Python should Just Work.
 
+The base Caliban images also have `gcloud` installed; all `gcloud` and `gsutil`
+commands will work with the same permissions granted to the key found at
+`$GOOGLE_APPLICATION_CREDENTIALS`.
+
+NOTE: If you run `caliban shell --bare`, your gcloud and gsutil will have the
+same permissions that they'll have in the cloud - the permissions granted by
+your JSON key file. If you just run `caliban shell`, which mounts your home
+directory, `gcloud` and `gsutil` will preferentially load the config you have on
+your local machine.
+
 The only python dependencies available in the container will be dependencies
 that you declare explicitly in either:
 
@@ -272,6 +282,10 @@ run` you'll have to depend on either:
 Your credentials are set up inside the container and available via the required
 `$GOOGLE_APPLICATION_CREDENTIALS` environment variable, so all Cloud access via
 Python should Just Work.
+
+The base Caliban images also have `gcloud` installed; all `gcloud` and `gsutil`
+commands will work with the same permissions granted to the key found at
+`$GOOGLE_APPLICATION_CREDENTIALS`.
 
 As with the other commands, the only python dependencies available in the
 container will be dependencies that you declare explicitly in either:
