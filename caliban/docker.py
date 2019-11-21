@@ -445,7 +445,8 @@ current working directory (and optionally the user's home directory) mounted.
 
   run_opts = _interactive_opts(workdir, {
       "-it": None,
-      "--entrypoint": entrypoint
+      "--entrypoint": entrypoint,
+      "--ipc": "host"
   })
   run_opts.update(run_options)
 
@@ -513,7 +514,7 @@ def submit_local(use_gpu: bool,
     args = []
 
   image_id = build_image(use_gpu, package=package, **kwargs)
-  command = _run_cmd(use_gpu) + [image_id] + args
+  command = _run_cmd(use_gpu) + ["--ipc", "host"] + [image_id] + args
 
   logging.info(f"Running command: {' '.join(command)}")
   subprocess.call(command)
