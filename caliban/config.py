@@ -4,6 +4,7 @@ Utilities for our job runner, for working with configs.
 
 from __future__ import absolute_import, division, print_function
 
+import argparse
 import os
 import sys
 from typing import Any, Dict, List
@@ -26,16 +27,26 @@ def load_yaml_config(path):
 
 
 def load_config(path, mode='yaml'):
-  """Load a JSON config.
-
-  TODO attempt to load a JSON config as well. This will be useful once we start
-  using the experiment config.
+  """Load a JSON or YAML config.
 
   """
   if mode == 'json':
-    return commentjson.loads(path)
+    with open(path) as f:
+      return commentjson.load(f)
 
   return load_yaml_config(path)
+
+
+def valid_json(path: str) -> Dict[str, Any]:
+  """Loads JSON if the path points to a valid JSON file; otherwise, throws an
+  exception that's picked up by argparse.
+
+  """
+  try:
+    return load_config(path, mode='json')
+  except commentjson.JSONLibraryException:
+    raise argparse.ArgumentTypeError(
+        f"""File '{path}' doesn't seem to contain valid JSON. Try again!""")
 
 
 def extract_script_args(m: Dict[str, Any]) -> List[str]:
@@ -77,3 +88,29 @@ def extract_region(m: Dict[str, Any]) -> str:
 
   """
   return m.get("region") or os.environ.get("REGION", cloud.DEFAULT_REGION)
+
+
+def validate_experiment_config(m: Dict[str, Any]) -> Dict[str, Any]:
+  """Check that:
+
+  - all key are strings
+  - all values are either boolean, strings, numbers or lists
+  """
+
+  def valid_k(k):
+    return isinstance(k, str)
+
+  def valid_v(v):
+    types = [list, bool, str, int]
+    return any(map(lambda t: isinstance(v, t), types))
+
+  for k, v in m.items():
+    if not valid_k(k):
+      raise argparse.ArgumentTypeError(
+          f"Key '{k}' is invalid! Keys must be strings.")
+
+    if not valid_v(v):
+      raise argparse.ArgumentTypeError(f"Value '{v}' is invalid! \
+Values must be strings, lists, ints or bools.")
+
+  return m

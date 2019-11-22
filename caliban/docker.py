@@ -5,11 +5,10 @@ and notebooks in a Docker environment.
 
 from __future__ import absolute_import, division, print_function
 
-import getpass
 import os
 import subprocess
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, NewType, Optional
 
 from absl import logging
 
@@ -19,6 +18,8 @@ DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
 TF_VERSIONS = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
+
+ImageId = NewType('ImageId', str)
 
 
 def tf_base_image(tensorflow_version: str, use_gpu: bool) -> str:
@@ -238,7 +239,7 @@ on the value of use_gpu) to create a container that:
   """
   uid = os.getuid()
   gid = os.getgid()
-  username = getpass.getuser()
+  username = u.current_user()
 
   if base_image_fn is None:
     base_image_fn = base_image_id
@@ -287,7 +288,7 @@ USER {uid}:{gid}
   return dockerfile
 
 
-def docker_image_id(output: str) -> str:
+def docker_image_id(output: str) -> ImageId:
   """Accepts a string containing the output of a successful `docker build`
   command and parses the Docker image ID from the stream.
 
@@ -295,7 +296,7 @@ def docker_image_id(output: str) -> str:
   on a Docker upgrade.
 
   """
-  return output.splitlines()[-1].split()[-1]
+  return ImageId(output.splitlines()[-1].split()[-1])
 
 
 def build_image(use_gpu: bool,
@@ -367,7 +368,7 @@ def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
   """
   ret = []
   if enable_home_mount:
-    ret = ["-v", f"{Path.home()}:/home/{getpass.getuser()}"]
+    ret = ["-v", f"{Path.home()}:/home/{u.current_user()}"]
   return ret
 
 

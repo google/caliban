@@ -10,6 +10,87 @@ import caliban.util as u
 class UtilTestSuite(unittest.TestCase):
   """Tests for the util package."""
 
+  def test_dict_product(self):
+    result = list(u.dict_product({"a": [1, 2, 3], "b": [4, 5], "c": "d"}))
+    expected = [{
+        'a': 1,
+        'b': 4,
+        'c': 'd'
+    }, {
+        'a': 1,
+        'b': 5,
+        'c': 'd'
+    }, {
+        'a': 2,
+        'b': 4,
+        'c': 'd'
+    }, {
+        'a': 2,
+        'b': 5,
+        'c': 'd'
+    }, {
+        'a': 3,
+        'b': 4,
+        'c': 'd'
+    }, {
+        'a': 3,
+        'b': 5,
+        'c': 'd'
+    }]
+    self.assertListEqual(result, expected)
+
+  @given(st.integers())
+  def test_compose(self, x):
+    """Functions should compose; the composed function accepts any arguments that the rightmost function accepts."""
+
+    def plus1(x):
+      return x + 1
+
+    def square(x):
+      return x * x
+
+    square_plus_one = u.compose(plus1, square)
+    times_plus_one = u.compose(plus1, lambda l, r: l * r)
+
+    self.assertEqual(square_plus_one(x), x * x + 1)
+    self.assertEqual(square_plus_one(x), times_plus_one(l=x, r=x))
+
+  @given(st.dictionaries(st.text(), st.text()),
+         st.dictionaries(st.text(), st.text()))
+  def test_merge(self, m1, m2):
+    merged = u.merge(m1, m2)
+
+    # Every item from the second map should be in the merged map.
+    for k, v in m2.items():
+      self.assertEqual(merged[k], v)
+
+    # Every item from the first map should be in the merged map, OR, if it
+    # shares a key with m2, m2's value will have bumped it.
+    for k, v in m1.items():
+      self.assertEqual(merged[k], m2.get(k, v))
+
+  @given(st.sets(st.text()))
+  def test_dict_by(self, xs):
+    """dict_by should apply a function to each item in a set to generate the values
+    of the returned dict.
+
+    """
+    m = u.dict_by(xs, len)
+
+    # every value is properly constructed
+    for k, v in m.items():
+      self.assertEqual(len(k), v)
+
+    # the key set of the dict is equal to the incoming original set.
+    self.assertSetEqual(set(m.keys()), xs)
+
+  def test_expand_args(self):
+    m = u.expand_args({"a": "item", "b": None, "c": "d"})
+    expanded = u.expand_args(m)
+
+    # None is excluded from the results.
+    self.assertListEqual(expanded, ["a", "item", "b", "c", "d"])
+
   def test_generate_package(self):
     """validate that the generate_package function can handle all sorts of inputs
     and generate valid Package objects.
@@ -114,6 +195,12 @@ class UtilTestSuite(unittest.TestCase):
   def test_valid_value_label(self, s):
     cleaned = u.value_label(s)
     self.assertValidLabel(cleaned)
+
+  def test_n_chunks(self):
+    pass
+
+  def test_expand_args(self):
+    pass
 
   @given(st.lists(st.integers(), min_size=1))
   def test_partition_first_items(self, xs):
