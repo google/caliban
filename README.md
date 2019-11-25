@@ -194,13 +194,12 @@ supported on non-Linux machines.
 `caliban shell` supports the following arguments:
 
 ```bash
-usage: caliban shell [-h] [--helpfull] [--gpu] [--nogpu] [-e EXTRAS] [--bare]
+usage: caliban shell [-h] [--helpfull] [--nogpu] [-e EXTRAS] [--bare]
 
 optional arguments:
   -h, --help            show this help message and exit
   --helpfull            show full help message and exit
-  --gpu                 Set to enable GPU usage. (defaults to True.)
-  --nogpu               explicitly set gpu to False.
+  --nogpu               Disable GPU mode and force CPU-only.
   -e EXTRAS, --extras EXTRAS
                         setup.py dependency keys.
   --bare                Skip mounting the $HOME directory; load a bare shell.
@@ -248,20 +247,29 @@ isn't supported on non-Linux machines.
 `caliban notebook` supports the following arguments:
 
 ```bash
-usage: caliban notebook [-h] [--helpfull] [--gpu] [--nogpu] [-e EXTRAS]
-                        [-p PORT] [-jv JUPYTER_VERSION] [--lab] [--bare]
+usage: caliban shell [-h] [--helpfull] [--nogpu] [-e EXTRAS] [--bare]
 
 optional arguments:
   -h, --help            show this help message and exit
   --helpfull            show full help message and exit
-  --gpu                 Set to enable GPU usage. (defaults to True.)
-  --nogpu               explicitly set gpu to False.
+  --nogpu               Disable GPU mode and force CPU-only.
   -e EXTRAS, --extras EXTRAS
                         setup.py dependency keys.
-  -p PORT, --port PORT  Local port to use for Jupyter.
+  --bare                Skip mounting the $HOME directory; load a bare shell.
+(deep) [samritchie@samritchie-macbookpro ~/code/python/caliban (sritchie/cli_updates)]$ caliban notebook --help
+usage: caliban notebook [-h] [--helpfull] [--nogpu] [-e EXTRAS] [-p PORT]
+                        [-jv JUPYTER_VERSION] [--lab] [--bare]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --helpfull            show full help message and exit
+  --nogpu               Disable GPU mode and force CPU-only.
+  -e EXTRAS, --extras EXTRAS
+                        setup.py dependency keys.
+  -p PORT, --port PORT  Port to use for Jupyter, inside container and locally.
   -jv JUPYTER_VERSION, --jupyter_version JUPYTER_VERSION
                         Jupyterlab version to install via pip.
-  --lab                 run Jupyterlab, vs just jupyter.
+  --lab                 run 'jupyter lab', vs the default 'jupyter notebook'.
   --bare                Skip mounting the $HOME directory; run an isolated
                         Jupyter lab.
 ```
@@ -343,21 +351,20 @@ must exist relative to the directory where you run `caliban run`.
 `caliban run` supports the following arguments:
 
 ```bash
-usage: caliban run [-h] [--helpfull] [-d DIR] [--gpu] [--nogpu] [-e EXTRAS]
-                   module ...
+usage: caliban run [-h] [--helpfull] [--nogpu] [-e EXTRAS] [-d DIR] module ...
 
 positional arguments:
-  module                Local module to run.
+  module                Code to execute, in either 'trainer.train' or
+                        'trainer/train.py' format.
 
 optional arguments:
   -h, --help            show this help message and exit
   --helpfull            show full help message and exit
-  -d DIR, --dir DIR     Extra directories to include. Try to list these from
-                        big to small!
-  --gpu                 Set to enable GPU usage. (defaults to True.)
-  --nogpu               explicitly set gpu to False.
+  --nogpu               Disable GPU mode and force CPU-only.
   -e EXTRAS, --extras EXTRAS
                         setup.py dependency keys.
+  -d DIR, --dir DIR     Extra directories to include. List these from large to
+                        small to take full advantage of Docker's build cache.
 
 pass-through arguments:
   script_args           This is a catch-all for arguments you want to pass
@@ -390,8 +397,8 @@ be quite sure that it'll complete in Cloud as well. The advantages of Cloud mode
 are:
 
 1. The machines are much bigger
-2. Multi-GPU machines, clusters and TPUs are available (though not yet supported
-   by Caliban)
+2. Multi-GPU machines, clusters and TPUs are available (though clusters and TPUs
+   aren't yet supported by caliban)
 3. Cloud can execute up to 40 jobs in parallel, and will pipeline many more for
    you.
 
@@ -405,68 +412,108 @@ repo](https://team.git.corp.google.com/blueshift/blueshift/) installed).
 
 The additional options available to cloud are:
 
-- **--name**: If you pass a string via this optional flag, `caliban cloud` will
-  submit your job with a job id of "{name}_{timestamp}" and add a
-  `job_name:{name}` label to your job. It's useful to pass the same name for
-  MANY jobs and use this field to group various experiment runs. (If you think
-  this flag should be named something else, tell samritchie@google.com)
+- **project_id**: This is the ID of the Cloud project that Caliban will use to
+  push Docker containers and to submit AI platform jobs. By default Caliban will
+  examine your environment for a `$PROJECT_ID` variable; if neither is set and
+  you attempt to run a Cloud command, Caliban will exit.
 - **region**: The Cloud region you specify with this flag is used for AI
   Platform job submission. Any value listed in the "Americas" section of [AI
   Platform's region docs](https://cloud.google.com/ml-engine/docs/regions) is
   valid (Let us know if you need global regions!). If you don't specify a region
   Caliban will examine your environment for a `$REGION` variable and use this if
-  supplied; if that's not set it will default to `"us-central1"`.
-- **project_id**: This is the ID of the Cloud project that Caliban will use to
-  push Docker containers and to submit AI platform jobs. By default Caliban will
-  examine your environment for a `$PROJECT_ID` variable; if neither is set and
-  you attempt to run a Cloud command, Caliban will exit.
+  supplied; if that's not set it will default to `"us-central1"`. See `caliban
+  cloud --help` for all possible arguments.
+- **--machine_type**: Specifies the type of machine to use for each submitted AI
+  platform job. See `caliban cloud --help` for all possible values.
+- **--gpu_spec**: optional argument of the form GPU_COUNTxGPU_TYPE. See `caliban
+  cloud --help` for all possible GPU types, and for the default. Usually 1, 2, 4
+  or 8 of each are supported, though this depends on the machine type you
+  specify. Caliban will throw a validation error and give you a suggestion for
+  how to proceed if you supply a combination that's not possible on AI Platform.
+- **--force**: If supplied, this flag will disable all validations on
+  combinations of region, machine type, GPU count and GPU type and force caliban
+  to submit the job to AI Platform as specified. This is useful in case some new
+  GPU was added to a region or machine type and caliban hasn't yet been updated.
+- **--name**: If you pass a string via this optional flag, `caliban cloud` will
+  submit your job with a job id of "{name}_{timestamp}" and add a
+  `job_name:{name}` label to your job. It's useful to pass the same name for
+  MANY jobs and use this field to group various experiment runs. (If you think
+  this flag should be named something else, tell samritchie@google.com)
+- **--experiment_config**: If you pass the location (relative or absolute) of a
+  local JSON file of the proper format, caliban will generate many jobs using
+  this experiment config and submit them all in batch to AI platform. The
+  formatting rules are - keys must be strings, values can be list, int, boolean
+  or string. If the value is a list, caliban will generate N copies of the
+  experiment config, 1 for each entry in the list, and submit a job for each.
+  The total number of jobs submitted is the cardinality of the cartesian product
+  of all lists in the experiment config.
 - **--label**: You can use this flag to pass many labels to `caliban cloud`;
   just pass the flag over and over. Labels must be of the form `k=v`; `--label
   epochs=2`, for example. If you pass any labels identical to your flags these
   labels will take precedence.
-- **--stream_logs**: if you pass this flag, after a successful job submission
-  the command will start a process to tail the logs produced by your running
-  job. Without this flag, or with `--nostream_logs`, the command will exit
-  immediately (after displaying a command you can run to stream the logs
-  yourself!)
-
-All other args are the same as `caliban cloud`.
-
-By default, GPU mode in the cloud will use a machine with a single `P100` GPU.
-We'll add more GPU types soon!
+- **--dry_run**: this flag will force logging output of all jobs that caliban
+  will submit without the `--dry_run` flag. Docker will also skip an actual
+  build and push. Use this to check that your other arguments are well formatted
+  before submitting a potentially very large batch of jobs (depending on your
+  experiment config).
 
 `caliban cloud` supports the following arguments:
 
 ```bash
-usage: caliban cloud [-h] [--helpfull] [--name NAME] [-d DIR] [--gpu]
-                     [--nogpu] [-e EXTRAS] [-r REGION] [-p PROJECT_ID]
-                     [-l KEY=VALUE] [--stream_logs] [--nostream_logs]
+usage: caliban cloud [-h] [--helpfull] [--nogpu] [-e EXTRAS] [-d DIR]
+                     [--project_id PROJECT_ID] [--region REGION]
+                     [--machine_type MACHINE_TYPE] [--gpu_spec NUMxGPU_TYPE]
+                     [--force] [--name NAME]
+                     [--experiment_config EXPERIMENT_CONFIG] [-l KEY=VALUE]
+                     [--dry_run]
                      module ...
 
 positional arguments:
-  module                Local module to run.
+  module                Code to execute, in either 'trainer.train' or
+                        'trainer/train.py' format.
 
 optional arguments:
   -h, --help            show this help message and exit
   --helpfull            show full help message and exit
-  --name NAME           Set a job name to see in the cloud.
-  -d DIR, --dir DIR     Extra directories to include. Try to list these from
-                        big to small!
-  --gpu                 Set to enable GPU usage. (defaults to True.)
-  --nogpu               explicitly set gpu to False.
+  --nogpu               Disable GPU mode and force CPU-only.
   -e EXTRAS, --extras EXTRAS
                         setup.py dependency keys.
-  --region {us-west1,us-west2,us-central1,us-east1,us-east4}
-                        Region to use for Cloud job submission and image
-                        persistence.
+  -d DIR, --dir DIR     Extra directories to include. List these from large to
+                        small to take full advantage of Docker's build cache.
   --project_id PROJECT_ID
                         ID of the GCloud AI Platform project to use for Cloud
-                        job submission and image persistence.
+                        job submission and image persistence. (Defaults to
+                        $PROJECT_ID; errors if both the argument and
+                        $PROJECT_ID are empty.)
+  --region REGION       Region to use for Cloud job submission and image
+                        persistence. Must be one of ['us-west1', 'us-east1',
+                        'us-east4', 'us-west2', 'us-central1', 'europe-west1',
+                        'europe-west4', 'europe-north1', 'asia-southeast1',
+                        'asia-east1', 'asia-northeast1']. (Defaults to $REGION
+                        or 'us-central1'.)
+  --machine_type MACHINE_TYPE
+                        Cloud machine type to request. Must be one of
+                        ['n1-highcpu-64', 'n1-highmem-4', 'n1-standard-16',
+                        'n1-standard-96', 'n1-highmem-16', 'n1-highmem-96',
+                        'n1-highmem-64', 'n1-highcpu-96', 'n1-standard-64',
+                        'n1-highmem-32', 'n1-standard-8', 'n1-highcpu-32',
+                        'n1-standard-32', 'n1-highmem-2', 'n1-highcpu-16',
+                        'n1-highmem-8', 'n1-standard-4', 'cloud_tpu'].
+                        Defaults to 'n1-standard-8' in GPU mode, or
+                        'n1-highcpu-32' if --nogpu is passed.
+  --gpu_spec NUMxGPU_TYPE
+                        Type and number of GPUs to use for each AI Platform
+                        submission. Defaults to 1xP100 in GPU mode or None if
+                        --nogpu is passed.
+  --force               Force past validations and submit the job as
+                        specified.
+  --name NAME           Set a job name for AI Platform jobs.
+  --experiment_config EXPERIMENT_CONFIG
+                        Path to an experiment config.
   -l KEY=VALUE, --label KEY=VALUE
                         Extra label k=v pair to submit to Cloud.
-  --stream_logs         Set to stream logs after job submission. (defaults to
-                        False.)
-  --nostream_logs       explicitly set stream_logs to False.
+  --dry_run             Don't actually submit; log everything that's going to
+                        happen.
 
 pass-through arguments:
   script_args           This is a catch-all for arguments you want to pass
@@ -476,7 +523,7 @@ pass-through arguments:
 
 ## Contributing
 
-To push code,
+To start submitting pull requests to caliban,
 
 First run this:
 

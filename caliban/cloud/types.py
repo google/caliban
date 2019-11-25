@@ -32,6 +32,28 @@ Europe = Enum('Europe', u.dict_by(EURO_REGIONS, _vfn("europe")))
 Asia = Enum('Asia', u.dict_by(ASIA_REGIONS, _vfn("asia")))
 Region = Union[US, Europe, Asia]
 
+
+def valid_regions(zone: Optional[str] = None) -> List[Region]:
+  """Returns valid region strings for Cloud, for the globe or for a particular
+  region if specified.
+
+  """
+  if zone is None:
+    return valid_regions("americas") \
+      + valid_regions("europe") \
+      + valid_regions("asia")
+  z = zone.lower()
+  if z == "americas":
+    return list(US)
+  elif z == "europe":
+    return list(Europe)
+  elif z == "asia":
+    return list(Asia)
+  else:
+    raise ValueError(
+        f"invalid zone: {zone}. Must be one of 'americas', 'europe', 'asia'.")
+
+
 # Machines types in Cloud's standard tier.
 STANDARD_MACHINES: Set[str] = {
     "standard_4", "standard_8", "standard_16", "standard_32", "standard_64",
@@ -274,8 +296,21 @@ def parse_machine_type(s: str) -> MachineType:
   try:
     return MachineType(s)
   except ValueError:
-    valid_values = set(map(lambda s: s.value, MachineType))
+    valid_values = u.enum_vals(MachineType)
     raise argparse.ArgumentTypeError(f"'{s}' isn't a valid machine type. \
+Must be one of {valid_values}.")
+
+
+def parse_region(s: str) -> Region:
+  """Attempts to parse the string into a valid region; raises a sensible argparse
+  error if that's not possible.
+
+  """
+  try:
+    return u.any_of(s, Region)
+  except ValueError:
+    valid_values = u.enum_vals(valid_regions())
+    raise argparse.ArgumentTypeError(f"'{s}' isn't a valid region. \
 Must be one of {valid_values}.")
 
 
@@ -356,7 +391,7 @@ class GPUSpec(NamedTuple):
     """
     return _AccelCountMT[self.gpu].get(self.count, {})
 
-  def allowed_regions(self) -> Set[str]:
+  def allowed_regions(self) -> Set[Region]:
     """Set of all regions allowed for this particular GPU type.
 
     """
@@ -365,7 +400,7 @@ class GPUSpec(NamedTuple):
   def valid_machine_type(self, machine_type: MachineType) -> bool:
     return machine_type in self.allowed_machine_types()
 
-  def valid_region(self, region: str) -> bool:
+  def valid_region(self, region: Region) -> bool:
     return region in self.allowed_regions()
 
 
@@ -383,11 +418,11 @@ class TPUSpec(NamedTuple):
   def accelerator_config(self):
     return {"type": self.tpu.value, "count": self.count}
 
-  def allowed_machine_types(self) -> Set[str]:
+  def allowed_machine_types(self) -> Set[MachineType]:
     """Set of all machine types allowed for this combo."""
     return _AccelCountMT[self.tpu].get(self.count, {})
 
-  def allowed_regions(self) -> Set[str]:
+  def allowed_regions(self) -> Set[Region]:
     """Set of all regions allowed for this particular TPU type.
 
     """
@@ -396,5 +431,5 @@ class TPUSpec(NamedTuple):
   def valid_machine_type(self, machine_type: MachineType) -> bool:
     return machine_type in self.allowed_machine_types()
 
-  def valid_region(self, region: str) -> bool:
+  def valid_region(self, region: Region) -> bool:
     return region in self.allowed_regions()

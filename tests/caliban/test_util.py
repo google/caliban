@@ -1,7 +1,8 @@
 import itertools
 import re
 import unittest
-from typing import Any, Dict, Iterable, Set, Tuple
+from enum import Enum
+from typing import Union
 
 import hypothesis.strategies as st
 from hypothesis import given
@@ -9,6 +10,7 @@ from hypothesis import given
 import caliban.util as u
 
 text_set = st.sets(st.text(), min_size=1)
+ne_text_set = st.sets(st.text(min_size=1), min_size=1)
 
 
 def non_empty_dict(vgen):
@@ -17,6 +19,46 @@ def non_empty_dict(vgen):
 
 class UtilTestSuite(unittest.TestCase):
   """Tests for the util package."""
+
+  @given(ne_text_set, ne_text_set)
+  def test_enum_vals(self, ks, vs):
+    """Setup ensures that the values are unique."""
+    m = dict(zip(ks, vs))
+    enum = Enum('TestEnum', m)
+
+    # enum_vals returns the values from the enum.
+    self.assertListEqual(list(m.values()), u.enum_vals(enum))
+
+  def test_any_of_unit(self):
+    MyEnum = Enum('MyEnum', {"a": "a_string", "b": "b_string"})
+    SecondEnum = Enum('SecondEnum', {"c": "c_cake", "d": "d_face"})
+    SomeEnum = Union[MyEnum, SecondEnum]
+
+    # Asking for a value not in ANY enum raises a value error.
+    with self.assertRaises(ValueError):
+      u.any_of("face", SomeEnum)
+
+  @given(ne_text_set, ne_text_set, ne_text_set, ne_text_set)
+  def test_any_of(self, k1, v1, k2, v2):
+    m1 = dict(zip(k1, v1))
+    m2 = dict(zip(k2, v2))
+    enum1 = Enum('enum1', m1)
+    enum2 = Enum('enum2', m2)
+    union = Union[enum1, enum2]
+
+    # If the item appears in the first map any_of will return it.
+    for k, v in m1.items():
+      self.assertEqual(u.any_of(v, union), enum1(v))
+
+    for k, v in m2.items():
+      # If a value from the second enum appears in enum1 any_of will return it;
+      # else, it'll return the value from enum2.
+      try:
+        expected = enum1(v)
+      except ValueError:
+        expected = enum2(v)
+
+      self.assertEqual(u.any_of(v, union), expected)
 
   def test_dict_product(self):
     result = list(u.dict_product({"a": [1, 2, 3], "b": [4, 5], "c": "d"}))

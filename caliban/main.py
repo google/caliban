@@ -1,19 +1,4 @@
-"""Docker and AI Platform model training and development script.
-
-Run like this in the hello-world project for an example:
-
-# Start a shell:
-caliban shell
-
-# Watch a local job fail, since it no longer has local access.
-caliban run trainer.train
-
-# Run a local job on the Mac via Docker successfully:
-caliban run -e cpu --nogpu trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
-
-# Submit a remote job
-caliban cloud -e gpu trainer.train -- --epochs 2 --data_path gs://$BUCKET_NAME/data/mnist.npz
-"""
+"""Entry point for Caliban's shell, notebook, local and cloud modes."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -32,30 +17,16 @@ import caliban.util as u
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
 
-def mac_gpu_check(mode: str, use_gpu: bool):
-  """If the command depends on 'docker run' and is running on a Mac, fail
-fast."""
-  if use_gpu and mode in ("shell", "notebook", "run"):
-    print(f"'caliban {mode}' doesn't support GPU usage on Macs! Please pass \
---nogpu to use this command.")
-    print()
-    print(
-        "GPU mode is fine for 'caliban cloud' from a mac; just nothing that runs \
-locally.")
-    sys.exit(1)
-
-
 def run_app(arg_input):
-  """Any argument not absorbed by Abseil's flags gets passed along to here.
+  """Main function to run the Caliban app. Accepts a Namespace-type output of an
+  argparse argument parser.
+
   """
   args = vars(arg_input)
   script_args = c.extract_script_args(args)
 
   command = args["command"]
-  use_gpu = args["gpu"]
-
-  if u.is_mac():
-    mac_gpu_check(command, use_gpu)
+  use_gpu = args["use_gpu"]
 
   # Get extra dependencies in case you want to install your requirements via a
   # setup.py file.
@@ -65,17 +36,20 @@ def run_app(arg_input):
 
   creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
+  # TODO we may want to take a custom path, here, in addition to detecting it.
   reqs = "requirements.txt"
-  template_args = {
+
+  # Arguments that make their way down to caliban.docker.build_image.
+  docker_args = {
+      "extra_dirs": args.get("dirs"),
       "requirements_path": reqs if os.path.exists(reqs) else None,
       "credentials_path": creds_path,
-      "setup_extras": setup_extras,
-      "extra_dirs": args.get("dirs")
+      "setup_extras": setup_extras
   }
 
   if command == "shell":
     mount_home = not args['bare']
-    docker.run_interactive(use_gpu, mount_home=mount_home, **template_args)
+    docker.run_interactive(use_gpu, mount_home=mount_home, **docker_args)
 
   elif command == "notebook":
     port = args.get("port")
@@ -87,32 +61,38 @@ def run_app(arg_input):
                         lab=lab,
                         version=version,
                         mount_home=mount_home,
-                        **template_args)
+                        **docker_args)
 
   elif command == "run":
     package = args["module"]
-    docker.submit_local(use_gpu, package, script_args, **template_args)
+    docker.submit_local(use_gpu, package, script_args, **docker_args)
 
   elif command == "cloud":
-    # TODO These have defaults... the project default is probably not good. We
-    # should error if this doesn't exist.
     project_id = c.extract_project_id(args)
-    region = os.environ.get("REGION", "us-central1")
+    region = c.extract_region(args)
 
-    stream_logs = args["stream_logs"]
+    dry_run = args["dry_run"]
     package = args["module"]
     job_name = args.get("name")
+    gpu_spec = args.get("gpu_spec")
+    machine_type = args.get("machine_type")
+    exp_config = args.get("experiment_config")
     labels = u.sanitize_labels(args.get("label") or [])
 
-    cloud.submit_package(use_gpu,
-                         package,
-                         region,
-                         project_id,
-                         stream_logs=stream_logs,
-                         script_args=script_args,
-                         job_name=job_name,
-                         labels=labels,
-                         **template_args)
+    # Arguments to internally build the image required to submit to Cloud.
+    docker_m = {"use_gpu": use_gpu, "package": package, **docker_args}
+
+    cloud.submit_ml_job(use_gpu,
+                        docker_args=docker_m,
+                        region=region,
+                        project_id=project_id,
+                        dry_run=dry_run,
+                        job_name=job_name,
+                        machine_type=machine_type,
+                        gpu_spec=gpu_spec,
+                        labels=labels,
+                        script_args=script_args,
+                        experiment_config=exp_config)
   else:
     logging.info(f"Unknown command: {command}")
     sys.exit(1)

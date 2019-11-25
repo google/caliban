@@ -81,13 +81,15 @@ explicitly via --project_id. Try again, please!")
   return project_id
 
 
-def extract_region(m: Dict[str, Any]) -> str:
+def extract_region(m: Dict[str, Any]) -> cloud.Region:
   """Returns the region specified in the args; defaults to an environment
   variable. If that's not supplied defaults to the default cloud provider from
   caliban.cloud.
 
   """
-  return m.get("region") or os.environ.get("REGION", cloud.DEFAULT_REGION)
+  return m.get("region") or \
+    cloud.parse_region(os.environ.get("REGION")) or \
+    cloud.DEFAULT_REGION
 
 
 def validate_experiment_config(m: Dict[str, Any]) -> Dict[str, Any]:
