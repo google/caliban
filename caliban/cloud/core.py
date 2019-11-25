@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 from absl import logging
 from googleapiclient import discovery, errors
 
+import caliban.cloud.types as ct
 import caliban.docker as d
 import caliban.util as u
 
@@ -24,16 +25,18 @@ def valid_regions(zone: Optional[str] = None) -> List[str]:
 
   """
   if zone is None:
-    return US_REGIONS + EURO_REGIONS + ASIA_REGIONS
+    return valid_regions("americas") \
+      + valid_regions("europe") \
+      + valid_regions("asia")
 
   z = zone.lower()
 
-  if "americas" == z:
-    return US_REGIONS
-  elif "europe" == z:
-    return EURO_REGIONS
-  elif "asia" == z:
-    return ASIA_REGIONS
+  if z == "americas":
+    return u.enum_vals(ct.US)
+  elif z == "europe":
+    return u.enum_vals(ct.Europe)
+  elif z == "asia":
+    return u.enum_vals(ct.Asia)
   else:
     raise ValueError(
         f"invalid zone: {zone}. Must be one of 'americas', 'europe', 'asia'.")

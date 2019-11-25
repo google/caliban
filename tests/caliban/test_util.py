@@ -1,10 +1,18 @@
+import itertools
 import re
 import unittest
+from typing import Any, Dict, Iterable, Set, Tuple
 
 import hypothesis.strategies as st
 from hypothesis import given
 
 import caliban.util as u
+
+text_set = st.sets(st.text(), min_size=1)
+
+
+def non_empty_dict(vgen):
+  return st.dictionaries(st.text(), vgen, min_size=1)
 
 
 class UtilTestSuite(unittest.TestCase):
@@ -69,6 +77,73 @@ class UtilTestSuite(unittest.TestCase):
     for k, v in m1.items():
       self.assertEqual(merged[k], m2.get(k, v))
 
+  def test_flipm_unit(self):
+    m = {"a": {1: "a_one", 2: "a_two"}, "b": {1: "b_one", 3: "b_three"}}
+    expected = {
+        1: {
+            "a": "a_one",
+            "b": "b_one"
+        },
+        2: {
+            "a": "a_two"
+        },
+        3: {
+            "b": "b_three"
+        }
+    }
+
+    # Flipping does what we expect!
+    self.assertDictEqual(u.flipm(m), expected)
+
+  @given(
+      st.dictionaries(st.text(),
+                      st.dictionaries(st.text(), st.text(), min_size=1)))
+  def test_flipm(self, m):
+    # As long as an inner dictionary isn't empty, flipping is invertible.
+    self.assertDictEqual(m, u.flipm(u.flipm(m)))
+
+  @given(st.sets(st.text()))
+  def test_flipm_empty_values(self, ks):
+    """Flipping a dictionary with empty values always equals the empty map."""
+    m = u.dict_by(ks, lambda k: {})
+    self.assertDictEqual({}, u.flipm(m))
+
+  def test_invertm_unit(self):
+    m = {"a": [1, 2, 3], "b": [2, 3, 4]}
+    expected = {
+        1: {"a"},
+        2: {"a", "b"},
+        3: {"a", "b"},
+        4: {"b"},
+    }
+    self.assertDictEqual(u.invertm(m), expected)
+
+  @given(non_empty_dict(non_empty_dict(text_set)))
+  def test_reorderm(self, m):
+
+    def invert_inner(d):
+      return {k: u.invertm(v) for k, v in d.items()}
+
+    flipped = u.flipm(m)
+
+    # flipping the inner map.
+    self.assertDictEqual(u.reorderm(m, (0, 2, 1)), invert_inner(m))
+
+    # Flipping the outer keys is equivalent to calling flipm once.
+    self.assertDictEqual(u.reorderm(m, (1, 0, 2)), flipped)
+
+    # Reordering the inner keys is equiv to flipping the outer keys the
+    # flipping the new inner dictionary.
+    self.assertDictEqual(u.reorderm(m, (1, 2, 0)), invert_inner(flipped))
+
+    # Flipping again brings the original list entry out.
+    self.assertDictEqual(u.reorderm(m, (2, 1, 0)),
+                         u.flipm(invert_inner(flipped)))
+
+  @given(non_empty_dict(text_set))
+  def test_invertm(self, m):
+    self.assertDictEqual(m, u.invertm(u.invertm(m)))
+
   @given(st.sets(st.text()))
   def test_dict_by(self, xs):
     """dict_by should apply a function to each item in a set to generate the values
@@ -85,7 +160,7 @@ class UtilTestSuite(unittest.TestCase):
     self.assertSetEqual(set(m.keys()), xs)
 
   def test_expand_args(self):
-    m = u.expand_args({"a": "item", "b": None, "c": "d"})
+    m = {"a": "item", "b": None, "c": "d"}
     expanded = u.expand_args(m)
 
     # None is excluded from the results.
@@ -196,11 +271,39 @@ class UtilTestSuite(unittest.TestCase):
     cleaned = u.value_label(s)
     self.assertValidLabel(cleaned)
 
-  def test_n_chunks(self):
-    pass
+  @given(st.lists(st.integers()), st.integers(min_value=1, max_value=500))
+  def test_n_chunks(self, xs, n):
+    singletons = list(map(lambda x: [x], xs))
 
-  def test_expand_args(self):
-    pass
+    # If the chunks equal the length we get all singletons.
+    self.assertListEqual(u.n_chunks(xs, len(xs)), singletons)
+
+    # one chunk returns a single singleton.
+    self.assertListEqual(u.n_chunks(xs, 1), [xs])
+
+    sharded = u.n_chunks(xs, n)
+    recombined = list(itertools.chain(*sharded))
+
+    # The ordering might not be the same, but the total number of items is the
+    # same if we break down and recombine.
+    self.assertEquals(len(recombined), len(xs))
+
+    # And the items are equal too.
+    self.assertSetEqual(set(xs), set(recombined))
+
+  def test_chunks_below_limit(self):
+    xs = [0, 1, 2, 3, 4, 5]
+
+    # Below the limit, there's no breakdown.
+    self.assertListEqual([xs], u.chunks_below_limit(xs, 100))
+
+    # Below the limit, there's no breakdown.
+    shards = [[0, 2, 4], [1, 3, 5]]
+    self.assertListEqual(shards, u.chunks_below_limit(xs, 5))
+
+    # You can recover the original list by zipping together the shards (if they
+    # happen to be equal in length, as here.)
+    self.assertListEqual(xs, list(itertools.chain(*list(zip(*shards)))))
 
   @given(st.lists(st.integers(), min_size=1))
   def test_partition_first_items(self, xs):

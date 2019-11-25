@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
+from enum import Enum
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
                     Set, Tuple)
 
@@ -39,6 +40,11 @@ def is_linux() -> bool:
 
   """
   return platform.system() == "Darwin"
+
+
+def enum_vals(enum: Enum) -> List[str]:
+  """Returns the list of all values for a specific enum."""
+  return [v.value for v in enum]
 
 
 def dict_product(m: Dict[Any, Iterable[Any]]) -> Iterable[Dict[Any, Any]]:
@@ -70,6 +76,41 @@ def compose(l, r):
     return l(r(*args, **kwargs))
 
   return inner
+
+
+def flipm(table: Dict[Any, Dict[Any, Any]]) -> Dict[Any, Dict[Any, Any]]:
+  """Handles shuffles for a particular kind of table."""
+  ret = {}
+  for k, m in table.items():
+    for k2, v in m.items():
+      ret.setdefault(k2, {})[k] = v
+
+  return ret
+
+
+def invertm(table: Dict[Any, Iterable[Any]]) -> Dict[Any, Set[Any]]:
+  """Handles shuffles for a particular kind of table."""
+  ret = {}
+  for k, vs in table.items():
+    for v in vs:
+      ret.setdefault(v, set()).add(k)
+
+  return ret
+
+
+def reorderm(table: Dict[Any, Dict[Any, Iterable[Any]]],
+             order: Tuple[int, int, int]) -> Dict[Any, Dict[Any, Set[Any]]]:
+  """Handles shuffles for a particular kind of table."""
+  ret = {}
+  for k, m in table.items():
+    for k2, vs in m.items():
+      for v in vs:
+        fields = [k, k2, v]
+        innerm = ret.setdefault(fields[order[0]], {})
+        acc = innerm.setdefault(fields[order[1]], set())
+        acc.add(fields[order[2]])
+
+  return ret
 
 
 def merge(l: Dict[Any, Any], r: Dict[Any, Any]) -> Dict[Any, Any]:
