@@ -60,6 +60,25 @@ def extras_string(extras: List[str]) -> str:
   return ret
 
 
+def base_extras(path: str, gpu_mode: bool,
+                extras: Optional[List[str]]) -> Optional[List[str]]:
+  """Returns None if the supplied path doesn't exist (it's assumed it points to a
+  setup.py file).
+
+  If the path DOES exist, generates a list of extras to install. gpu or cpu are
+  always added to the beginning of the list, depending on the mode.
+
+  """
+  ret = None
+
+  if os.path.exists(path):
+    base = extras or []
+    extra = 'gpu' if gpu_mode else 'cpu'
+    ret = base if extra in base else [extra] + base
+
+  return ret
+
+
 def default_shell() -> str:
   """Returns the shell command of the current system. Defaults to bash"""
   return os.environ.get("SHELL", "/bin/bash")
