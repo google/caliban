@@ -1,3 +1,25 @@
+# 0.1.4
+
+- If you pass `--nogpu` mode and have a setup.py file, caliban will
+  automatically pass `--extras cpu` and attempt to install an extras dependency
+  called `cpu`. Same goes for `gpu` if you DON'T pass `--nogpu`. So, if you have
+  a setup.py file, the default pip installation will now look like one of these:
+
+```bash
+pip install .[gpu]
+pip install .[cpu]
+```
+
+Instead of
+
+```
+pip install .
+```
+
+# 0.1.3.1
+
+- Minor bugfix; I was calling "len" on an iterator, not a list.
+
 # 0.1.3
 
 This version:

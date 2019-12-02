@@ -30,9 +30,7 @@ def run_app(arg_input):
 
   # Get extra dependencies in case you want to install your requirements via a
   # setup.py file.
-  setup_extras = None
-  if os.path.exists("setup.py"):
-    setup_extras = args.get("extras") or []
+  setup_extras = docker.base_extras("setup.py", use_gpu, args.get("extras"))
 
   creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
