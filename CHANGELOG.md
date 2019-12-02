@@ -1,3 +1,16 @@
+# 0.1.3
+
+This version:
+
+- Moves from batch submission to submitting 1 request at a time, so Cloud can handle our rate limiting
+- adds support for lists of experiment configs
+- adds terminal highlighting
+- adds a progress bar for Cloud submissions
+- cleans up the terminal output for each job to show the interesting bits, not the entire training spec.
+- moves the job index to the end of the jobId, so searching is easier
+
+If you like you can set `-v 1` to see the full spec output.
+
 # 0.1.2
 
 - `caliban.cloud.types` has lots of enums and types that make it easier to code
