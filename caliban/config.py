@@ -13,6 +13,7 @@ import commentjson
 import yaml
 
 from caliban import cloud
+from caliban.cloud.core import Expansion, ExpConf
 
 
 def load_yaml_config(path):
@@ -92,7 +93,7 @@ def extract_region(m: Dict[str, Any]) -> cloud.Region:
     cloud.DEFAULT_REGION
 
 
-def validate_experiment_config(m: Dict[str, Any]) -> Dict[str, Any]:
+def validate_expansion(m: Expansion) -> Expansion:
   """Check that:
 
   - all key are strings
@@ -116,3 +117,19 @@ def validate_experiment_config(m: Dict[str, Any]) -> Dict[str, Any]:
 Values must be strings, lists, ints or bools.")
 
   return m
+
+
+def validate_experiment_config(items: ExpConf) -> ExpConf:
+  """Check that the input is either a list of valid experiment configs or a valid
+  expansion itself. Returns the list/dict or throws an exception if invalid.
+
+  """
+  if isinstance(items, list):
+    return [validate_experiment_config(item) for item in items]
+
+  elif isinstance(items, dict):
+    return validate_expansion(items)
+
+  else:
+    raise argparse.ArgumentTypeError(f"The experiment config is invalid! \
+The JSON file must contain either a dict or a list.")

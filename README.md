@@ -446,7 +446,7 @@ The additional options available to cloud are:
   or string. If the value is a list, caliban will generate N copies of the
   experiment config, 1 for each entry in the list, and submit a job for each.
   The total number of jobs submitted is the cardinality of the cartesian product
-  of all lists in the experiment config.
+  of all lists in the experiment config. Lists of valid dicts are also allowed.
 - **--label**: You can use this flag to pass many labels to `caliban cloud`;
   just pass the flag over and over. Labels must be of the form `k=v`; `--label
   epochs=2`, for example. If you pass any labels identical to your flags these

@@ -16,6 +16,19 @@ class ConfigTestSuite(unittest.TestCase):
     valid = {"a": [1, 2, 3], "b": True, "c": 1, "d": "e"}
     self.assertDictEqual(valid, c.validate_experiment_config(valid))
 
+    # Lists are okay too...
+    items = [valid, valid]
+    self.assertListEqual(items, c.validate_experiment_config(items))
+
+    # As are lists of lists.
+    lol = [valid, [valid]]
+    self.assertListEqual(lol, c.validate_experiment_config(lol))
+
+    # Invalid types are caught even nested inside lists.
+    lol_invalid = [valid, valid, [invalid]]
+    with self.assertRaises(ArgumentTypeError):
+      c.validate_experiment_config(lol_invalid)
+
 
 if __name__ == '__main__':
   unittest.main()

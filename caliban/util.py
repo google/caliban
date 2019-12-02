@@ -2,6 +2,7 @@
 Utilities for our job runner.
 """
 import argparse
+import contextlib
 import getpass
 import io
 import itertools as it
@@ -15,7 +16,8 @@ from enum import Enum
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
                     Set, Tuple, Union)
 
-from absl import flags
+import tqdm
+from absl import flags, logging
 
 
 class Package(NamedTuple):
@@ -436,3 +438,57 @@ def validated_file(path: str) -> str:
     raise argparse.ArgumentTypeError(
         f"""File '{path}' isn't a valid file on your system. Try again!""")
   return path
+
+
+class TqdmFile(object):
+  """Dummy file-like that will write to tqdm"""
+  file = None
+
+  def __init__(self, file):
+    self.file = file
+
+  def write(self, x):
+    if len(x.rstrip()) > 0:
+      tqdm.tqdm.write(x, file=self.file, end='')
+
+  def flush(self):
+    return getattr(self.file, "flush", lambda: None)()
+
+  def isatty(self):
+    return getattr(self.file, "isatty", lambda: False)()
+
+
+def config_logging():
+  """Overrides logging to go through TQDM.
+
+  TODO use this call to kill then restore:
+  https://github.com/tqdm/tqdm#redirecting-writing
+
+  """
+  h = logging.get_absl_handler()
+  old = h.python_handler
+  h._python_handler = logging.PythonHandler(stream=TqdmFile(sys.stderr))
+  logging.use_python_logging()
+
+
+@contextlib.contextmanager
+def tqdm_logging():
+  """Overrides logging to go through TQDM.
+
+  https://github.com/tqdm/tqdm#redirecting-writing
+
+  """
+  handler = logging.get_absl_handler()
+  orig = handler.python_handler
+
+  try:
+    handler._python_handler = logging.PythonHandler(stream=TqdmFile(sys.stderr))
+
+    # The changes won't take effect if this hasn't been called. Defensively
+    # call it again here.
+    logging.use_python_logging()
+    yield orig.stream
+  except Exception as exc:
+    raise exc
+  finally:
+    handler._python_handler = orig

@@ -19,8 +19,8 @@ setup(
     cmdclass=with_versioneer(lambda v: v.get_cmdclass(), {}),
     python_requires='>3.6.0',
     install_requires=[
-        'absl-py', 'pyyaml', 'oauth2client', 'commentjson',
-        'google-cloud-storage', 'google-api-python-client'
+        'absl-py', 'blessings', 'commentjson', 'google-api-python-client',
+        'pyyaml', 'tqdm'
     ],
     extras_require={
         # These are required for local development, but not for actually

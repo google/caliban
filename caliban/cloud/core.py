@@ -3,18 +3,22 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
+import itertools
 from pprint import pformat
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
+import tqdm
 from absl import logging
 from googleapiclient import discovery
+from googleapiclient.errors import HttpError
 
 import caliban.cloud.types as ct
 import caliban.docker as d
 import caliban.util as u
+from blessings import Terminal
 
-# Max number of jobs we can create in a single batch submission to AI platform.
-ML_JOB_CREATION_LIMIT = 1000
+t = Terminal()
+
 DRY_RUN_FLAG = "--dry_run"
 
 # Defaults for various input values that we can supply given some partial set
@@ -36,8 +40,20 @@ DEFAULT_ACCELERATOR_CONFIG = {
 # Marker type to make things more readable below.
 JobSpec = Dict[str, Any]
 
-# Marker type for our experiment config.
-ExpConf = Dict[str, Any]
+# int, str and bool are allowed in a final experiment; lists are markers for
+# expansion.
+ExpValue = Union[int, str, bool]
+
+# Entry in an experiment config. If any values are lists they're expanded into
+# a sequence of experiment configs.
+Expansion = Dict[str, Union[ExpValue, List[ExpValue]]]
+
+# An experiment config can be a single (potentially expandable) dictionary, or
+# a list of many such dicts.
+ExpConf = Union[Expansion, List[Expansion]]
+
+# A final experiment can only contain valid ExpValues, no expandable entries.
+Experiment = Dict[str, ExpValue]
 
 
 def get_accelerator_config(gpu_spec: Optional[ct.GPUSpec]) -> Dict[str, Any]:
@@ -53,9 +69,9 @@ def get_accelerator_config(gpu_spec: Optional[ct.GPUSpec]) -> Dict[str, Any]:
   return conf
 
 
-def experiment_config_to_args(m: ExpConf, base: List[str]) -> List[str]:
+def experiment_to_args(m: Experiment, base: List[str]) -> List[str]:
   """Returns the list of flag keys and values that corresponds to the supplied
-  experiment configuration.
+  experiment.
 
   Keys all expand to the full '--key_name' style that typical Python flags are
   represented by.
@@ -110,21 +126,20 @@ def logging_callback(spec: JobSpec, project_id: str):
   """
   job_id = spec["jobId"]
 
-  def callback(request_id: str, response, exception):
-    logging.debug(f"spec for requestId {request_id}: {spec}")
-    prefix = f"Req {request_id} for jobId {spec['jobId']}"
+  def callback(_, exception):
+    logging.debug(f"spec for job {job_id}: {spec}")
+    prefix = f"Request for job '{spec['jobId']}'"
 
     if exception is None:
       url = job_url(project_id, job_id)
       stream_command = _stream_cmd(job_id)
 
-      logging.info(f"{prefix} succeeded!")
-
-      logging.info(f"jobId URL: {url}")
-      logging.info(f"Streaming log CLI command: $ {stream_command}")
+      logging.info(t.green(f"{prefix} succeeded!"))
+      logging.info(t.green(f"Job URL: {url}"))
+      logging.info(t.green(f"Streaming log CLI command: $ {stream_command}"))
     else:
-      logging.error(f"{prefix} failed! Details:")
-      logging.error(exception._get_reason())
+      logging.error(t.red(f"{prefix} failed! Details:"))
+      logging.error(t.red(exception._get_reason()))
 
   return callback
 
@@ -133,12 +148,23 @@ def log_spec(spec: JobSpec, i: int) -> JobSpec:
   """Returns the input spec after triggering logging side-effects.
 
   """
+  job_id = spec['jobId']
+  training_input = spec['trainingInput']
+  machine_type = training_input['masterType']
+  region = training_input['region']
+  accelerator = training_input['masterConfig']['acceleratorConfig']
+  image_uri = training_input['masterConfig']['imageUri']
+  args = training_input['args']
 
-  def prefixed(s: str):
-    logging.info(f"Job {i} - {s}")
+  def prefixed(s: str, level=logging.INFO):
+    logging.log(level, f"Job {i} - {s}")
 
-  prefixed(f"jobId: {spec['jobId']}")
-  prefixed(f"trainingInput: {spec['trainingInput']}")
+  prefixed(f"Spec: {spec}", logging.DEBUG)
+  prefixed(f"jobId: {t.yellow(job_id)}, image: {image_uri}")
+  prefixed(
+      f"Accelerator: {accelerator}, machine: '{machine_type}', region: '{region}'"
+  )
+  prefixed(f"Experiment arguments: {t.yellow(str(args))}")
   prefixed(f"labels: {spec['labels']}")
   return spec
 
@@ -151,6 +177,16 @@ def logged_specs(specs: Iterable[JobSpec]) -> Iterable[JobSpec]:
   """
   for i, spec in enumerate(specs, 1):
     yield log_spec(spec, i)
+
+
+def log_specs(specs: Iterable[JobSpec]) -> List[JobSpec]:
+  """Equivalent to logged_specs, except all logging side effects are forced to
+  occur immediately before return.
+
+  Returns the realized list of JobSpec instances.
+
+  """
+  return list(logged_specs(specs))
 
 
 def logged_batches(specs: Iterable[JobSpec],
@@ -193,8 +229,7 @@ def logged_batches(specs: Iterable[JobSpec],
 
 
 def log_batch_parameters(specs: Iterable[JobSpec],
-                         limit: int = ML_JOB_CREATION_LIMIT
-                        ) -> List[List[JobSpec]]:
+                         limit: int) -> List[List[JobSpec]]:
   """Equivalent to logged_batches, except all logging side effects are forced to
   occur immediately before return.
 
@@ -204,19 +239,17 @@ def log_batch_parameters(specs: Iterable[JobSpec],
   return [list(batch) for batch in logged_batches(specs, limit=limit)]
 
 
-def create_request_batches(specs: List[JobSpec],
-                           project_id: str,
-                           limit: int = ML_JOB_CREATION_LIMIT) -> Iterable[Any]:
-  """Returns an iterator of BatchHttpRequest instances:
-  https://googleapis.github.io/google-api-python-client/docs/epy/googleapiclient.http.BatchHttpRequest-class.html#execute
+def create_requests(specs: List[JobSpec],
+                    project_id: str) -> Iterable[Tuple[Any, JobSpec, Any]]:
+  """Returns an iterator of (HttpRequest, JobSpec, Callback).
 
-  Each batch contains requests corresponding to a a
-  roughly-equal-in-cardinality subset of the supplied list of specs.
+  HttpRequests look like:
+  https://googleapis.github.io/google-api-python-client/docs/epy/googleapiclient.http.HttpRequest-class.html
 
-  Iterating across the batches will trigger logging side-effects for each spec
-  added to its batch.
+  Iterating across the requests will trigger logging side-effects for its
+  corresponding spec.
 
-  Cloud API docs for the endpoint that we're batch-submitting to:
+  Cloud API docs for the endpoint each request submits to:
   https://cloud.google.com/ml-engine/reference/rest/v1/projects.jobs/create
 
   Python specific docs:
@@ -230,24 +263,50 @@ def create_request_batches(specs: List[JobSpec],
   ml = discovery.build('ml', 'v1', cache_discovery=False)
   jobs = ml.projects().jobs()
 
-  for spec_batch in logged_batches(specs, limit=limit):
-    request_batch = ml.new_batch_http_request()
-
-    for spec in spec_batch:
-      req = jobs.create(body=spec, parent=parent)
-      request_batch.add(req, callback=logging_callback(spec, project_id))
-
-    yield request_batch
+  for spec in logged_specs(specs):
+    cb = logging_callback(spec, project_id)
+    yield jobs.create(body=spec, parent=parent), spec, cb
 
 
-def execute_batches(batches: Iterable[Any]) -> None:
+def execute(req, callback, num_retries: Optional[int] = None):
+  """Executes the supplied request and calls the callback with a first-arg
+  response if successful, second-arg exception otherwise.
+
+  num_retries is the number of times a request will be retried if it fails for
+  a timeout or a rate limiting (429) exception.
+
+  num_retries = 10 by default.
+
+  """
+  if num_retries is None:
+    num_retries = 10
+
+  logging.info("Submitting request!")
+  try:
+    resp = req.execute(num_retries=num_retries)
+    callback(resp, None)
+
+  except HttpError as e:
+    callback(None, e)
+
+
+def execute_requests(requests: Iterable[Tuple[Any, JobSpec, Any]],
+                     count: Optional[int] = None,
+                     num_retries: Optional[int] = None) -> None:
   """Execute all batches in the supplied generator of batch requests. Results
   aren't returned directly; the callbacks passed to each request when it was
   generated handle any response or exception.
 
   """
-  for batch in batches:
-    batch.execute()
+  with u.tqdm_logging() as orig_stream:
+    pbar = tqdm.tqdm(requests,
+                     file=orig_stream,
+                     total=count,
+                     unit="requests",
+                     desc="submitting")
+    for req, spec, cb in pbar:
+      pbar.set_description(f"Submitting {spec['jobId']}")
+      execute(req, cb, num_retries=num_retries)
 
 
 def base_training_input(image_tag: str, region: ct.Region,
@@ -274,7 +333,7 @@ def _job_spec(job_name: str, idx: int, training_input: Dict[str, Any],
   submission endpoint.
 
   """
-  job_id = f"{job_name}_{idx}_{uuid}"
+  job_id = f"{job_name}_{uuid}_{idx}"
   job_args = training_input.get("args")
   return {
       "jobId": job_id,
@@ -286,17 +345,20 @@ def _job_spec(job_name: str, idx: int, training_input: Dict[str, Any],
   }
 
 
-def expand_experiment_config(m: ExpConf) -> Iterable[ExpConf]:
-  """Expand out the experiment config for job submission to Cloud. This is where
-  to add support for more expressive forms of experiment config.
+def expand_experiment_config(items: ExpConf) -> List[Experiment]:
+  """Expand out the experiment config for job submission to Cloud.
 
   """
-  return u.dict_product(m)
+  if isinstance(items, list):
+    return itertools.chain.from_iterable(
+        [expand_experiment_config(m) for m in items])
+
+  return list(u.dict_product(items))
 
 
 def _job_specs(job_name: str, training_input: Dict[str, Any],
                base_args: List[str], labels: Dict[str, str], uuid: str,
-               experiment_config: ExpConf) -> Iterable[JobSpec]:
+               experiments: Iterable[Experiment]) -> Iterable[JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
 
@@ -306,9 +368,8 @@ def _job_specs(job_name: str, training_input: Dict[str, Any],
   This is lower-level than build_job_specs below.
 
   """
-  expanded = expand_experiment_config(experiment_config)
-  for idx, m in enumerate(expanded):
-    args = experiment_config_to_args(m, base_args)
+  for idx, m in enumerate(experiments, 1):
+    args = experiment_to_args(m, base_args)
     yield _job_spec(job_name=job_name,
                     idx=idx,
                     training_input={
@@ -320,7 +381,7 @@ def _job_specs(job_name: str, training_input: Dict[str, Any],
 
 def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
                     machine_type: ct.MachineType, script_args: List[str],
-                    experiment_config: Dict[str, Any],
+                    experiments: Iterable[Experiment],
                     user_labels: Dict[str, str],
                     gpu_spec: Optional[ct.GPUSpec]) -> Iterable[JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
@@ -332,7 +393,7 @@ def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
   Each job in the batch will have a unique jobId.
 
   """
-  logging.info(f"Building job with name: {job_name}")
+  logging.info(f"Building jobs for name: {job_name}")
 
   uuid = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -352,7 +413,7 @@ def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
                     training_input=training_input,
                     base_args=script_args,
                     labels=base_labels,
-                    experiment_config=experiment_config,
+                    experiments=experiments,
                     uuid=uuid)
 
 
@@ -365,7 +426,7 @@ def _generate_image_tag(project_id, docker_args, dry_run: bool = False):
 
   """
   logging.info("Generating Docker image with parameters:")
-  logging.info(pformat(docker_args))
+  logging.info(t.yellow(pformat(docker_args)))
 
   if dry_run:
     logging.info("Dry run - skipping actual 'docker build' and 'docker push'.")
@@ -375,6 +436,17 @@ def _generate_image_tag(project_id, docker_args, dry_run: bool = False):
     image_tag = d.push_uuid_tag(project_id, image_id)
 
   return image_tag
+
+
+def execute_dry_run(specs: List[JobSpec]) -> None:
+  log_specs(specs)
+
+  logging.info('')
+  logging.info(
+      t.yellow(f"To build your image and submit these jobs, \
+run your command again without {DRY_RUN_FLAG}."))
+  logging.info('')
+  return None
 
 
 def submit_ml_job(use_gpu: bool,
@@ -387,7 +459,8 @@ def submit_ml_job(use_gpu: bool,
                   gpu_spec: Optional[ct.GPUSpec] = None,
                   labels: Optional[Dict[str, str]] = None,
                   experiment_config: Optional[ExpConf] = None,
-                  script_args: Optional[List[str]] = None) -> None:
+                  script_args: Optional[List[str]] = None,
+                  request_retries: Optional[int] = None) -> None:
   """Top level function in the module. This function:
 
   - builds an image using the supplied docker_args, in either CPU or GPU mode
@@ -425,6 +498,8 @@ def submit_ml_job(use_gpu: bool,
   - script_args: these are extra arguments that will be passed to every job
     executed, in addition to the arguments created by expanding out the
     experiment config.
+  - request_retries: the number of times to retry each request if it fails for
+    a timeout or a rate limiting request.
 
   """
 
@@ -452,26 +527,28 @@ def submit_ml_job(use_gpu: bool,
   if labels is None:
     labels = {}
 
+  if request_retries is None:
+    request_retries = 10
+
   image_tag = _generate_image_tag(project_id, docker_args, dry_run=dry_run)
 
+  experiments = expand_experiment_config(experiment_config)
   specs = build_job_specs(job_name=job_name,
                           image_tag=image_tag,
                           region=region,
                           machine_type=machine_type,
                           script_args=script_args,
-                          experiment_config=experiment_config,
+                          experiments=experiments,
                           user_labels=labels,
                           gpu_spec=gpu_spec)
 
-  request_batches = create_request_batches(specs, project_id)
   if dry_run:
-    log_batch_parameters(specs)
+    return execute_dry_run(specs)
 
-    logging.info(f"To build your image and submit these jobs, \
-run your command again without {DRY_RUN_FLAG}.")
-    return None
-
-  execute_batches(request_batches)
+  requests = create_requests(specs, project_id)
+  execute_requests(requests, len(experiments), num_retries=request_retries)
   logging.info("")
   logging.info(
-      f"Visit {job_url(project_id, '')} to see the status of all jobs.")
+      t.green(
+          f"Visit {job_url(project_id, '')} to see the status of all jobs."))
+  logging.info("")

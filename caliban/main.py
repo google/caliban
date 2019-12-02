@@ -99,6 +99,7 @@ def run_app(arg_input):
 
 
 def main():
+  logging.use_python_logging()
   app.run(run_app, flags_parser=cli.parse_flags)
 
 
