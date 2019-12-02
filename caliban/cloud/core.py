@@ -350,8 +350,9 @@ def expand_experiment_config(items: ExpConf) -> List[Experiment]:
 
   """
   if isinstance(items, list):
-    return itertools.chain.from_iterable(
-        [expand_experiment_config(m) for m in items])
+    return list(
+        itertools.chain.from_iterable(
+            [expand_experiment_config(m) for m in items]))
 
   return list(u.dict_product(items))
 
