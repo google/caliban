@@ -3,35 +3,73 @@
 """
 import sys
 from argparse import REMAINDER
-from typing import Optional
-
-from absl.flags import argparse_flags
+from typing import List, Optional
 
 import caliban.cloud as c
 import caliban.cloud.types as ct
 import caliban.config as conf
 import caliban.util as u
+from absl.flags import argparse_flags
 from caliban import __version__
+
+from blessings import Terminal
+
+t = Terminal()
+
+
+def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
+  """This validation catches errors where argparse slurps up anything after the
+  required argument as a script_arg, EVEN if it's not separated by a --.
+
+  We do this instead of just parsing them directly so that we can still have a
+  nice help string provided by argparse.
+
+  """
+
+  def write(s):
+    sys.stderr.write(t.red(s))
+
+  # items before the double-dashes, expected script_args after.
+  pre_args, expected = u.split_by(argv, "--")
+  if items == expected:
+    return items
+
+  # get the extra arguments parsed BEFORE the dash. These were probably meant
+  # to be options to caliban itself.
+  pre_dashes, _ = u.split_by(items, "--")
+
+  joined = ' '.join(pre_dashes)
+  expected_s = ' '.join(expected)
+
+  # caliban arguments before these unexpected arguments.
+  before_pre_dashes = pre_args[:-len(pre_dashes)]
+
+  pwas = 'was' if len(pre_dashes) == 1 else 'were'
+  parg = 'argument' if len(pre_dashes) == 1 else 'arguments'
+
+  write(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments \
+but before the '--' separator and {pwas} not properly parsed.\n\n")
+  write(f"if you meant to pass these as script_args, try \
+moving them after the --, like this:\n\n")
+  write(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
+  write(f"Otherwise, if these are in fact caliban keyword arguments, \
+please move them before the python module name argument.\n\n")
+  sys.exit(1)
 
 
 def add_script_args(parser):
-  """Adds an argument group that slurps up all arguments provided after a '--'.
-
-  TODO this is broken in that it will start accepting arguments after ANY
-  unrecognized string. This means that if you provide keyword args after the
-  module you want to run, for example, they'll be interpreted as script args
-  and not used by Caliban.
-
-  We want the docstring this option provides but not the implementation.
+  """Adds an argument group that, paired with the validation above, slurps up all
+  arguments provided after a '--'.
 
   """
   parser.add_argument_group('pass-through arguments').add_argument(
       "script_args",
       nargs=REMAINDER,
       default=[],
+      metavar="-- YOUR_ARGS",
       help=
       """This is a catch-all for arguments you want to pass through to your script.
-any unfamiliar arguments will just pass right through.""")
+any arguments after '--' will pass through.""")
 
 
 def require_module(parser):
@@ -315,5 +353,10 @@ def parse_flags(argv):
   the results of parsing caliban arguments.
 
   """
-  ret = caliban_parser().parse_args(argv[1:])
+  args = argv[1:]
+  ret = caliban_parser().parse_args(args)
+
+  # Validate that extra script args were properly parsed.
+  validate_script_args(args, ret.script_args)
+
   return validate_across_args(ret)

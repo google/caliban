@@ -1,5 +1,15 @@
 # 0.1.4
 
+- the CLI will now error if you pass any caliban keyword arguments AFTER the
+  python module name, but before `--`. In previous versions, if you did something like
+
+```bash
+caliban cloud trainer.train --nogpu
+```
+
+  That final `--nogpu` would get passed on directly to your script, vs getting
+  absorbed by Caliban.
+
 - If you pass `--nogpu` mode and have a setup.py file, caliban will
   automatically pass `--extras cpu` and attempt to install an extras dependency
   called `cpu`. Same goes for `gpu` if you DON'T pass `--nogpu`. So, if you have

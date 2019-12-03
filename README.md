@@ -367,9 +367,9 @@ optional arguments:
                         small to take full advantage of Docker's build cache.
 
 pass-through arguments:
-  script_args           This is a catch-all for arguments you want to pass
-                        through to your script. any unfamiliar arguments will
-                        just pass right through.
+  -- YOUR_ARGS          This is a catch-all for arguments you want to pass
+                        through to your script. any arguments after '--' will
+                        pass through.
 ```
 
 ### caliban cloud
@@ -486,19 +486,19 @@ optional arguments:
                         $PROJECT_ID; errors if both the argument and
                         $PROJECT_ID are empty.)
   --region REGION       Region to use for Cloud job submission and image
-                        persistence. Must be one of ['us-west1', 'us-east1',
-                        'us-east4', 'us-west2', 'us-central1', 'europe-west1',
-                        'europe-west4', 'europe-north1', 'asia-southeast1',
-                        'asia-east1', 'asia-northeast1']. (Defaults to $REGION
-                        or 'us-central1'.)
+                        persistence. Must be one of ['us-east1', 'us-
+                        central1', 'us-east4', 'us-west2', 'us-west1',
+                        'europe-north1', 'europe-west1', 'europe-west4',
+                        'asia-east1', 'asia-northeast1', 'asia-southeast1'].
+                        (Defaults to $REGION or 'us-central1'.)
   --machine_type MACHINE_TYPE
                         Cloud machine type to request. Must be one of
-                        ['n1-highcpu-64', 'n1-highmem-4', 'n1-standard-16',
-                        'n1-standard-96', 'n1-highmem-16', 'n1-highmem-96',
-                        'n1-highmem-64', 'n1-highcpu-96', 'n1-standard-64',
-                        'n1-highmem-32', 'n1-standard-8', 'n1-highcpu-32',
-                        'n1-standard-32', 'n1-highmem-2', 'n1-highcpu-16',
-                        'n1-highmem-8', 'n1-standard-4', 'cloud_tpu'].
+                        ['n1-highmem-16', 'n1-standard-32', 'n1-highmem-64',
+                        'n1-highcpu-32', 'n1-highcpu-16', 'n1-highmem-2',
+                        'n1-standard-64', 'n1-highmem-96', 'n1-highmem-4',
+                        'n1-highmem-32', 'n1-standard-4', 'n1-standard-8',
+                        'n1-highcpu-96', 'n1-highmem-8', 'n1-standard-16',
+                        'n1-standard-96', 'n1-highcpu-64', 'cloud_tpu'].
                         Defaults to 'n1-standard-8' in GPU mode, or
                         'n1-highcpu-32' if --nogpu is passed.
   --gpu_spec NUMxGPU_TYPE
@@ -516,9 +516,9 @@ optional arguments:
                         happen.
 
 pass-through arguments:
-  script_args           This is a catch-all for arguments you want to pass
-                        through to your script. any unfamiliar arguments will
-                        just pass right through.
+  -- YOUR_ARGS          This is a catch-all for arguments you want to pass
+                        through to your script. any arguments after '--' will
+                        pass through.
 ```
 
 ## Contributing

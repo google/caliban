@@ -168,21 +168,26 @@ def expand_args(items: Dict[str, str]) -> List[str]:
   return list(it.chain.from_iterable(pairs))
 
 
-def parse_flags_with_usage(args, known_only=False):
-  """Tries to parse the flags, print usage, and exit if unparseable.
-  Args:
-    args: [str], a non-empty list of the command line arguments including
-        program name.
-  Returns:
-    [str], a non-empty list of remaining command line arguments after parsing
-    flags, including program name.
+def split_by(items: List[str],
+             separator: Optional[str] = None) -> Tuple[List[str], List[str]]:
+  """If the separator is present in the list, returns a 2-tuple of
+
+  - the items before the separator,
+  - all items after the separator.
+
+  If the separator isn't present, returns a tuple of
+
+  - (the original list, [])
+
   """
+  if separator is None:
+    separator = '--'
+
   try:
-    return flags.FLAGS(args, known_only=known_only)
-  except flags.Error as error:
-    sys.stderr.write('FATAL Flags parsing error: %s\n' % error)
-    sys.stderr.write('Pass --helpshort or --helpfull to see help on flags.\n')
-    sys.exit(1)
+    idx = items.index(separator)
+    return items[0:idx], items[idx + 1:]
+  except ValueError:
+    return (items, [])
 
 
 class TempCopy(object):
