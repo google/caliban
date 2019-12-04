@@ -17,6 +17,10 @@ from blessings import Terminal
 t = Terminal()
 
 
+def err(s):
+  sys.stderr.write(t.red(s))
+
+
 def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
   """This validation catches errors where argparse slurps up anything after the
   required argument as a script_arg, EVEN if it's not separated by a --.
@@ -25,9 +29,6 @@ def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
   nice help string provided by argparse.
 
   """
-
-  def write(s):
-    sys.stderr.write(t.red(s))
 
   # items before the double-dashes, expected script_args after.
   pre_args, expected = u.split_by(argv, "--")
@@ -47,12 +48,12 @@ def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
   pwas = 'was' if len(pre_dashes) == 1 else 'were'
   parg = 'argument' if len(pre_dashes) == 1 else 'arguments'
 
-  write(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments \
+  err(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments \
 but before the '--' separator and {pwas} not properly parsed.\n\n")
-  write(f"if you meant to pass these as script_args, try \
+  err(f"if you meant to pass these as script_args, try \
 moving them after the --, like this:\n\n")
-  write(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
-  write(f"Otherwise, if these are in fact caliban keyword arguments, \
+  err(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
+  err(f"Otherwise, if these are in fact caliban keyword arguments, \
 please move them before the python module name argument.\n\n")
   sys.exit(1)
 
@@ -269,11 +270,9 @@ fast.
 
   """
   if use_gpu and mode in ("shell", "notebook", "run"):
-    sys.stderr.write(
-        f"\n'caliban {mode}' doesn't support GPU usage on Macs! Please pass \
+    err(f"\n'caliban {mode}' doesn't support GPU usage on Macs! Please pass \
 --nogpu to use this command.\n\n")
-    sys.stderr.write(
-        "(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs \
+    err("(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs \
 locally.)\n\n")
     sys.exit(1)
 
@@ -285,8 +284,7 @@ def _validate_no_gpu_type(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec]):
   """
   gpu_disabled = not use_gpu
   if gpu_disabled and gpu_spec is not None:
-    sys.stderr.write(
-        f"\n'--nogpu' is incompatible with an explicit --gpu_spec option. \
+    err(f"\n'--nogpu' is incompatible with an explicit --gpu_spec option. \
 Please remove one or the other!\n\n")
     sys.exit(1)
 
@@ -303,11 +301,10 @@ def _validate_machine_type(gpu_spec: Optional[ct.GPUSpec],
       # prefixes stick together.
       allowed = u.enum_vals(gpu_spec.allowed_machine_types())
       allowed.sort()
-      sys.stderr.write(f"\n'{machine_type.value}' isn't a valid machine type \
+      err(f"\n'{machine_type.value}' isn't a valid machine type \
 for {gpu_spec.count} {gpu_spec.gpu.name} GPUs.\n\n")
-      sys.stderr.write(
-          ct.with_gpu_advice_suffix(f"Try one of these: {allowed}"))
-      sys.stderr.write("\n")
+      err(ct.with_gpu_advice_suffix(f"Try one of these: {allowed}"))
+      err("\n")
       sys.exit(1)
 
 
@@ -319,10 +316,10 @@ def _validate_gpu_region(spec: Optional[ct.GPUSpec], region: ct.Region):
       # prefixes stick together.
       allowed = u.enum_vals(spec.allowed_regions())
       allowed.sort()
-      sys.stderr.write(f"\n'{region}' isn't a valid region \
+      err(f"\n'{region}' isn't a valid region \
 for GPUs of type {spec.gpu.name}.\n\n")
-      sys.stderr.write(f"Try one of these: {allowed}\n\n")
-      sys.stderr.write(f"See this page for more info about regional \
+      err(f"Try one of these: {allowed}\n\n")
+      err(f"See this page for more info about regional \
 support for GPUs: https://cloud.google.com/ml-engine/docs/regions \n")
       sys.exit(1)
 
