@@ -357,6 +357,6 @@ def parse_flags(argv):
   ret = caliban_parser().parse_args(args)
 
   # Validate that extra script args were properly parsed.
-  validate_script_args(args, ret.script_args)
+  validate_script_args(args, vars(ret).get('script_args', []))
 
   return validate_across_args(ret)
