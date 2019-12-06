@@ -255,6 +255,36 @@ _AccelCountMT: Dict[Accelerator, Dict[int, Set[MachineType]]] = u.reorderm(
     COMPATIBILITY_TABLE, (1, 2, 0))
 
 
+def accelerator_name(is_gpu: bool) -> str:
+  return "GPU" if is_gpu else "TPU"
+
+
+def with_advice_suffix(accel: Union[Accelerator, str], s: str) -> str:
+  """Accepts either an accelerator instance or a string as its first arg (the str
+  can be 'gpu' or 'tpu', or any cased version of those) and a message string.
+
+  Returns a string with a suffix appended that links to the GPU or CPU
+  breakdown page, depending on the accelerator type.
+
+  """
+  if isinstance(accel, str):
+    is_gpu = accel.upper() == 'GPU'
+  else:
+    is_gpu = accel in GPU
+
+  ucase = accelerator_name(is_gpu)
+
+  if is_gpu:
+    url = "https://cloud.google.com/ml-engine/docs/using-gpus"
+  else:
+    url = "https://cloud.google.com/ml-engine/docs/tensorflow/using-tpus"
+
+  return f"""{s}
+For more help, consult this page for valid combinations of {ucase} count, {ucase} type and machine type:
+{url}
+"""
+
+
 def accelerator_counts(accel: Accelerator,
                        machine_type: Optional[MachineType] = None) -> Set[int]:
   """Returns the set of Accelerator count numbers valid for the supplied machine
@@ -277,13 +307,14 @@ def validate_accelerator_count(accel: Accelerator, count: int) -> int:
   returns the count.
 
   """
-  type_s = "GPU" if accel in GPU else "TPU"
+  is_gpu = accel in GPU
+  ucase = accelerator_name(is_gpu)
   valid_counts = accelerator_counts(accel)
   if not _AccelCountMT[accel].get(count):
     raise argparse.ArgumentTypeError(
-        with_gpu_advice_suffix(
-            f"{count} {type_s}s of type {accel.name} aren't available \
-for any machine type. Try one of the following counts: {valid_counts}"))
+        with_advice_suffix(
+            accel, f"{count} {ucase}s of type {accel.name} aren't available \
+for any machine type. Try one of the following counts: {valid_counts}\n"))
 
   return count
 
@@ -314,25 +345,46 @@ def parse_region(s: str) -> Region:
 Must be one of {valid_values}.")
 
 
-def _advice_suffix(accelerator_type: str, url: str, s: str) -> str:
-  ucase = accelerator_type.upper()
-  return f"""{s}
+def parse_accelerator_arg(s: str, mode: str, suffix: str):
+  mode = mode.upper()
+  assert mode in ("GPU", "TPU"), "Mode must be GPU or TPU."
 
-For more help, consult this page for valid combinations of {ucase} count, {ucase} type and machine type:
-{url}
-"""
+  items = s.split("x")
 
+  if len(items) != 2:
+    raise argparse.ArgumentTypeError(
+        with_advice_suffix(mode,
+                           f"{mode} arg '{s}' has no 'x' separator.\n{suffix}"))
 
-def with_gpu_advice_suffix(s: str) -> str:
-  """Appends a suffix with a link to the GPU breakdown page."""
-  url = "https://cloud.google.com/ml-engine/docs/using-gpus"
-  return _advice_suffix("gpu", url, s)
+  count_s, type_s = items
 
+  count = None
+  accelerator_type = None
 
-def with_tpu_advice_suffix(s: str) -> str:
-  """Appends a suffix with a link to the TPU breakdown page."""
-  url = "https://cloud.google.com/ml-engine/docs/tensorflow/using-tpus"
-  return _advice_suffix("tpu", url, s)
+  # Check that the number can parse at all.
+  try:
+    count = int(count_s)
+  except ValueError:
+    raise argparse.ArgumentTypeError(
+        with_advice_suffix(mode,
+                           f"The count '{count_s}' isn't a number!\n{suffix}"))
+
+  # Validate that we have a valid GPU type.
+  try:
+    accel_dict = GPU if mode == "GPU" else TPU
+    accelerator_type = accel_dict[type_s.upper()]
+
+  except KeyError:
+    all_types = list(map(lambda s: s.name, accel_dict))
+    raise argparse.ArgumentTypeError(
+        with_advice_suffix(
+            mode,
+            f"'{type_s}' isn't a valid {mode} type. Must be one of {all_types}.\n"
+        ))
+
+  validate_accelerator_count(accelerator_type, count)
+
+  return accelerator_type, count
 
 
 class GPUSpec(NamedTuple):
@@ -342,7 +394,7 @@ class GPUSpec(NamedTuple):
 
   METAVAR = "NUMxGPU_TYPE"
   _error_suffix = f"You must supply a string of the format {METAVAR}. \
-8xV100, for example."
+8xV100, for example.\n"
 
   @staticmethod
   def parse_arg(s: str) -> GPUSpec:
@@ -350,37 +402,16 @@ class GPUSpec(NamedTuple):
     instance.
 
     """
-    items = s.split("x")
-    if len(items) != 2:
-      raise argparse.ArgumentTypeError(
-          with_gpu_advice_suffix(f"GPU arg '{s}' has no 'x' separator.\n" +
-                                 GPUSpec._error_suffix))
+    gpu, count = parse_accelerator_arg(s, "GPU", GPUSpec._error_suffix)
+    return GPUSpec(gpu, count)
 
-    count_s, type_s = items
-    count = None
-    gpu_type = None
+  @property
+  def accelerator_type(self):
+    return accelerator_name(True)
 
-    # Check that the number can parse at all.
-    try:
-      count = int(count_s)
-    except ValueError:
-      raise argparse.ArgumentTypeError(
-          with_gpu_advice_suffix(f"The count '{count_s}' isn't a number!\n" +
-                                 GPUSpec._error_suffix))
-
-    # Validate that we have a valid GPU type.
-    try:
-      gpu_type = GPU[type_s.upper()]
-    except KeyError:
-      all_types = list(map(lambda s: s.name, GPU))
-      raise argparse.ArgumentTypeError(
-          with_gpu_advice_suffix(
-              f"""'{type_s}' isn't a valid GPU type. Must be one of {all_types}.\n
-          """))
-
-    validate_accelerator_count(gpu_type, count)
-
-    return GPUSpec(gpu_type, count)
+  @property
+  def name(self):
+    return self.gpu.name
 
   def accelerator_config(self):
     return {"type": self.gpu.value, "count": self.count}
@@ -405,15 +436,30 @@ class GPUSpec(NamedTuple):
 
 
 class TPUSpec(NamedTuple):
-  """Info to generate a TPU. Count has to be 8!
-
-  This is of course quite similar to GPUSpec above. There are much more
-  stringent requirements on TPUs, so I'm expecting that this class will develop
-  more specific methods.
-
-  """
+  """Info to generate a TPU."""
   tpu: TPU
   count: int
+
+  METAVAR = "NUMxTPU_TYPE"
+  _error_suffix = f"You must supply a string of the format {METAVAR}. \
+8xV2, for example."
+
+  @staticmethod
+  def parse_arg(s: str) -> TPUSpec:
+    """Parses a CLI string of the form COUNTxGPUType into a proper GPU spec
+    instance.
+
+    """
+    tpu, count = parse_accelerator_arg(s, "TPU", TPUSpec._error_suffix)
+    return TPUSpec(tpu, count)
+
+  @property
+  def accelerator_type(self):
+    return accelerator_name(False)
+
+  @property
+  def name(self):
+    return self.tpu.name
 
   def accelerator_config(self):
     return {"type": self.tpu.value, "count": self.count}

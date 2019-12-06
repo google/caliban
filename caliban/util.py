@@ -17,12 +17,20 @@ from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
                     Set, Tuple, Union)
 
 import tqdm
-from absl import flags, logging
+from absl import logging
+from blessings import Terminal
+
+t = Terminal()
 
 
 class Package(NamedTuple):
   package_path: str
   main_module: str
+
+
+def err(s: str) -> None:
+  """Prints the supplied string to stderr in red text."""
+  sys.stderr.write(t.red(s))
 
 
 def current_user() -> str:

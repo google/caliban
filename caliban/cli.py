@@ -3,22 +3,17 @@
 """
 import sys
 from argparse import REMAINDER
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import caliban.cloud as c
 import caliban.cloud.types as ct
 import caliban.config as conf
 import caliban.util as u
 from absl.flags import argparse_flags
+from blessings import Terminal
 from caliban import __version__
 
-from blessings import Terminal
-
 t = Terminal()
-
-
-def err(s):
-  sys.stderr.write(t.red(s))
 
 
 def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
@@ -48,12 +43,12 @@ def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
   pwas = 'was' if len(pre_dashes) == 1 else 'were'
   parg = 'argument' if len(pre_dashes) == 1 else 'arguments'
 
-  err(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments \
+  u.err(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments \
 but before the '--' separator and {pwas} not properly parsed.\n\n")
-  err(f"if you meant to pass these as script_args, try \
+  u.err(f"if you meant to pass these as script_args, try \
 moving them after the --, like this:\n\n")
-  err(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
-  err(f"Otherwise, if these are in fact caliban keyword arguments, \
+  u.err(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
+  u.err(f"Otherwise, if these are in fact caliban keyword arguments, \
 please move them before the python module name argument.\n\n")
   sys.exit(1)
 
@@ -118,7 +113,8 @@ def region_arg(parser):
       "--region",
       type=ct.parse_region,
       help=f"Region to use for Cloud job submission and image persistence. \
-Must be one of {regions}. (Defaults to $REGION or '{c.DEFAULT_REGION.value}'.)")
+Must be one of {regions}. \
+(Defaults to $REGION or '{c.DEFAULT_REGION.value}'.)")
 
 
 def machine_type_arg(parser):
@@ -142,14 +138,22 @@ def base_parser(base):
   setup_extras(base)
 
 
-def executing_parser(base):
-  """Augments the supplied base with options required by any parser that executes
-  code vs running some interactive process.
+def building_parser(base):
+  """Augments the supplied base with options required by any parser that builds a
+  docker image.
 
   """
   base_parser(base)
   require_module(base)
   extra_dirs(base)
+
+
+def executing_parser(base):
+  """Augments the supplied base with options required by any parser that executes
+  code vs running some interactive process.
+
+  """
+  building_parser(base)
   add_script_args(base)
 
 
@@ -189,6 +193,14 @@ def notebook_parser(base):
       help="Skip mounting the $HOME directory; run an isolated Jupyter lab.")
 
 
+def local_build_parser(base):
+  """Configure the subparser for `caliban run`."""
+  parser = base.add_parser(
+      'build',
+      help='Build a Docker image without submitting or running any code.')
+  building_parser(parser)
+
+
 def local_run_parser(base):
   """Configure the subparser for `caliban run`."""
   parser = base.add_parser('run', help='Run a job inside a Docker container.')
@@ -212,6 +224,12 @@ def cloud_parser(base):
       type=ct.GPUSpec.parse_arg,
       help=f"Type and number of GPUs to use for each AI Platform submission. \
 Defaults to 1x{c.DEFAULT_GPU.name} in GPU mode or None if --nogpu is passed.")
+
+  parser.add_argument("--tpu_spec",
+                      metavar=ct.TPUSpec.METAVAR,
+                      type=ct.TPUSpec.parse_arg,
+                      help=f"Type and number of TPUs to request for each \
+AI Platform submission. Defaults to None.")
 
   parser.add_argument(
       "--force",
@@ -256,6 +274,7 @@ def caliban_parser():
 
   shell_parser(subparser)
   notebook_parser(subparser)
+  local_build_parser(subparser)
   local_run_parser(subparser)
   cloud_parser(subparser)
   return parser
@@ -270,9 +289,10 @@ fast.
 
   """
   if use_gpu and mode in ("shell", "notebook", "run"):
-    err(f"\n'caliban {mode}' doesn't support GPU usage on Macs! Please pass \
+    u.err(f"\n'caliban {mode}' doesn't support GPU usage on Macs! Please pass \
 --nogpu to use this command.\n\n")
-    err("(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs \
+    u.err(
+        "(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs \
 locally.)\n\n")
     sys.exit(1)
 
@@ -284,7 +304,7 @@ def _validate_no_gpu_type(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec]):
   """
   gpu_disabled = not use_gpu
   if gpu_disabled and gpu_spec is not None:
-    err(f"\n'--nogpu' is incompatible with an explicit --gpu_spec option. \
+    u.err(f"\n'--nogpu' is incompatible with an explicit --gpu_spec option. \
 Please remove one or the other!\n\n")
     sys.exit(1)
 
@@ -301,26 +321,32 @@ def _validate_machine_type(gpu_spec: Optional[ct.GPUSpec],
       # prefixes stick together.
       allowed = u.enum_vals(gpu_spec.allowed_machine_types())
       allowed.sort()
-      err(f"\n'{machine_type.value}' isn't a valid machine type \
+      u.err(f"\n'{machine_type.value}' isn't a valid machine type \
 for {gpu_spec.count} {gpu_spec.gpu.name} GPUs.\n\n")
-      err(ct.with_gpu_advice_suffix(f"Try one of these: {allowed}"))
-      err("\n")
+      u.err(ct.with_gpu_advice_suffix(f"Try one of these: {allowed}"))
+      u.err("\n")
       sys.exit(1)
 
 
-def _validate_gpu_region(spec: Optional[ct.GPUSpec], region: ct.Region):
-  """Check that the supplied region is valid for the GPUSpec, if supplied."""
+def _validate_accelerator_region(spec: Optional[Union[ct.GPUSpec, ct.TPUSpec]],
+                                 region: ct.Region):
+  """Check that the supplied region is valid for the accelerator specification,
+  if supplied.
+
+  """
   if spec is not None:
+    accel = spec.accelerator_type
+
     if not spec.valid_region(region):
       # Show a list of the allowed types, sorted so that at least the machine
       # prefixes stick together.
       allowed = u.enum_vals(spec.allowed_regions())
       allowed.sort()
-      err(f"\n'{region}' isn't a valid region \
-for GPUs of type {spec.gpu.name}.\n\n")
-      err(f"Try one of these: {allowed}\n\n")
-      err(f"See this page for more info about regional \
-support for GPUs: https://cloud.google.com/ml-engine/docs/regions \n")
+      u.err(f"\n'{region.value}' isn't a valid region \
+for {accel}s of type {spec.name}.\n\n")
+      u.err(f"Try one of these: {allowed}\n\n")
+      u.err(f"See this page for more info about regional \
+support for {accel}s: https://cloud.google.com/ml-engine/docs/regions \n")
       sys.exit(1)
 
 
@@ -335,12 +361,18 @@ def validate_across_args(args) -> None:
     mac_gpu_check(command, use_gpu)
 
   if command == "cloud" and not m.get("force"):
-    spec = args.gpu_spec
-    _validate_no_gpu_type(use_gpu, spec)
+    region = conf.extract_region(vars(args))
+    gpu_spec = args.gpu_spec
+    tpu_spec = args.tpu_spec
+
+    _validate_no_gpu_type(use_gpu, gpu_spec)
+
+    # A TPU is valid with or without an attached GPU.
+    _validate_accelerator_region(tpu_spec, region)
+
     if use_gpu:
-      region = conf.extract_region(vars(args))
-      _validate_machine_type(spec, args.machine_type)
-      _validate_gpu_region(spec, region)
+      _validate_machine_type(gpu_spec, args.machine_type)
+      _validate_accelerator_region(gpu_spec, region)
 
   return args
 

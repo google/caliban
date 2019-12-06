@@ -152,8 +152,10 @@ def log_spec(spec: JobSpec, i: int) -> JobSpec:
   training_input = spec['trainingInput']
   machine_type = training_input['masterType']
   region = training_input['region']
-  accelerator = training_input['masterConfig']['acceleratorConfig']
-  image_uri = training_input['masterConfig']['imageUri']
+  masterConf = training_input['masterConfig']
+  accelerator = masterConf['acceleratorConfig']
+  image_uri = masterConf['imageUri']
+  workerConf = training_input.get('workerConfig')
   args = training_input['args']
 
   def prefixed(s: str, level=logging.INFO):
@@ -164,6 +166,11 @@ def log_spec(spec: JobSpec, i: int) -> JobSpec:
   prefixed(
       f"Accelerator: {accelerator}, machine: '{machine_type}', region: '{region}'"
   )
+  if workerConf is not None:
+    prefixed(
+        f"Worker config: {workerConf}, machine: '{training_input['workerType']}'"
+    )
+
   prefixed(f"Experiment arguments: {t.yellow(str(args))}")
   prefixed(f"labels: {spec['labels']}")
   return spec
@@ -327,6 +334,24 @@ def base_training_input(image_tag: str, region: ct.Region,
   }
 
 
+def tpu_fields(tpu_spec: Optional[ct.TPUSpec]) -> Dict[str, str]:
+  """Returns the fields necessary to append to a job request's trainingInput
+  field to activate TPU mode.
+
+  """
+  if tpu_spec is None:
+    return {}
+
+  return {
+      "workerCount": 1,
+      "workerType": "cloud_tpu",
+      "workerConfig": {
+          "acceleratorConfig": tpu_spec.accelerator_config(),
+          "tpuTfVersion": "1.14"
+      }
+  }
+
+
 def _job_spec(job_name: str, idx: int, training_input: Dict[str, Any],
               labels: Dict[str, str], uuid: str) -> JobSpec:
   """Returns the final object required by the Google AI Platform training job
@@ -383,8 +408,8 @@ def _job_specs(job_name: str, training_input: Dict[str, Any],
 def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
                     machine_type: ct.MachineType, script_args: List[str],
                     experiments: Iterable[Experiment],
-                    user_labels: Dict[str, str],
-                    gpu_spec: Optional[ct.GPUSpec]) -> Iterable[JobSpec]:
+                    user_labels: Dict[str, str], gpu_spec: Optional[ct.GPUSpec],
+                    tpu_spec: Optional[ct.TPUSpec]) -> Iterable[JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
 
@@ -402,10 +427,14 @@ def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
   training_input = base_training_input(image_tag, region, machine_type,
                                        accelerator_conf)
 
-  # TODO when we support TPUs this might take JobMode and use that instead.
+  # Add in TPU, potentially.
+  training_input.update(tpu_fields(tpu_spec))
+
   gpu_enabled = gpu_spec is not None
+  tpu_enabled = tpu_spec is not None
   base_labels = {
       "gpu_enabled": str(gpu_enabled).lower(),
+      "tpu_enabled": str(tpu_enabled).lower(),
       "job_name": job_name,
       **user_labels
   }
@@ -458,6 +487,7 @@ def submit_ml_job(use_gpu: bool,
                   job_name: Optional[str] = None,
                   machine_type: Optional[ct.MachineType] = None,
                   gpu_spec: Optional[ct.GPUSpec] = None,
+                  tpu_spec: Optional[ct.TPUSpec] = None,
                   labels: Optional[Dict[str, str]] = None,
                   experiment_config: Optional[ExpConf] = None,
                   script_args: Optional[List[str]] = None,
@@ -490,6 +520,8 @@ def submit_ml_job(use_gpu: bool,
   - gpu_spec: if None and use_gpu is true, defaults to a standard single GPU.
     Else, configures the count and type of GPUs to attach to the machine that
     runs each job.
+  - tpu_spec: if None, defaults to no TPU attached. Else, configures the count
+    and type of TPUs to attach to the machine that runs each job.
   - labels: dictionary of KV pairs to apply to each job. User args will also be
     applied as labels, plus a few default labels supplied by Caliban.
   - experiment_config: dict of string to list, boolean, string or int. Any
@@ -541,7 +573,8 @@ def submit_ml_job(use_gpu: bool,
                           script_args=script_args,
                           experiments=experiments,
                           user_labels=labels,
-                          gpu_spec=gpu_spec)
+                          gpu_spec=gpu_spec,
+                          tpu_spec=tpu_spec)
 
   if dry_run:
     return execute_dry_run(specs)

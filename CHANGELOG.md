@@ -1,3 +1,16 @@
+# 0.1.5
+
+- added support for `--tpu_spec` in `caliban cloud` mode. This validates in a
+  similar style to `--gpu_spec`; any invalid combination of count, region and
+  TPU type will fail.
+
+  (Unlike `--gpu_spec` this mode IS compatible with `--nogpu`. In fact, many
+  demos seem to use the non-GPU version of tensorflow here.)
+
+- added a `caliban build` mode that simply builds the image and returns the
+  image ID. Useful for checking if your image can build at all with the current
+  settings.
+
 # 0.1.4
 
 - the CLI will now error if you pass any caliban keyword arguments AFTER the

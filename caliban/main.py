@@ -39,7 +39,7 @@ def run_app(arg_input):
 
   # Arguments that make their way down to caliban.docker.build_image.
   docker_args = {
-      "extra_dirs": args.get("dirs"),
+      "extra_dirs": args.get("dir"),
       "requirements_path": reqs if os.path.exists(reqs) else None,
       "credentials_path": creds_path,
       "setup_extras": setup_extras
@@ -61,6 +61,10 @@ def run_app(arg_input):
                         mount_home=mount_home,
                         **docker_args)
 
+  elif command == "build":
+    package = args["module"]
+    docker.build_image(use_gpu, package=package, **docker_args)
+
   elif command == "run":
     package = args["module"]
     docker.submit_local(use_gpu, package, script_args, **docker_args)
@@ -73,6 +77,7 @@ def run_app(arg_input):
     package = args["module"]
     job_name = args.get("name")
     gpu_spec = args.get("gpu_spec")
+    tpu_spec = args.get("tpu_spec")
     machine_type = args.get("machine_type")
     exp_config = args.get("experiment_config")
     labels = u.sanitize_labels(args.get("label") or [])
@@ -88,6 +93,7 @@ def run_app(arg_input):
                         job_name=job_name,
                         machine_type=machine_type,
                         gpu_spec=gpu_spec,
+                        tpu_spec=tpu_spec,
                         labels=labels,
                         script_args=script_args,
                         experiment_config=exp_config)
