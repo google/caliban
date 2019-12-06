@@ -479,6 +479,27 @@ run your command again without {DRY_RUN_FLAG}."))
   return None
 
 
+def resolve_job_mode(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec],
+                     tpu_spec: Optional[ct.TPUSpec]) -> ct.JobMode:
+  """Encapsulates the slightly-too-complicated logic around the default job mode
+  to choose based on the values of the three incoming parameters.
+
+  """
+  if not use_gpu and gpu_spec is not None:
+    # This should never happen, due to our CLI validation.
+    raise AssertionError("gpu_spec isn't allowed for CPU only jobs!")
+
+  # Base mode.
+  mode = ct.JobMode.GPU if use_gpu else ct.JobMode.CPU
+
+  # For the specific case where there's no GPU specified and a TPU is, set the
+  # mode back to CPU and don't attach a GPU.
+  if gpu_spec is None and tpu_spec is not None:
+    mode = ct.JobMode.CPU
+
+  return mode
+
+
 def submit_ml_job(use_gpu: bool,
                   docker_args: Dict[str, Any],
                   region: ct.Region,
@@ -488,6 +509,7 @@ def submit_ml_job(use_gpu: bool,
                   machine_type: Optional[ct.MachineType] = None,
                   gpu_spec: Optional[ct.GPUSpec] = None,
                   tpu_spec: Optional[ct.TPUSpec] = None,
+                  image_tag: Optional[str] = None,
                   labels: Optional[Dict[str, str]] = None,
                   experiment_config: Optional[ExpConf] = None,
                   script_args: Optional[List[str]] = None,
@@ -522,6 +544,9 @@ def submit_ml_job(use_gpu: bool,
     runs each job.
   - tpu_spec: if None, defaults to no TPU attached. Else, configures the count
     and type of TPUs to attach to the machine that runs each job.
+  - image_tag: optional explicit tag of a Container-Registry-available Docker
+    container. If supplied, submit_ml_job will skip the docker build and push
+    phases and use this image_tag directly.
   - labels: dictionary of KV pairs to apply to each job. User args will also be
     applied as labels, plus a few default labels supplied by Caliban.
   - experiment_config: dict of string to list, boolean, string or int. Any
@@ -535,12 +560,7 @@ def submit_ml_job(use_gpu: bool,
     a timeout or a rate limiting request.
 
   """
-
-  job_mode = ct.JobMode.GPU if use_gpu else ct.JobMode.CPU
-
-  if job_mode == ct.JobMode.CPU:
-    # This should never happen, due to our CLI validation.
-    assert gpu_spec is None, "gpu_spec isn't allowed for CPU only jobs!"
+  job_mode = resolve_job_mode(use_gpu, gpu_spec, tpu_spec)
 
   if script_args is None:
     script_args = []
@@ -563,7 +583,8 @@ def submit_ml_job(use_gpu: bool,
   if request_retries is None:
     request_retries = 10
 
-  image_tag = _generate_image_tag(project_id, docker_args, dry_run=dry_run)
+  if image_tag is None:
+    image_tag = _generate_image_tag(project_id, docker_args, dry_run=dry_run)
 
   experiments = expand_experiment_config(experiment_config)
   specs = build_job_specs(job_name=job_name,

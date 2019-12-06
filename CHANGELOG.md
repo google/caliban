@@ -1,5 +1,29 @@
 # 0.1.5
 
+- `--experiment_config` can now take experiment configs via stdin (pipes, yay!);
+  specify `--experiment_config stdin`, or any-cased version of that, and the
+  script will wait to accept your input.
+
+  As an example, this command pipes in a config and also passes `--dry_run` to
+  show the series of jobs that WILL be submitted when the `--dry_run` flag is
+  removed:
+
+  ```
+  cat experiment.json | caliban cloud -e gpu --experiment_config stdin --dry_run trainer.train
+  ```
+
+  You could pipe the output of a nontrivial python script that generates a JSON
+  list of dicts.
+
+- `--image_tag` argument to `caliban cloud`; if you supply this it will bypass
+  the Docker build and push steps and use this image directly. This is useful if
+  you want to submit a job quickly without going through a no-op build and push,
+  OR if you want to broadcast an experiment to some existing container.
+
+- if you supply a `--tpu_spec` and DON'T supply an explicit `--gpu_spec`,
+  caliban will default to CPU mode. `--gpu_spec` and `--nogpu` are still
+  incompatible. You can use a GPU and TPU spec together without problems.
+
 - added support for `--tpu_spec` in `caliban cloud` mode. This validates in a
   similar style to `--gpu_spec`; any invalid combination of count, region and
   TPU type will fail.

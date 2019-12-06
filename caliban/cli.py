@@ -117,6 +117,13 @@ Must be one of {regions}. \
 (Defaults to $REGION or '{c.DEFAULT_REGION.value}'.)")
 
 
+def image_tag_arg(parser):
+  parser.add_argument(
+      "--image_tag",
+      help=f"Docker image tag accessible via Container Registry. If supplied, \
+Caliban will skip the build and push steps and use this image tag.")
+
+
 def machine_type_arg(parser):
   machine_types = u.enum_vals(ct.MachineType)
   cpu_default = c.DEFAULT_MACHINE_TYPE[c.JobMode.CPU].value
@@ -212,8 +219,7 @@ def cloud_parser(base):
   parser = base.add_parser('cloud', help='Submit AI platform jobs to Cloud.')
   executing_parser(parser)
 
-  # Custom cloud arguments.
-
+  image_tag_arg(parser)
   project_id_arg(parser)
   region_arg(parser)
   machine_type_arg(parser)
@@ -238,11 +244,10 @@ AI Platform submission. Defaults to None.")
 
   parser.add_argument("--name", help="Set a job name for AI Platform jobs.")
 
-  parser.add_argument("--experiment_config",
-                      type=u.compose(
-                          conf.validate_experiment_config,
-                          u.compose(conf.valid_json, u.validated_file)),
-                      help="Path to an experiment config.")
+  parser.add_argument(
+      "--experiment_config",
+      type=conf.load_experiment_config,
+      help="Path to an experiment config, or 'stdin' to read from stdin.")
 
   parser.add_argument("-l",
                       "--label",

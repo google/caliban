@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 import commentjson
 import yaml
 
+import caliban.util as u
 from caliban import cloud
 from caliban.cloud.core import Expansion, ExpConf
 
@@ -133,3 +134,13 @@ def validate_experiment_config(items: ExpConf) -> ExpConf:
   else:
     raise argparse.ArgumentTypeError(f"The experiment config is invalid! \
 The JSON file must contain either a dict or a list.")
+
+
+def load_experiment_config(s):
+  if s.lower() == 'stdin':
+    json = commentjson.load(sys.stdin)
+  else:
+    with open(u.validated_file(s)) as f:
+      json = commentjson.load(f)
+
+  return validate_experiment_config(json)

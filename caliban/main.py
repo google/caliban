@@ -78,6 +78,7 @@ def run_app(arg_input):
     job_name = args.get("name")
     gpu_spec = args.get("gpu_spec")
     tpu_spec = args.get("tpu_spec")
+    image_tag = args.get("image_tag")
     machine_type = args.get("machine_type")
     exp_config = args.get("experiment_config")
     labels = u.sanitize_labels(args.get("label") or [])
@@ -94,6 +95,7 @@ def run_app(arg_input):
                         machine_type=machine_type,
                         gpu_spec=gpu_spec,
                         tpu_spec=tpu_spec,
+                        image_tag=image_tag,
                         labels=labels,
                         script_args=script_args,
                         experiment_config=exp_config)
