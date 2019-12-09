@@ -29,6 +29,11 @@ class ConfigTestSuite(unittest.TestCase):
     with self.assertRaises(ArgumentTypeError):
       c.validate_experiment_config(lol_invalid)
 
+  def test_expand_experiment_config(self):
+    # An empty config expands to a singleton list. This is important so that
+    # single job submission without a spec works.
+    self.assertListEqual([{}], list(c.expand_experiment_config({})))
+
 
 if __name__ == '__main__':
   unittest.main()

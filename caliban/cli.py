@@ -3,17 +3,49 @@
 """
 import sys
 from argparse import REMAINDER
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-import caliban.cloud as c
+from absl.flags import argparse_flags
+from blessings import Terminal
+
 import caliban.cloud.types as ct
 import caliban.config as conf
 import caliban.util as u
-from absl.flags import argparse_flags
-from blessings import Terminal
 from caliban import __version__
 
 t = Terminal()
+
+
+def _job_mode(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec],
+              tpu_spec: Optional[ct.TPUSpec]) -> conf.JobMode:
+  """Encapsulates the slightly-too-complicated logic around the default job mode
+  to choose based on the values of three incoming parameters.
+
+  """
+  if not use_gpu and gpu_spec is not None:
+    # This should never happen, due to our CLI validation.
+    raise AssertionError("gpu_spec isn't allowed for CPU only jobs!")
+
+  # Base mode.
+  mode = conf.JobMode.GPU if use_gpu else conf.JobMode.CPU
+
+  # For the specific case where there's no GPU specified and a TPU is, set the
+  # mode back to CPU and don't attach a GPU.
+  if gpu_spec is None and tpu_spec is not None:
+    mode = conf.JobMode.CPU
+
+  return mode
+
+
+def resolve_job_mode(args: Dict[str, Any]) -> conf.JobMode:
+  """Similar to job_mode above; plucks the values out of a parsed CLI arg map vs
+  taking them directory.
+
+  """
+  use_gpu = args["use_gpu"]
+  gpu_spec = args.get("gpu_spec")
+  tpu_spec = args.get("tpu_spec")
+  return _job_mode(use_gpu, gpu_spec, tpu_spec)
 
 
 def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
@@ -76,10 +108,18 @@ def require_module(parser):
 
 
 def setup_extras(parser):
-  parser.add_argument("-e",
-                      "--extras",
+  parser.add_argument("--extras",
                       action="append",
                       help="setup.py dependency keys.")
+
+
+def docker_run_arg(parser):
+  """Adds a command that accepts arguments to pass directly to `docker run`.
+
+  """
+  parser.add_argument("--docker_run_args",
+                      type=lambda s: s.split(" "),
+                      help="String of args to add to Docker.")
 
 
 def extra_dirs(parser):
@@ -114,7 +154,7 @@ def region_arg(parser):
       type=ct.parse_region,
       help=f"Region to use for Cloud job submission and image persistence. \
 Must be one of {regions}. \
-(Defaults to $REGION or '{c.DEFAULT_REGION.value}'.)")
+(Defaults to $REGION or '{conf.DEFAULT_REGION.value}'.)")
 
 
 def image_tag_arg(parser):
@@ -126,8 +166,8 @@ Caliban will skip the build and push steps and use this image tag.")
 
 def machine_type_arg(parser):
   machine_types = u.enum_vals(ct.MachineType)
-  cpu_default = c.DEFAULT_MACHINE_TYPE[c.JobMode.CPU].value
-  gpu_default = c.DEFAULT_MACHINE_TYPE[c.JobMode.GPU].value
+  cpu_default = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.CPU].value
+  gpu_default = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.GPU].value
 
   parser.add_argument("--machine_type",
                       type=ct.parse_machine_type,
@@ -169,6 +209,7 @@ def shell_parser(base):
   parser = base.add_parser(
       'shell', help='Start an interactive shell with this dir mounted.')
   base_parser(parser)
+  docker_run_arg(parser)
   parser.add_argument(
       "--bare",
       action="store_true",
@@ -180,6 +221,7 @@ def notebook_parser(base):
   parser = base.add_parser('notebook',
                            help='Run a local Jupyter notebook instance.')
   base_parser(parser)
+  docker_run_arg(parser)
 
   # Custom notebook arguments.
   parser.add_argument(
@@ -212,6 +254,7 @@ def local_run_parser(base):
   """Configure the subparser for `caliban run`."""
   parser = base.add_parser('run', help='Run a job inside a Docker container.')
   executing_parser(parser)
+  docker_run_arg(parser)
 
 
 def cloud_parser(base):
@@ -229,7 +272,8 @@ def cloud_parser(base):
       metavar=ct.GPUSpec.METAVAR,
       type=ct.GPUSpec.parse_arg,
       help=f"Type and number of GPUs to use for each AI Platform submission. \
-Defaults to 1x{c.DEFAULT_GPU.name} in GPU mode or None if --nogpu is passed.")
+Defaults to 1x{conf.DEFAULT_GPU.name} in GPU mode or None if --nogpu is passed."
+  )
 
   parser.add_argument("--tpu_spec",
                       metavar=ct.TPUSpec.METAVAR,
@@ -257,7 +301,7 @@ AI Platform submission. Defaults to None.")
                       help="Extra label k=v pair to submit to Cloud.")
 
   parser.add_argument(
-      c.DRY_RUN_FLAG,
+      conf.DRY_RUN_FLAG,
       action="store_true",
       help="Don't actually submit; log everything that's going to happen.")
 
@@ -288,13 +332,14 @@ def caliban_parser():
 # Validations that require access to multiple arguments at once.
 
 
-def mac_gpu_check(mode: str, use_gpu: bool) -> None:
+def mac_gpu_check(job_mode: conf.JobMode, command: str) -> None:
   """If the command depends on 'docker run' and is running on a Mac, fail
 fast.
 
   """
-  if use_gpu and mode in ("shell", "notebook", "run"):
-    u.err(f"\n'caliban {mode}' doesn't support GPU usage on Macs! Please pass \
+  if conf.gpu(job_mode) and command in ("shell", "notebook", "run"):
+    u.err(
+        f"\n'caliban {command}' doesn't support GPU usage on Macs! Please pass \
 --nogpu to use this command.\n\n")
     u.err(
         "(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs \
@@ -360,12 +405,13 @@ def validate_across_args(args) -> None:
   m = vars(args)
 
   command = m["command"]
-  use_gpu = m.get("use_gpu")
 
   if u.is_mac():
-    mac_gpu_check(command, use_gpu)
+    job_mode = resolve_job_mode(m)
+    mac_gpu_check(job_mode, command)
 
   if command == "cloud" and not m.get("force"):
+    use_gpu = m.get("use_gpu")
     region = conf.extract_region(vars(args))
     gpu_spec = args.gpu_spec
     tpu_spec = args.tpu_spec

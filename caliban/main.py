@@ -26,11 +26,11 @@ def run_app(arg_input):
   script_args = c.extract_script_args(args)
 
   command = args["command"]
-  use_gpu = args["use_gpu"]
+  job_mode = cli.resolve_job_mode(args)
 
   # Get extra dependencies in case you want to install your requirements via a
   # setup.py file.
-  setup_extras = docker.base_extras("setup.py", use_gpu, args.get("extras"))
+  setup_extras = docker.base_extras(job_mode, "setup.py", args.get("extras"))
 
   creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
@@ -45,29 +45,39 @@ def run_app(arg_input):
       "setup_extras": setup_extras
   }
 
+  docker_run_args = args.get("docker_run_args", [])
+
   if command == "shell":
     mount_home = not args['bare']
-    docker.run_interactive(use_gpu, mount_home=mount_home, **docker_args)
+    docker.run_interactive(job_mode,
+                           run_args=docker_run_args,
+                           mount_home=mount_home,
+                           **docker_args)
 
   elif command == "notebook":
     port = args.get("port")
     lab = args.get("lab")
     version = args.get("jupyter_version")
     mount_home = not args['bare']
-    docker.run_notebook(use_gpu,
+    docker.run_notebook(job_mode,
                         port=port,
                         lab=lab,
                         version=version,
+                        run_args=docker_run_args,
                         mount_home=mount_home,
                         **docker_args)
 
   elif command == "build":
     package = args["module"]
-    docker.build_image(use_gpu, package=package, **docker_args)
+    docker.build_image(job_mode, package=package, **docker_args)
 
   elif command == "run":
     package = args["module"]
-    docker.submit_local(use_gpu, package, script_args, **docker_args)
+    docker.run(job_mode,
+               run_args=docker_run_args,
+               script_args=script_args,
+               package=package,
+               **docker_args)
 
   elif command == "cloud":
     project_id = c.extract_project_id(args)
@@ -84,9 +94,9 @@ def run_app(arg_input):
     labels = u.sanitize_labels(args.get("label") or [])
 
     # Arguments to internally build the image required to submit to Cloud.
-    docker_m = {"use_gpu": use_gpu, "package": package, **docker_args}
+    docker_m = {"job_mode": job_mode, "package": package, **docker_args}
 
-    cloud.submit_ml_job(use_gpu,
+    cloud.submit_ml_job(job_mode=job_mode,
                         docker_args=docker_m,
                         region=region,
                         project_id=project_id,

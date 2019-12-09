@@ -9,51 +9,19 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import tqdm
 from absl import logging
+from blessings import Terminal
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 
 import caliban.cloud.types as ct
+import caliban.config as conf
 import caliban.docker as d
 import caliban.util as u
-from blessings import Terminal
 
 t = Terminal()
 
-DRY_RUN_FLAG = "--dry_run"
-
-# Defaults for various input values that we can supply given some partial set
-# of info from the CLI.
-DEFAULT_REGION = ct.US.central1
-DEFAULT_MACHINE_TYPE: Dict[ct.JobMode, ct.MachineType] = {
-    ct.JobMode.CPU: ct.MachineType.highcpu_32,
-    ct.JobMode.GPU: ct.MachineType.standard_8,
-    ct.JobMode.TPU: ct.MachineType.cloud_tpu
-}
-DEFAULT_GPU = ct.GPU.P100
-
-# Config to supply for CPU jobs.
-DEFAULT_ACCELERATOR_CONFIG = {
-    "count": 0,
-    "type": "ACCELERATOR_TYPE_UNSPECIFIED"
-}
-
 # Marker type to make things more readable below.
 JobSpec = Dict[str, Any]
-
-# int, str and bool are allowed in a final experiment; lists are markers for
-# expansion.
-ExpValue = Union[int, str, bool]
-
-# Entry in an experiment config. If any values are lists they're expanded into
-# a sequence of experiment configs.
-Expansion = Dict[str, Union[ExpValue, List[ExpValue]]]
-
-# An experiment config can be a single (potentially expandable) dictionary, or
-# a list of many such dicts.
-ExpConf = Union[Expansion, List[Expansion]]
-
-# A final experiment can only contain valid ExpValues, no expandable entries.
-Experiment = Dict[str, ExpValue]
 
 
 def get_accelerator_config(gpu_spec: Optional[ct.GPUSpec]) -> Dict[str, Any]:
@@ -61,39 +29,12 @@ def get_accelerator_config(gpu_spec: Optional[ct.GPUSpec]) -> Dict[str, Any]:
   returns the default accelerator config.
 
   """
-  conf = DEFAULT_ACCELERATOR_CONFIG
+  conf = conf.DEFAULT_ACCELERATOR_CONFIG
 
   if gpu_spec is not None:
     conf = gpu_spec.accelerator_config()
 
   return conf
-
-
-def experiment_to_args(m: Experiment, base: List[str]) -> List[str]:
-  """Returns the list of flag keys and values that corresponds to the supplied
-  experiment.
-
-  Keys all expand to the full '--key_name' style that typical Python flags are
-  represented by.
-
-  All values except for boolean values are inserted as str(v). For boolean
-  values, if the value is True, the key is inserted by itself (in the format
-  --key_name). If the value is False, the key isn't inserted at all.
-
-  """
-  ret = [] + base
-
-  for k, v in m.items():
-    opt = f"--{k}"
-    if isinstance(v, bool):
-      # Append a flag if the boolean flag is true, else do nothing.
-      if v:
-        ret.append(opt)
-    else:
-      ret.append(f"--{k}")
-      ret.append(str(v))
-
-  return ret
 
 
 def job_url(project_id: str, job_id: str) -> str:
@@ -370,21 +311,9 @@ def _job_spec(job_name: str, idx: int, training_input: Dict[str, Any],
   }
 
 
-def expand_experiment_config(items: ExpConf) -> List[Experiment]:
-  """Expand out the experiment config for job submission to Cloud.
-
-  """
-  if isinstance(items, list):
-    return list(
-        itertools.chain.from_iterable(
-            [expand_experiment_config(m) for m in items]))
-
-  return list(u.dict_product(items))
-
-
 def _job_specs(job_name: str, training_input: Dict[str, Any],
                base_args: List[str], labels: Dict[str, str], uuid: str,
-               experiments: Iterable[Experiment]) -> Iterable[JobSpec]:
+               experiments: Iterable[conf.Experiment]) -> Iterable[JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
 
@@ -407,7 +336,7 @@ def _job_specs(job_name: str, training_input: Dict[str, Any],
 
 def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
                     machine_type: ct.MachineType, script_args: List[str],
-                    experiments: Iterable[Experiment],
+                    experiments: Iterable[conf.Experiment],
                     user_labels: Dict[str, str], gpu_spec: Optional[ct.GPUSpec],
                     tpu_spec: Optional[ct.TPUSpec]) -> Iterable[JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
@@ -474,33 +403,12 @@ def execute_dry_run(specs: List[JobSpec]) -> None:
   logging.info('')
   logging.info(
       t.yellow(f"To build your image and submit these jobs, \
-run your command again without {DRY_RUN_FLAG}."))
+run your command again without {conf.DRY_RUN_FLAG}."))
   logging.info('')
   return None
 
 
-def resolve_job_mode(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec],
-                     tpu_spec: Optional[ct.TPUSpec]) -> ct.JobMode:
-  """Encapsulates the slightly-too-complicated logic around the default job mode
-  to choose based on the values of the three incoming parameters.
-
-  """
-  if not use_gpu and gpu_spec is not None:
-    # This should never happen, due to our CLI validation.
-    raise AssertionError("gpu_spec isn't allowed for CPU only jobs!")
-
-  # Base mode.
-  mode = ct.JobMode.GPU if use_gpu else ct.JobMode.CPU
-
-  # For the specific case where there's no GPU specified and a TPU is, set the
-  # mode back to CPU and don't attach a GPU.
-  if gpu_spec is None and tpu_spec is not None:
-    mode = ct.JobMode.CPU
-
-  return mode
-
-
-def submit_ml_job(use_gpu: bool,
+def submit_ml_job(job_mode: conf.JobMode,
                   docker_args: Dict[str, Any],
                   region: ct.Region,
                   project_id: str,
@@ -511,7 +419,7 @@ def submit_ml_job(use_gpu: bool,
                   tpu_spec: Optional[ct.TPUSpec] = None,
                   image_tag: Optional[str] = None,
                   labels: Optional[Dict[str, str]] = None,
-                  experiment_config: Optional[ExpConf] = None,
+                  experiment_config: Optional[conf.ExpConf] = None,
                   script_args: Optional[List[str]] = None,
                   request_retries: Optional[int] = None) -> None:
   """Top level function in the module. This function:
@@ -525,8 +433,7 @@ def submit_ml_job(use_gpu: bool,
 
   Keyword args:
 
-  - use_gpu: if True, builds the supplied container in GPU mode and sets
-    machine_type and GPU defaults for the submitted jobs.
+  - job_mode: caliban.config.JobMode.
   - docker_args: these arguments are passed through to
     caliban.docker.build_image.
   - region: the region to use for AI Platform job submission. Different regions
@@ -539,7 +446,7 @@ def submit_ml_job(use_gpu: bool,
     and used as a prefix for all jobIds submitted to Cloud.
   - machine_type: the machine type to allocate for each job. Must be one
     supported by Cloud.
-  - gpu_spec: if None and use_gpu is true, defaults to a standard single GPU.
+  - gpu_spec: if None and job_mode is GPU, defaults to a standard single GPU.
     Else, configures the count and type of GPUs to attach to the machine that
     runs each job.
   - tpu_spec: if None, defaults to no TPU attached. Else, configures the count
@@ -560,19 +467,17 @@ def submit_ml_job(use_gpu: bool,
     a timeout or a rate limiting request.
 
   """
-  job_mode = resolve_job_mode(use_gpu, gpu_spec, tpu_spec)
-
   if script_args is None:
     script_args = []
 
   if job_name is None:
     job_name = f"caliban_{u.current_user()}"
 
-  if job_mode == ct.JobMode.GPU and gpu_spec is None:
+  if job_mode == conf.JobMode.GPU and gpu_spec is None:
     gpu_spec = ct.GPUSpec(ct.GPU.P100, 1)
 
   if machine_type is None:
-    machine_type = DEFAULT_MACHINE_TYPE[job_mode]
+    machine_type = conf.DEFAULT_MACHINE_TYPE[job_mode]
 
   if experiment_config is None:
     experiment_config = {}
@@ -586,7 +491,7 @@ def submit_ml_job(use_gpu: bool,
   if image_tag is None:
     image_tag = _generate_image_tag(project_id, docker_args, dry_run=dry_run)
 
-  experiments = expand_experiment_config(experiment_config)
+  experiments = conf.expand_experiment_config(experiment_config)
   specs = build_job_specs(job_name=job_name,
                           image_tag=image_tag,
                           region=region,

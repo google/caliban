@@ -5,16 +5,59 @@ Utilities for our job runner, for working with configs.
 from __future__ import absolute_import, division, print_function
 
 import argparse
+import itertools
 import os
 import sys
-from typing import Any, Dict, List
+from enum import Enum
+from typing import Any, Dict, List, Union
 
 import commentjson
 import yaml
 
+import caliban.cloud.types as ct
 import caliban.util as u
-from caliban import cloud
-from caliban.cloud.core import Expansion, ExpConf
+
+# int, str and bool are allowed in a final experiment; lists are markers for
+# expansion.
+ExpValue = Union[int, str, bool]
+
+# Entry in an experiment config. If any values are lists they're expanded into
+# a sequence of experiment configs.
+Expansion = Dict[str, Union[ExpValue, List[ExpValue]]]
+
+# An experiment config can be a single (potentially expandable) dictionary, or
+# a list of many such dicts.
+ExpConf = Union[Expansion, List[Expansion]]
+
+# A final experiment can only contain valid ExpValues, no expandable entries.
+Experiment = Dict[str, ExpValue]
+
+# Mode
+JobMode = Enum("JobMode", ("CPU", "GPU"))
+
+DRY_RUN_FLAG = "--dry_run"
+
+# Defaults for various input values that we can supply given some partial set
+# of info from the CLI.
+DEFAULT_REGION = ct.US.central1
+DEFAULT_MACHINE_TYPE: Dict[JobMode, ct.MachineType] = {
+    JobMode.CPU: ct.MachineType.highcpu_32,
+    JobMode.GPU: ct.MachineType.standard_8
+}
+DEFAULT_GPU = ct.GPU.P100
+
+# Config to supply for CPU jobs.
+DEFAULT_ACCELERATOR_CONFIG = {
+    "count": 0,
+    "type": "ACCELERATOR_TYPE_UNSPECIFIED"
+}
+
+
+def gpu(job_mode: JobMode) -> bool:
+  """Returns True if the supplied JobMode is JobMode.GPU, False otherwise.
+
+  """
+  return job_mode == JobMode.GPU
 
 
 def load_yaml_config(path):
@@ -83,15 +126,15 @@ explicitly via --project_id. Try again, please!")
   return project_id
 
 
-def extract_region(m: Dict[str, Any]) -> cloud.Region:
+def extract_region(m: Dict[str, Any]) -> ct.Region:
   """Returns the region specified in the args; defaults to an environment
   variable. If that's not supplied defaults to the default cloud provider from
   caliban.cloud.
 
   """
   return m.get("region") or \
-    cloud.parse_region(os.environ.get("REGION")) or \
-    cloud.DEFAULT_REGION
+    ct.parse_region(os.environ.get("REGION")) or \
+    DEFAULT_REGION
 
 
 def validate_expansion(m: Expansion) -> Expansion:
@@ -144,3 +187,42 @@ def load_experiment_config(s):
       json = commentjson.load(f)
 
   return validate_experiment_config(json)
+
+
+def expand_experiment_config(items: ExpConf) -> List[Experiment]:
+  """Expand out the experiment config for job submission to Cloud.
+
+  """
+  if isinstance(items, list):
+    return list(
+        itertools.chain.from_iterable(
+            [expand_experiment_config(m) for m in items]))
+
+  return list(u.dict_product(items))
+
+
+def experiment_to_args(m: Experiment, base: List[str]) -> List[str]:
+  """Returns the list of flag keys and values that corresponds to the supplied
+  experiment.
+
+  Keys all expand to the full '--key_name' style that typical Python flags are
+  represented by.
+
+  All values except for boolean values are inserted as str(v). For boolean
+  values, if the value is True, the key is inserted by itself (in the format
+  --key_name). If the value is False, the key isn't inserted at all.
+
+  """
+  ret = [] + base
+
+  for k, v in m.items():
+    opt = f"--{k}"
+    if isinstance(v, bool):
+      # Append a flag if the boolean flag is true, else do nothing.
+      if v:
+        ret.append(opt)
+    else:
+      ret.append(f"--{k}")
+      ret.append(str(v))
+
+  return ret

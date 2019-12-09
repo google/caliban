@@ -5,6 +5,7 @@ and notebooks in a Docker environment.
 
 from __future__ import absolute_import, division, print_function
 
+import itertools
 import os
 import subprocess
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Callable, Dict, List, NewType, Optional
 
 from absl import logging
 
+import caliban.config as c
 import caliban.util as u
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
@@ -22,7 +24,7 @@ CREDS_DIR = "/.creds"
 ImageId = NewType('ImageId', str)
 
 
-def tf_base_image(tensorflow_version: str, use_gpu: bool) -> str:
+def tf_base_image(job_mode: c.JobMode, tensorflow_version: str) -> str:
   """Returns the base image to use, depending on whether or not we're using a
   GPU. This is JUST for building our base images for Blueshift; not for
   actually using in a job.
@@ -34,17 +36,18 @@ def tf_base_image(tensorflow_version: str, use_gpu: bool) -> str:
     raise Exception(f"""{tensorflow_version} is not a valid tensorflow version.
     Try one of: {TF_VERSIONS}""")
 
-  gpu = "-gpu" if use_gpu else ""
+  gpu = "-gpu" if c.gpu(job_mode) else ""
   return f"tensorflow/tensorflow:{tensorflow_version}{gpu}-py3"
 
 
-def base_image_suffix(use_gpu: bool) -> str:
-  return "gpu" if use_gpu else "cpu"
+def base_image_suffix(job_mode: c.JobMode) -> str:
+  return "gpu" if c.gpu(job_mode) else "cpu"
 
 
-def base_image_id(use_gpu: bool) -> str:
+def base_image_id(job_mode: c.JobMode) -> str:
   """Returns the default base image for all caliban Dockerfiles."""
-  return "{}:{}".format(DEV_CONTAINER_ROOT, base_image_suffix(use_gpu))
+  base_suffix = base_image_suffix(job_mode)
+  return f"{DEV_CONTAINER_ROOT}:{base_suffix}"
 
 
 def extras_string(extras: List[str]) -> str:
@@ -60,7 +63,7 @@ def extras_string(extras: List[str]) -> str:
   return ret
 
 
-def base_extras(path: str, gpu_mode: bool,
+def base_extras(job_mode: c.JobMode, path: str,
                 extras: Optional[List[str]]) -> Optional[List[str]]:
   """Returns None if the supplied path doesn't exist (it's assumed it points to a
   setup.py file).
@@ -73,7 +76,7 @@ def base_extras(path: str, gpu_mode: bool,
 
   if os.path.exists(path):
     base = extras or []
-    extra = 'gpu' if gpu_mode else 'cpu'
+    extra = 'gpu' if c.gpu(job_mode) else 'cpu'
     ret = base if extra in base else [extra] + base
 
   return ret
@@ -192,7 +195,9 @@ def _custom_shell_entries(shell_cmd: Optional[str], user_id: int,
       ret = f"""
 USER root
 
-RUN apt-get install -y zsh
+RUN apt-get update && \
+      apt-get install -y --no-install-recommends zsh && \
+      rm -rf /var/lib/apt/lists/*
 
 USER {user_id}:{user_group}
 """
@@ -224,19 +229,20 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
   return ret
 
 
-def _dockerfile_template(workdir: str,
-                         use_gpu: bool,
-                         base_image_fn: Optional[Callable[[bool], str]] = None,
-                         package: Optional[u.Package] = None,
-                         requirements_path: Optional[str] = None,
-                         setup_extras: Optional[List[str]] = None,
-                         credentials_path: Optional[str] = None,
-                         jupyter_version: Optional[str] = None,
-                         inject_notebook: bool = False,
-                         shell_cmd: Optional[str] = None,
-                         extra_dirs: Optional[List[str]] = None) -> str:
+def _dockerfile_template(
+    job_mode: c.JobMode,
+    workdir: Optional[str] = None,
+    base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
+    package: Optional[u.Package] = None,
+    requirements_path: Optional[str] = None,
+    setup_extras: Optional[List[str]] = None,
+    credentials_path: Optional[str] = None,
+    jupyter_version: Optional[str] = None,
+    inject_notebook: bool = False,
+    shell_cmd: Optional[str] = None,
+    extra_dirs: Optional[List[str]] = None) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
-on the value of use_gpu) to create a container that:
+  on the value of job_mode) to create a container that:
 
   - installs any dependency specified in a requirements.txt file living at
     requirements_path, or any dependencies in a setup.py file, including extra
@@ -251,7 +257,7 @@ on the value of use_gpu) to create a container that:
   receive. It should be enough to add kwargs here, then rely on that mechanism
   to pass them along, vs adding kwargs all the way down the call chain.
 
-  Supply a custom base_image_fn (function from use_gpu -> image ID) to inject
+  Supply a custom base_image_fn (function from job_mode -> image ID) to inject
   more complex Docker commands into the Caliban environments by, for example,
   building your own image on top of the TF base images, then using that.
 
@@ -260,10 +266,13 @@ on the value of use_gpu) to create a container that:
   gid = os.getgid()
   username = u.current_user()
 
+  if workdir is None:
+    workdir = DEFAULT_WORKDIR
+
   if base_image_fn is None:
     base_image_fn = base_image_id
 
-  base_image = base_image_fn(use_gpu)
+  base_image = base_image_fn(job_mode)
 
   dockerfile = f"""
 FROM {base_image}
@@ -299,10 +308,11 @@ USER {uid}:{gid}
   if extra_dirs is not None:
     dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
 
-  if package is not None:
-    dockerfile += _package_entries(workdir, uid, gid, package)
-
   dockerfile += _custom_shell_entries(shell_cmd, uid, gid)
+
+  if package is not None:
+    # The actual entrypoint and final copied code.
+    dockerfile += _package_entries(workdir, uid, gid, package)
 
   return dockerfile
 
@@ -318,8 +328,7 @@ def docker_image_id(output: str) -> ImageId:
   return ImageId(output.splitlines()[-1].split()[-1])
 
 
-def build_image(use_gpu: bool,
-                workdir: Optional[str] = None,
+def build_image(job_mode: c.JobMode,
                 credentials_path: Optional[str] = None,
                 **kwargs) -> str:
   """Builds a Docker image by generating a Dockerfile and passing it to `docker
@@ -330,13 +339,9 @@ def build_image(use_gpu: bool,
   TODO better error printing if the build fails.
 
   """
-  if workdir is None:
-    workdir = DEFAULT_WORKDIR
-
   with u.TempCopy(credentials_path) as cred_path:
     cmd = ["docker", "build", "--rm", "-f-", os.getcwd()]
-    dockerfile = _dockerfile_template(workdir,
-                                      use_gpu,
+    dockerfile = _dockerfile_template(job_mode,
                                       credentials_path=cred_path,
                                       **kwargs)
 
@@ -353,12 +358,12 @@ def build_image(use_gpu: bool,
 
 def push_uuid_tag(project_id: str, image_id: str) -> str:
   """Takes a base image and tags it for upload, then pushes it to a remote Google
-  Cloud repository.
+  Container Registry.
 
   Returns the tag on a successful push.
 
   TODO should this just check first before attempting to push if the image
-  exists? Immutable names means that if the has is up there, we're done.
+  exists? Immutable names means that if the tag is up there, we're done.
   Potentially use docker-py for this.
 
   """
@@ -368,14 +373,21 @@ def push_uuid_tag(project_id: str, image_id: str) -> str:
   return image_tag
 
 
-def _run_cmd(use_gpu: bool) -> List[str]:
+def _run_cmd(job_mode: c.JobMode,
+             run_args: Optional[List[str]] = None) -> List[str]:
   """Returns the sequence of commands for the subprocess run functions required
-to execute `docker run`. in CPU or GPU mode, depending on the value of
-use_gpu.
+  to execute `docker run`. in CPU or GPU mode, depending on the value of
+  job_mode.
+
+  Keyword args:
+  - run_args: list of args to pass to docker run.
 
   """
-  runtime = ["--runtime", "nvidia"] if use_gpu else []
-  return ["docker", "run"] + runtime
+  if run_args is None:
+    run_args = []
+
+  runtime = ["--runtime", "nvidia"] if c.gpu(job_mode) else []
+  return ["docker", "run"] + runtime + ["--ipc", "host"] + run_args
 
 
 def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
@@ -391,45 +403,78 @@ def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
   return ret
 
 
-def _interactive_opts(workdir: str,
-                      kvs: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+def _interactive_opts(workdir: str) -> List[str]:
   """Returns the basic arguments we want to run a docker process locally.
+
   """
-  if kvs is None:
-    kvs = {}
-
-  base = {
-      "-w": workdir,
-      "-u": "{}:{}".format(os.getuid(), os.getgid()),
-      "-v": "{}:{}".format(os.getcwd(), workdir)
-  }
-  base.update(kvs)
-  return base
+  return [
+      "-w", workdir, \
+      "-u", f"{os.getuid()}:{os.getgid()}", \
+      "-v", f"{os.getcwd()}:{workdir}" \
+  ]
 
 
-def run_interactive(use_gpu: bool,
-                    workdir: Optional[str] = None,
-                    mount_home: Optional[bool] = None,
-                    run_options: Optional[Dict[str, str]] = None,
-                    entrypoint_args: Optional[List[str]] = None,
-                    shell_cmd: Optional[str] = None,
-                    entrypoint: Optional[str] = None,
-                    image_id: Optional[str] = None,
-                    **kwargs) -> None:
-  """Start a live shell in the terminal, with all dependencies installed and the
-current working directory (and optionally the user's home directory) mounted.
+def run(job_mode: c.JobMode,
+        run_args: Optional[List[str]] = None,
+        script_args: Optional[List[str]] = None,
+        image_id: Optional[str] = None,
+        **build_image_kwargs) -> None:
+  """Builds an image using the supplied **build_image_kwargs and calls `docker
+  run` on the resulting image using sensible defaults.
 
   Keyword args:
 
-  - use_gpu: True for GPU mode, False for CPU.
-  - workdir: the in-container directory to use for all mounts and files.
+  - job_mode: c.JobMode.
+
+  - run_args: extra arguments to supply to `docker run` after our defaults.
+  - script_args: extra arguments to supply to the entrypoint. (You can
+  - override the default container entrypoint by supplying a new one inside
+    run_args.)
+  - image_id: ID of the image to run. Supplying this will skip an image build.
+
+  any extra kwargs supplied are passed through to build_image.
+  """
+  if run_args is None:
+    run_args = []
+
+  if script_args is None:
+    script_args = []
+
+  if image_id is None:
+    image_id = build_image(job_mode, **build_image_kwargs)
+
+  base_cmd = _run_cmd(job_mode, run_args)
+  command = base_cmd + [image_id] + script_args
+
+  logging.info(f"Running command: {' '.join(command)}")
+  subprocess.call(command)
+
+
+# TODO convert run_options to a list instead of a dictionary and move it into
+# _run_cmd, then pass it as run_args.
+def run_interactive(job_mode: c.JobMode,
+                    workdir: Optional[str] = None,
+                    image_id: Optional[str] = None,
+                    run_args: Optional[List[str]] = None,
+                    mount_home: Optional[bool] = None,
+                    shell_cmd: Optional[str] = None,
+                    entrypoint: Optional[str] = None,
+                    entrypoint_args: Optional[List[str]] = None,
+                    **build_image_kwargs) -> None:
+  """Start a live shell in the terminal, with all dependencies installed and the
+  current working directory (and optionally the user's home directory) mounted.
+
+  Keyword args:
+
+  - job_mode: c.JobMode.
+  - image_id: ID of the image to run. Supplying this will skip an image build.
+  - run_args: extra arguments to supply to `docker run`.
   - mount_home: if true, mounts the user's $HOME directory into the container
     to `/home/$USERNAME`. If False, nothing.
-  - run_options: extra kv pairs to supply to `docker run`.
   - shell_cmd: command of the shell to install into the container. Also used as
     the entrypoint if that's not supplied.
   - entrypoint: command to run. Defaults to the shell_cmd.
-  - image_id: ID of the image to run. Supplying this will skip an image build.
+  - entrypoint_args: extra arguments to supply to the entrypoint.
 
   any extra kwargs supplied are passed through to build_image.
 
@@ -440,14 +485,14 @@ current working directory (and optionally the user's home directory) mounted.
   if workdir is None:
     workdir = DEFAULT_WORKDIR
 
-  if mount_home is None:
-    mount_home = True
-
-  if run_options is None:
-    run_options = {}
+  if run_args is None:
+    run_args = []
 
   if entrypoint_args is None:
     entrypoint_args = []
+
+  if mount_home is None:
+    mount_home = True
 
   if shell_cmd is None:
     # Only set a default shell if we're also mounting the home volume.
@@ -457,30 +502,26 @@ current working directory (and optionally the user's home directory) mounted.
   if entrypoint is None:
     entrypoint = shell_cmd
 
-  if image_id is None:
-    image_id = build_image(use_gpu,
-                           workdir=workdir,
-                           shell_cmd=shell_cmd,
-                           **kwargs)
+  interactive_run_args = _interactive_opts(workdir) + [
+      "-it", \
+      "--entrypoint", entrypoint
+  ] + _home_mount_cmds(mount_home) + run_args
 
-  run_opts = _interactive_opts(workdir, {
-      "-it": None,
-      "--entrypoint": entrypoint,
-      "--ipc": "host"
-  })
-  run_opts.update(run_options)
-
-  command = _run_cmd(use_gpu) + u.expand_args(run_opts) + _home_mount_cmds(
-      mount_home) + [image_id] + entrypoint_args
-  logging.info(f"Running command: {' '.join(command)}")
-  subprocess.call(command)
+  run(job_mode=job_mode,
+      run_args=interactive_run_args,
+      script_args=entrypoint_args,
+      image_id=image_id,
+      shell_cmd=shell_cmd,
+      workdir=workdir,
+      **build_image_kwargs)
 
 
-def run_notebook(use_gpu: bool,
+def run_notebook(job_mode: c.JobMode,
                  port: Optional[int] = None,
                  lab: Optional[bool] = None,
                  version: Optional[bool] = None,
-                 **kwargs) -> None:
+                 run_args: Optional[List[str]] = None,
+                 **run_interactive_kwargs) -> None:
   """Start a notebook in the current working directory; the process will run
   inside of a Docker container that's identical to the environment available to
   Cloud jobs that are submitted by `caliban cloud`, or local jobs run with
@@ -495,7 +536,7 @@ def run_notebook(use_gpu: bool,
   - lab: if True, starts jupyter lab, else jupyter notebook.
   - version: explicit Jupyter version to install.
 
-  kwargs are all extra arguments taken by run_interactive.
+  run_interactive_kwargs are all extra arguments taken by run_interactive.
 
   """
 
@@ -505,36 +546,22 @@ def run_notebook(use_gpu: bool,
   if lab is None:
     lab = False
 
-  jupyter_cmd = "lab" if lab else "notebook"
-  args = [
-      "-m", "jupyter", jupyter_cmd, "--ip=0.0.0.0", f"--port={port}",
-      "--no-browser"
-  ]
+  if run_args is None:
+    run_args = []
 
-  run_interactive(use_gpu,
+  jupyter_cmd = "lab" if lab else "notebook"
+  jupyter_args = [
+    "-m", "jupyter", jupyter_cmd, \
+    "--ip=0.0.0.0", \
+    f"--port={port}", \
+    "--no-browser"
+  ]
+  docker_args = ["-p", f"{port}:{port}"] + run_args
+
+  run_interactive(job_mode,
                   entrypoint="/opt/venv/bin/python",
-                  entrypoint_args=args,
-                  run_options={"-p": f"{port}:{port}"},
+                  entrypoint_args=jupyter_args,
+                  run_args=docker_args,
                   inject_notebook=True,
                   jupyter_version=version,
-                  **kwargs)
-
-
-def submit_local(use_gpu: bool,
-                 package: u.Package,
-                 args: Optional[List[str]] = None,
-                 **kwargs) -> None:
-  """Build and run a docker container locally that executes the supplied package
-  as its entrypoint and passes through all arguments in args.
-
-  kwargs are all extra arguments taken by build_image.
-
-  """
-  if args is None:
-    args = []
-
-  image_id = build_image(use_gpu, package=package, **kwargs)
-  command = _run_cmd(use_gpu) + ["--ipc", "host"] + [image_id] + args
-
-  logging.info(f"Running command: {' '.join(command)}")
-  subprocess.call(command)
+                  **run_interactive_kwargs)

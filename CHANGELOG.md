@@ -1,3 +1,11 @@
+# 0.1.6
+
+- `--docker_run_args` allows you to pass a string of arguments directly through
+  to `docker run`. This command works for `caliban run`, `caliban notebook` and
+  `caliban shell`.
+
+- `docker.py` reorganized, now takes explicit `JobMode` instances throughout.
+
 # 0.1.5
 
 - `--experiment_config` can now take experiment configs via stdin (pipes, yay!);
