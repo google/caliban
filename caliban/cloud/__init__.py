@@ -6,18 +6,15 @@ failing examples it finds.
 
 from __future__ import absolute_import, division, print_function
 
-from caliban.cloud.core import (DEFAULT_GPU, DEFAULT_MACHINE_TYPE,
-                                DEFAULT_REGION, DRY_RUN_FLAG, submit_ml_job)
-from caliban.cloud.types import JobMode, Region, parse_region, valid_regions
+from caliban.cloud.core import submit_ml_job
+from caliban.cloud.types import (GPUSpec, Region, TPUSpec, parse_region,
+                                 valid_regions)
 
 __all__ = [
-    "DEFAULT_GPU",
-    "DEFAULT_MACHINE_TYPE",
-    "DEFAULT_REGION",
-    "DRY_RUN_FLAG",
-    "JobMode",
+    "GPUSpec",
     "parse_region",
     "Region",
     "submit_ml_job",
+    "TPUSpec",
     "valid_regions",
 ]

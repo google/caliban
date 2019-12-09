@@ -215,14 +215,16 @@ class TempCopy(object):
 
   """
 
-  def __init__(self, original_path, tmp_name=None):
+  def __init__(self, original_path=None, tmp_name=None):
     if tmp_name is None:
       self.tmp_path = ".caliban_tmp_dev_key.json"
 
-    # handle tilde!
-    self.original_path = os.path.expanduser(original_path)
-    self.relative_path = None
-    self.full_path = None
+    self.original_path = None
+    if original_path:
+      # handle tilde!
+      self.original_path = os.path.expanduser(original_path)
+
+    self.path = None
 
   def __enter__(self):
     if self.original_path is None:
@@ -444,10 +446,11 @@ def validated_directory(path: str) -> str:
 
 
 def validated_file(path: str) -> str:
-  """This validates that the supplied directory exists locally.
+  """This validates that the supplied file exists. Tilde expansion is supported.
 
   """
-  if not os.path.isfile(path):
+  expanded = os.path.expanduser(path)
+  if not os.path.isfile(expanded):
     raise argparse.ArgumentTypeError(
         f"""File '{path}' isn't a valid file on your system. Try again!""")
   return path

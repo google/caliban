@@ -108,9 +108,6 @@ TPU = Enum(
 # type of accelerator.
 Accelerator = Union[GPU, TPU]
 
-# Mode
-JobMode = Enum("JobMode", ("CPU", "GPU", "TPU"))
-
 # Mapping between Accelerators and the regions where they're supported.
 #
 # From this page: https://cloud.google.com/ml-engine/docs/regions
