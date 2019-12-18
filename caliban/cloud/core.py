@@ -29,12 +29,12 @@ def get_accelerator_config(gpu_spec: Optional[ct.GPUSpec]) -> Dict[str, Any]:
   returns the default accelerator config.
 
   """
-  conf = conf.DEFAULT_ACCELERATOR_CONFIG
+  config = conf.DEFAULT_ACCELERATOR_CONFIG
 
   if gpu_spec is not None:
-    conf = gpu_spec.accelerator_config()
+    config = gpu_spec.accelerator_config()
 
-  return conf
+  return config
 
 
 def job_url(project_id: str, job_id: str) -> str:
@@ -324,7 +324,7 @@ def _job_specs(job_name: str, training_input: Dict[str, Any],
 
   """
   for idx, m in enumerate(experiments, 1):
-    args = experiment_to_args(m, base_args)
+    args = conf.experiment_to_args(m, base_args)
     yield _job_spec(job_name=job_name,
                     idx=idx,
                     training_input={
