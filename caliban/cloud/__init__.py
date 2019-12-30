@@ -6,7 +6,6 @@ failing examples it finds.
 
 from __future__ import absolute_import, division, print_function
 
-from caliban.cloud.core import submit_ml_job
 from caliban.cloud.types import (GPUSpec, Region, TPUSpec, parse_region,
                                  valid_regions)
 
@@ -14,7 +13,6 @@ __all__ = [
     "GPUSpec",
     "parse_region",
     "Region",
-    "submit_ml_job",
     "TPUSpec",
     "valid_regions",
 ]

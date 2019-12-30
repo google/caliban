@@ -146,6 +146,18 @@ def extract_cloud_key(m: Dict[str, Any]) -> Optional[str]:
     os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
 
+def expand_experiment_config(items: ExpConf) -> List[Experiment]:
+  """Expand out the experiment config for job submission to Cloud.
+
+  """
+  if isinstance(items, list):
+    return list(
+        itertools.chain.from_iterable(
+            [expand_experiment_config(m) for m in items]))
+
+  return list(u.dict_product(items))
+
+
 def validate_expansion(m: Expansion) -> Expansion:
   """Check that:
 
@@ -157,7 +169,7 @@ def validate_expansion(m: Expansion) -> Expansion:
     return isinstance(k, str)
 
   def valid_v(v):
-    types = [list, bool, str, int]
+    types = [list, bool, str, int, float]
     return any(map(lambda t: isinstance(v, t), types))
 
   for k, v in m.items():
@@ -166,8 +178,9 @@ def validate_expansion(m: Expansion) -> Expansion:
           f"Key '{k}' is invalid! Keys must be strings.")
 
     if not valid_v(v):
-      raise argparse.ArgumentTypeError(f"Value '{v}' is invalid! \
-Values must be strings, lists, ints or bools.")
+      raise argparse.ArgumentTypeError(f"Value '{v}' in the expanded \
+experiment config '{m}' is invalid! Values must be strings, \
+lists, ints, floats or bools.")
 
   return m
 
@@ -177,14 +190,12 @@ def validate_experiment_config(items: ExpConf) -> ExpConf:
   expansion itself. Returns the list/dict or throws an exception if invalid.
 
   """
-  if isinstance(items, list):
-    return [validate_experiment_config(item) for item in items]
+  if isinstance(items, list) or isinstance(items, dict):
+    for item in expand_experiment_config(items):
+      validate_expansion(item)
+    return items
 
-  elif isinstance(items, dict):
-    return validate_expansion(items)
-
-  else:
-    raise argparse.ArgumentTypeError(f"The experiment config is invalid! \
+  raise argparse.ArgumentTypeError(f"The experiment config is invalid! \
 The JSON file must contain either a dict or a list.")
 
 
@@ -196,18 +207,6 @@ def load_experiment_config(s):
       json = commentjson.load(f)
 
   return validate_experiment_config(json)
-
-
-def expand_experiment_config(items: ExpConf) -> List[Experiment]:
-  """Expand out the experiment config for job submission to Cloud.
-
-  """
-  if isinstance(items, list):
-    return list(
-        itertools.chain.from_iterable(
-            [expand_experiment_config(m) for m in items]))
-
-  return list(u.dict_product(items))
 
 
 def experiment_to_args(m: Experiment, base: List[str]) -> List[str]:

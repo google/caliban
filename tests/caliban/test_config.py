@@ -13,7 +13,11 @@ class ConfigTestSuite(unittest.TestCase):
     with self.assertRaises(ArgumentTypeError):
       c.validate_experiment_config(invalid)
 
-    valid = {"a": [1, 2, 3], "b": True, "c": 1, "d": "e"}
+    # a dict value is invalid, even if it's hidden in a list.
+    with self.assertRaises(ArgumentTypeError):
+      c.validate_experiment_config({"key": [{1: 2}, "face"]})
+
+    valid = {"a": [1.0, 2, 3], "b": True, "c": 1, "d": "e", "f": 1.2}
     self.assertDictEqual(valid, c.validate_experiment_config(valid))
 
     # Lists are okay too...

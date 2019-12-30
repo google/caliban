@@ -305,7 +305,7 @@ def _job_spec(job_name: str, idx: int, training_input: Dict[str, Any],
       "jobId": job_id,
       "trainingInput": training_input,
       "labels": {
-          **labels,
+          **u.sanitize_labels(labels),
           **u.script_args_to_labels(job_args)
       }
   }

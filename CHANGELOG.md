@@ -1,3 +1,12 @@
+# 0.1.7
+
+- Fixed a bug where the label for the job name wasn't getting properly
+  sanitized - this meant that if you provided an upper-cased job name job
+  submission would fail.
+- Fixed a bug that prevented parsing experiment config values that were floats.
+- experiment config parsing now performs the full expansion at CLI-parse-time
+  and validates every expanded config.
+
 # 0.1.6
 
 - `--docker_run_args` allows you to pass a string of arguments directly through

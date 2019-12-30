@@ -426,11 +426,15 @@ def script_args_to_labels(script_args: Optional[List[str]]) -> Dict[str, str]:
   return ret
 
 
-def sanitize_labels(pairs: List[Tuple[str, str]]) -> Dict[str, str]:
-  """Turns a list of unsanitized key-value pairs (represented by a tuple) into a
-  dictionary suitable to submit to Cloud as a label dict.
+def sanitize_labels(pairs: Union[Dict[str, str], List[Tuple[str, str]]]
+                   ) -> Dict[str, str]:
+  """Turns a dict, or a list of unsanitized key-value pairs (each represented by
+  a tuple) into a dictionary suitable to submit to Cloud as a label dict.
 
   """
+  if isinstance(pairs, dict):
+    return sanitize_labels(pairs.items())
+
   return {key_label(k): value_label(v) for (k, v) in pairs if key_label(k)}
 
 

@@ -424,16 +424,31 @@ class UtilTestSuite(unittest.TestCase):
     """Keys that are sanitized to the empty string should NOT make it through."""
     self.assertDictEqual({}, u.sanitize_labels([["--!!", "face"]]))
 
-  @given(st.lists(st.tuples(st.text(), st.text())))
+  @given(
+      st.one_of(non_empty_dict(st.text()),
+                st.lists(st.tuples(st.text(), st.text()))))
   def test_sanitize_labels(self, pairs):
     """Test that any input we could possibly be provided, as long as it parses into
     kv pairs, will only make it into a dict of labels if it's properly
     sanitized.
 
+    Checks that the functions works for dicts OR for lists of pairs.
+
     """
     for k, v in u.sanitize_labels(pairs).items():
       self.assertValidKeyLabel(k)
       self.assertValidLabel(v)
+
+  @given(st.lists(st.tuples(st.text(), st.text())))
+  def test_sanitize_labels_second_noop(self, pairs):
+    """Test that passing the output of sanitize_labels back into the function
+    returns its input. Sanitizing a set of sanitized kv pairs should have no
+    effect.
+
+    """
+    once = u.sanitize_labels(pairs)
+    twice = u.sanitize_labels(once)
+    self.assertDictEqual(once, twice)
 
 
 if __name__ == '__main__':
