@@ -2,6 +2,7 @@
 
 """
 import sys
+import os
 from argparse import REMAINDER
 from typing import Any, Dict, List, Optional, Union
 
@@ -11,6 +12,9 @@ from blessings import Terminal
 import caliban.cloud.types as ct
 import caliban.config as conf
 import caliban.util as u
+import caliban.docker as docker
+import caliban.cluster as cluster
+
 from caliban import __version__
 
 t = Terminal()
@@ -76,12 +80,12 @@ def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
   parg = 'argument' if len(pre_dashes) == 1 else 'arguments'
 
   u.err(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments \
-but before the '--' separator and {pwas} not properly parsed.\n\n")
+but before the '--' separator and {pwas} not properly parsed.\n\n"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
   u.err(f"if you meant to pass these as script_args, try \
-moving them after the --, like this:\n\n")
+moving them after the --, like this:\n\n"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
   u.err(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
   u.err(f"Otherwise, if these are in fact caliban keyword arguments, \
-please move them before the python module name argument.\n\n")
+please move them before the python module name argument.\n\n"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
   sys.exit(1)
 
 
@@ -104,7 +108,7 @@ def require_module(parser):
   parser.add_argument("module",
                       type=u.validated_package,
                       help="Code to execute, in either \
-'trainer.train' or 'trainer/train.py' format.")
+'trainer.train' or 'trainer/train.py' format."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
 
 
 def setup_extras(parser):
@@ -129,7 +133,7 @@ def extra_dirs(parser):
       action="append",
       type=u.validated_directory,
       help="Extra directories to include. List these from large to small \
-to take full advantage of Docker's build cache.")
+to take full advantage of Docker's build cache."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
 
 
 def no_gpu_flag(parser):
@@ -144,7 +148,7 @@ def project_id_arg(parser):
       "--project_id",
       help="ID of the GCloud AI Platform project to use for Cloud job \
 submission and image persistence. (Defaults to $PROJECT_ID; errors if \
-both the argument and $PROJECT_ID are empty.)")
+both the argument and $PROJECT_ID are empty.)"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
 
 
 def region_arg(parser):
@@ -154,21 +158,21 @@ def region_arg(parser):
       type=ct.parse_region,
       help=f"Region to use for Cloud job submission and image persistence. \
 Must be one of {regions}. \
-(Defaults to $REGION or '{conf.DEFAULT_REGION.value}'.)")
+(Defaults to $REGION or '{conf.DEFAULT_REGION.value}'.)"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
 
 
 def cloud_key_arg(parser):
   parser.add_argument("--cloud_key",
                       type=u.validated_file,
                       help=f"Path to GCloud service account key. \
-(Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)")
+(Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
 
 
 def image_tag_arg(parser):
   parser.add_argument(
       "--image_tag",
       help=f"Docker image tag accessible via Container Registry. If supplied, \
-Caliban will skip the build and push steps and use this image tag.")
+Caliban will skip the build and push steps and use this image tag."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
 
 
 def machine_type_arg(parser):
@@ -180,7 +184,7 @@ def machine_type_arg(parser):
                       type=ct.parse_machine_type,
                       help=f"Cloud machine type to request. Must be one of \
 {machine_types}. Defaults to '{gpu_default}' in GPU mode, or '{cpu_default}' \
-if --nogpu is passed.")
+if --nogpu is passed."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
 
 
 # Parsers for each command supported by Caliban.
@@ -265,9 +269,8 @@ def local_run_parser(base):
   docker_run_arg(parser)
 
 
-def cloud_parser(base):
-  """Configure the cloud subparser."""
-  parser = base.add_parser('cloud', help='Submit AI platform jobs to Cloud.')
+def container_parser(parser):
+
   executing_parser(parser)
 
   image_tag_arg(parser)
@@ -287,7 +290,7 @@ Defaults to 1x{conf.DEFAULT_GPU.name} in GPU mode or None if --nogpu is passed."
                       metavar=ct.TPUSpec.METAVAR,
                       type=ct.TPUSpec.parse_arg,
                       help=f"Type and number of TPUs to request for each \
-AI Platform submission. Defaults to None.")
+AI Platform submission. Defaults to None."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
 
   parser.add_argument(
       "--force",
@@ -314,6 +317,11 @@ AI Platform submission. Defaults to None.")
       help="Don't actually submit; log everything that's going to happen.")
 
 
+def cloud_parser(base):
+  parser = base.add_parser("cloud", help="Submit AI platform jobs to Cloud.")
+  container_parser(parser)
+  return
+
 def caliban_parser():
   """Creates and returns the argparse instance for the entire Caliban app."""
 
@@ -334,6 +342,8 @@ def caliban_parser():
   local_build_parser(subparser)
   local_run_parser(subparser)
   cloud_parser(subparser)
+  cluster.parser(subparser)
+
   return parser
 
 
@@ -348,10 +358,10 @@ fast.
   if conf.gpu(job_mode) and command in ("shell", "notebook", "run"):
     u.err(
         f"\n'caliban {command}' doesn't support GPU usage on Macs! Please pass \
---nogpu to use this command.\n\n")
+--nogpu to use this command.\n\n"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
     u.err(
         "(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs \
-locally.)\n\n")
+locally.)\n\n"                                                                                                                                                                                                                                                                                                                                                )
     sys.exit(1)
 
 
@@ -363,7 +373,7 @@ def _validate_no_gpu_type(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec]):
   gpu_disabled = not use_gpu
   if gpu_disabled and gpu_spec is not None:
     u.err(f"\n'--nogpu' is incompatible with an explicit --gpu_spec option. \
-Please remove one or the other!\n\n")
+Please remove one or the other!\n\n"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
     sys.exit(1)
 
 
@@ -380,7 +390,7 @@ def _validate_machine_type(gpu_spec: Optional[ct.GPUSpec],
       allowed = u.enum_vals(gpu_spec.allowed_machine_types())
       allowed.sort()
       u.err(f"\n'{machine_type.value}' isn't a valid machine type \
-for {gpu_spec.count} {gpu_spec.gpu.name} GPUs.\n\n")
+for {gpu_spec.count} {gpu_spec.gpu.name} GPUs.\n\n"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
       u.err(ct.with_gpu_advice_suffix(f"Try one of these: {allowed}"))
       u.err("\n")
       sys.exit(1)
@@ -401,10 +411,10 @@ def _validate_accelerator_region(spec: Optional[Union[ct.GPUSpec, ct.TPUSpec]],
       allowed = u.enum_vals(spec.allowed_regions())
       allowed.sort()
       u.err(f"\n'{region.value}' isn't a valid region \
-for {accel}s of type {spec.name}.\n\n")
+for {accel}s of type {spec.name}.\n\n"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
       u.err(f"Try one of these: {allowed}\n\n")
       u.err(f"See this page for more info about regional \
-support for {accel}s: https://cloud.google.com/ml-engine/docs/regions \n")
+support for {accel}s: https://cloud.google.com/ml-engine/docs/regions \n"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
       sys.exit(1)
 
 
@@ -448,3 +458,28 @@ def parse_flags(argv):
   validate_script_args(args, vars(ret).get('script_args', []))
 
   return validate_across_args(ret)
+
+
+def generate_docker_args(job_mode: conf.JobMode,
+                         args: Dict[str, Any]) -> Dict[str, Any]:
+  """gemerate docker args from args and job mode"""
+
+  # Get extra dependencies in case you want to install your requirements via a
+  # setup.py file.
+  setup_extras = docker.base_extras(job_mode, "setup.py", args.get("extras"))
+
+  # Google application credentials, from the CLI or from an env variable.
+  creds_path = conf.extract_cloud_key(args)
+
+  # TODO we may want to take a custom path, here, in addition to detecting it.
+  reqs = "requirements.txt"
+
+  # Arguments that make their way down to caliban.docker.build_image.
+  docker_args = {
+      "extra_dirs": args.get("dir"),
+      "requirements_path": reqs if os.path.exists(reqs) else None,
+      "credentials_path": creds_path,
+      "setup_extras": setup_extras
+  }
+
+  return docker_args

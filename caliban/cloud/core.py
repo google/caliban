@@ -376,7 +376,7 @@ def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
                     uuid=uuid)
 
 
-def _generate_image_tag(project_id, docker_args, dry_run: bool = False):
+def generate_image_tag(project_id, docker_args, dry_run: bool = False):
   """Generates a new Docker image and pushes an image to the user's GCloud
   Container Repository, tagged using the UUID of the generated image.
 
@@ -403,7 +403,7 @@ def execute_dry_run(specs: List[JobSpec]) -> None:
   logging.info('')
   logging.info(
       t.yellow(f"To build your image and submit these jobs, \
-run your command again without {conf.DRY_RUN_FLAG}."))
+run your command again without {conf.DRY_RUN_FLAG}."                                                                                                        ))
   logging.info('')
   return None
 
@@ -489,7 +489,7 @@ def submit_ml_job(job_mode: conf.JobMode,
     request_retries = 10
 
   if image_tag is None:
-    image_tag = _generate_image_tag(project_id, docker_args, dry_run=dry_run)
+    image_tag = generate_image_tag(project_id, docker_args, dry_run=dry_run)
 
   experiments = conf.expand_experiment_config(experiment_config)
   specs = build_job_specs(job_name=job_name,
