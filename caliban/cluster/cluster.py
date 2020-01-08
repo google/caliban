@@ -7,6 +7,7 @@ from enum import Enum
 import os
 from argparse import REMAINDER, ArgumentTypeError
 import re
+import sys
 
 # silence warnings about ssl connection not being verified
 import urllib3
@@ -43,6 +44,7 @@ import pprint as pp
 from time import sleep
 import requests
 import yaml
+import tqdm
 
 # ----------------------------------------------------------------------------
 # misc constants
@@ -73,6 +75,28 @@ _NVIDIA_DRIVER_COS_DAEMONSET_URL = 'https://raw.githubusercontent.com/GoogleClou
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 
 # ----------------------------------------------------------------------------
+def _user_verify(msg: str, default: bool) -> bool:
+
+  if default:
+    choice_str = '[Yn]]'
+  else:
+    choice_str = '[yN]'
+
+  while True:
+    ok = input(f'\n {msg} {choice_str}: ').lower()
+
+    if len(ok) == 0:
+      return default
+
+    if ok not in ['y', 'n']:
+      print('please enter y or n')
+      continue
+
+    return (ok == 'y')
+
+  return False
+
+# ----------------------------------------------------------------------------
 def _wait_for_operation(client: discovery.Resource,
                         name: str,
                         conditions: List[str] = ['DONE', 'ABORTING'],
@@ -95,14 +119,13 @@ def _wait_for_operation(client: discovery.Resource,
       logging.error(f'error getting operation {name}')
       return None
 
-    logging.info(rsp['status'])
-
     if rsp['status'] in conditions:
       return rsp
 
     sleep(sleep_sec)
 
   return None
+
 
 # ----------------------------------------------------------------------------
 def _validate_gpu_spec_against_limits(
@@ -135,6 +158,7 @@ def _validate_gpu_spec_against_limits(
     return False
 
   return True
+
 
 # ----------------------------------------------------------------------------
 def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
@@ -634,11 +658,11 @@ class Cluster(object):
       return True
 
     cluster_dict = dict([(c.name, c) for c in cluster_list])
-    if name not in cluster_dict:
-      logging.error(f'cluster {name} not found')
+    if self.name not in cluster_dict:
+      logging.error(f'cluster {self.name} not found')
       return False
 
-    self._gcp_cluster = cluster_dict[name]
+    self._gcp_cluster = cluster_dict[self.name]
 
     return True
 
@@ -844,6 +868,7 @@ class Cluster(object):
     list of node pools on success, None otherwise
     """
 
+    # todo: re-query this
     return self._gcp_cluster.node_pools
 
   # --------------------------------------------------------------------------
@@ -1165,7 +1190,7 @@ class Cluster(object):
     compute_api = googleapiclient.discovery.build(
         'compute', 'v1', credentials=self.credentials, cache_discovery=False)
 
-    zone_gpus = _get_zone_gpu_types(cluster.project_id, self.zone, compute_api)
+    zone_gpus = _get_zone_gpu_types(self.project_id, self.zone, compute_api)
 
     if zone_gpus is None:
       return False
@@ -1202,11 +1227,6 @@ class Cluster(object):
     V1DaemonSet on success, None otherwise
     """
 
-    if True:
-      print(f'applying daemonset, namespace: {namespace}')
-      pp.pprint(daemonset)
-      return None
-
     return _k(None)(self._apps_api.create_namespaced_daemon_set)(
         namespace=namespace, body=daemonset, async_req=False, pretty=True)
 
@@ -1214,11 +1234,12 @@ class Cluster(object):
   @connected(None)
   def apply_daemonset_from_url(
       self, url: str, parser: Callable[[str], dict]) -> Optional(V1DaemonSet):
-    """apply daemonset to cluster from yaml file url
+    """apply daemonset to cluster from file url
 
     Args:
-    url (str): url for yaml
-    parser (callable): parser for url data
+    url (str): url for data
+    parser (callable): parser for url data, must convert to dictionary or
+      V1DaemonSet
 
     Returns:
     V1DaemonSet on success, None otherwise
@@ -1236,6 +1257,36 @@ class Cluster(object):
       namespace = body['metadata'].get('namespace', _DEFAULT_NAMESPACE)
 
     return self.apply_daemonset(daemonset=body, namespace=namespace)
+
+  # --------------------------------------------------------------------------
+  @connected(False)
+  def delete(self):
+    """delete this cluster
+
+    Returns:
+    True on success, False otherwise
+    """
+
+    op = self._cluster_client.delete_cluster(
+        project_id=self.project_id, zone=self.zone, cluster_id=self.name)
+
+    if op is None:
+      logging.error(f'error deleting cluster {self.name}')
+      return
+
+    op_name = op.name
+    op = _wait_for_operation(
+        self._cluster_client,
+        f'projects/{self.name}/locations/{self.zone}/operations/{op_name}')
+
+    if rsp['status'] != 'DONE':
+      logging.error(f'error deleting cluster {self.name}')
+      return
+
+    print(f'successfully deleted cluster {self.name}')
+
+    return
+
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -1267,7 +1318,7 @@ def _with_cluster(fn):
   """decorator for cluster methods to get cluster from args"""
 
   def wrapper(args: dict, project_id: str, creds: Credentials):
-    cluster_name = args.get('cluster', None)
+    cluster_name = args.get('cluster_name', None)
 
     cluster = Cluster.get(
         name=cluster_name,
@@ -1304,20 +1355,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     for c in clusters:
       print(c)
 
-    abort = False
-    while True:
-      ok = input('\nDo you really want to create a new cluster? [yN]: ').lower()
-
-      if len(ok) == 0:
-        ok = 'n'
-
-      if ok not in ['y', 'n']:
-        print('please enter y or n')
-        continue
-      abort = (ok == 'n')
-      break
-
-    if abort:
+    if not _user_verify(
+        'Do you really want to create a new cluster?', default=False):
       return
 
   # --------------------------------------------------------------------------
@@ -1433,8 +1472,30 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   print(f'applying nvidia driver daemonset...')
 
   # now apply the nvidia-driver daemonset
-  rsp = cluster.apply_daemonset_from_url(_NVIDIA_DRIVER_COS_DAEMONSET_URL,
-                                         lambda x: yaml.load(x))
+  rsp = cluster.apply_daemonset_from_url(
+      _NVIDIA_DRIVER_COS_DAEMONSET_URL,
+      lambda x: yaml.load(x, Loader=yaml.FullLoader))
+  return
+
+
+# ----------------------------------------------------------------------------
+@_project_and_creds
+@_with_cluster
+def _cluster_delete(args: dict, cluster: Cluster) -> None:
+  """delete given cluster
+
+  Args:
+  args (dict): args
+  cluster (Cluster): cluster to delete
+
+  Returns:
+  None
+  """
+
+  if _user_verify(
+      f'Are you sure you want to delete {cluster.name}?', default=False):
+    cluster.delete()
+
   return
 
 
@@ -1447,7 +1508,7 @@ def _cluster_ls(args: dict, project_id: str, creds: Credentials) -> None:
   if clusters is None:
     return
 
-  cluster_name = args.get('cluster', None)
+  cluster_name = args.get('cluster_name', None)
 
   if cluster_name is not None:
     if cluster_name not in clusters:
@@ -1487,6 +1548,10 @@ def _node_pool_ls(args: dict, cluster: Cluster) -> None:
     ])
     print(FMT %
           (p.name, p.config.machine_type, accel, p.autoscaling.max_node_count))
+
+  cluster.apply_daemonset_from_url(
+      _NVIDIA_DRIVER_COS_DAEMONSET_URL,
+      lambda x: yaml.load(x, Loader=yaml.FullLoader))
 
   return
 
@@ -1901,9 +1966,10 @@ _JOB_SUBMIT_CMD = {
         'help': 'submit cluster job'
     },
     'add_arguments': [
-        _MODULE_FLAG, _NOGPU_FLAG, _CLOUD_KEY_FLAG, _EXTRAS_FLAG, _DIR_FLAG,
-        _IMAGE_TAG_FLAG, _PROJECT_FLAG, _MACHINE_TYPE_FLAG, _GPU_SPEC_FLAG,
-        _TPU_SPEC_FLAG, _PREEMPTIBLE_TPU_FLAG, _FORCE_FLAG, _JOB_NAME_FLAG,
+        _CLUSTER_NAME_FLAG, _MODULE_FLAG, _NOGPU_FLAG, _CLOUD_KEY_FLAG,
+        _EXTRAS_FLAG, _DIR_FLAG, _IMAGE_TAG_FLAG, _PROJECT_FLAG,
+        _MACHINE_TYPE_FLAG, _GPU_SPEC_FLAG, _TPU_SPEC_FLAG,
+        _PREEMPTIBLE_TPU_FLAG, _FORCE_FLAG, _JOB_NAME_FLAG,
         _EXPERIMENT_CONFIG_FLAG, _LABEL_FLAG, _PREEMPTIBLE_FLAG, _DRY_RUN_FLAG,
         _PASSTHROUGH_ARGS
     ],
@@ -2000,6 +2066,16 @@ _CLUSTER_CREATE_CMD = {
     'callback': _cluster_create
 }
 
+_CLUSTER_DELETE_CMD = {
+    'parser_name': 'delete',
+    'parser_kwargs': {
+        'description': 'delete cluster',
+        'help': 'delete cluster'
+    },
+    'add_arguments': [_CLUSTER_NAME_FLAG],
+    'callback': _cluster_delete
+}
+
 # ----------------------------------------------------------------------------
 # top-level cluster command dictionary
 _COMMAND_DICT = {
@@ -2014,7 +2090,7 @@ _COMMAND_DICT = {
         },
         'parsers': [
             _CLUSTER_LS_CMD, _POD_CMD_DICT, _JOB_CMD_DICT, _NODE_POOL_CMD_DICT,
-            _CLUSTER_CREATE_CMD
+            _CLUSTER_CREATE_CMD, _CLUSTER_DELETE_CMD
         ]
     }
 }
