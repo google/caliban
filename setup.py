@@ -20,7 +20,9 @@ setup(
     python_requires='>3.6.0',
     install_requires=[
         'absl-py', 'blessings', 'commentjson', 'google-api-python-client',
-        'pyyaml', 'tqdm'
+        'pyyaml', 'tqdm', 'kubernetes>=10.0.1', 'google-auth>=1.7.0',
+        'google-cloud-core>=1.0.3', 'google-cloud-container>=0.3.0',
+        'urllib3>=1.25.7'
     ],
     extras_require={
         # These are required for local development, but not for actually

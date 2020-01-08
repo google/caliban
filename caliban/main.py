@@ -13,6 +13,7 @@ import caliban.cloud.core as cloud
 import caliban.config as c
 import caliban.docker as docker
 import caliban.util as u
+import caliban.cluster as cluster
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
@@ -26,26 +27,12 @@ def run_app(arg_input):
   script_args = c.extract_script_args(args)
 
   command = args["command"]
+
+  if command == "cluster":
+    return cluster.run_cli_command(args)
+
   job_mode = cli.resolve_job_mode(args)
-
-  # Get extra dependencies in case you want to install your requirements via a
-  # setup.py file.
-  setup_extras = docker.base_extras(job_mode, "setup.py", args.get("extras"))
-
-  # Google application credentials, from the CLI or from an env variable.
-  creds_path = c.extract_cloud_key(args)
-
-  # TODO we may want to take a custom path, here, in addition to detecting it.
-  reqs = "requirements.txt"
-
-  # Arguments that make their way down to caliban.docker.build_image.
-  docker_args = {
-      "extra_dirs": args.get("dir"),
-      "requirements_path": reqs if os.path.exists(reqs) else None,
-      "credentials_path": creds_path,
-      "setup_extras": setup_extras
-  }
-
+  docker_args = cli.generate_docker_args(job_mode, args)
   docker_run_args = args.get("docker_run_args", [])
 
   if command == "shell":
