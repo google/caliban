@@ -3,6 +3,7 @@
 from absl.flags import argparse_flags
 import argparse
 
+
 # ----------------------------------------------------------------------------
 def parse_cmd_dict(parser, d: dict):
   """parse an 'argparse' dictionary
@@ -32,6 +33,7 @@ def parse_cmd_dict(parser, d: dict):
   if 'subparser' in d:
     sp = d['subparser']
     subparser = parser.add_subparsers(**(sp['kwargs']))
+    subparser.required = True
     if 'parsers' in sp:
       for p in sp['parsers']:
         parse_cmd_dict(subparser, p)
