@@ -31,6 +31,7 @@ US = Enum('US', u.dict_by(US_REGIONS, _vfn("us")))
 Europe = Enum('Europe', u.dict_by(EURO_REGIONS, _vfn("europe")))
 Asia = Enum('Asia', u.dict_by(ASIA_REGIONS, _vfn("asia")))
 Region = Union[US, Europe, Asia]
+Zone = str
 
 
 def valid_regions(zone: Optional[str] = None) -> List[Region]:

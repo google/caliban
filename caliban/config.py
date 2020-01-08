@@ -137,6 +137,10 @@ def extract_region(m: Dict[str, Any]) -> ct.Region:
     DEFAULT_REGION
 
 
+def extract_zone(m: Dict[str, Any]) -> str:
+  return f"{extract_region(m)}-a"
+
+
 def extract_cloud_key(m: Dict[str, Any]) -> Optional[str]:
   """Returns the Google service account key filepath specified in the args;
   defaults to the $GOOGLE_APPLICATION_CREDENTIALS variable.
