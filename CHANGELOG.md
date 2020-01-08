@@ -1,3 +1,7 @@
+# 0.1.8
+
+- TPU and GPU spec now accept validate_count arg to disable count validation.
+
 # 0.1.7
 
 - Fixed a bug where the label for the job name wasn't getting properly

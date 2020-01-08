@@ -311,7 +311,7 @@ def validate_accelerator_count(accel: Accelerator, count: int) -> int:
     raise argparse.ArgumentTypeError(
         with_advice_suffix(
             accel, f"{count} {ucase}s of type {accel.name} aren't available \
-for any machine type. Try one of the following counts: {valid_counts}\n"))
+for any machine type. Try one of the following counts: {valid_counts}\n"                                                                                                                                                                                                                                                                                                ))
 
   return count
 
@@ -326,7 +326,7 @@ def parse_machine_type(s: str) -> MachineType:
   except ValueError:
     valid_values = u.enum_vals(MachineType)
     raise argparse.ArgumentTypeError(f"'{s}' isn't a valid machine type. \
-Must be one of {valid_values}.")
+Must be one of {valid_values}."                                                                                                                            )
 
 
 def parse_region(s: str) -> Region:
@@ -339,10 +339,13 @@ def parse_region(s: str) -> Region:
   except ValueError:
     valid_values = u.enum_vals(valid_regions())
     raise argparse.ArgumentTypeError(f"'{s}' isn't a valid region. \
-Must be one of {valid_values}.")
+Must be one of {valid_values}."                                                                                                                            )
 
 
-def parse_accelerator_arg(s: str, mode: str, suffix: str):
+def parse_accelerator_arg(s: str,
+                          mode: str,
+                          suffix: str,
+                          validate_count: bool = True):
   mode = mode.upper()
   assert mode in ("GPU", "TPU"), "Mode must be GPU or TPU."
 
@@ -379,7 +382,8 @@ def parse_accelerator_arg(s: str, mode: str, suffix: str):
             f"'{type_s}' isn't a valid {mode} type. Must be one of {all_types}.\n"
         ))
 
-  validate_accelerator_count(accelerator_type, count)
+  if validate_count:
+    validate_accelerator_count(accelerator_type, count)
 
   return accelerator_type, count
 
@@ -394,12 +398,13 @@ class GPUSpec(NamedTuple):
 8xV100, for example.\n"
 
   @staticmethod
-  def parse_arg(s: str) -> GPUSpec:
+  def parse_arg(s: str, **kwargs) -> GPUSpec:
     """Parses a CLI string of the form COUNTxGPUType into a proper GPU spec
     instance.
 
     """
-    gpu, count = parse_accelerator_arg(s, "GPU", GPUSpec._error_suffix)
+    gpu, count = parse_accelerator_arg(s, "GPU", GPUSpec._error_suffix,
+                                       **kwargs)
     return GPUSpec(gpu, count)
 
   @property
@@ -442,12 +447,13 @@ class TPUSpec(NamedTuple):
 8xV2, for example."
 
   @staticmethod
-  def parse_arg(s: str) -> TPUSpec:
+  def parse_arg(s: str, **kwargs) -> TPUSpec:
     """Parses a CLI string of the form COUNTxGPUType into a proper GPU spec
     instance.
 
     """
-    tpu, count = parse_accelerator_arg(s, "TPU", TPUSpec._error_suffix)
+    tpu, count = parse_accelerator_arg(s, "TPU", TPUSpec._error_suffix,
+                                       **kwargs)
     return TPUSpec(tpu, count)
 
   @property

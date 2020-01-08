@@ -50,5 +50,33 @@ class TypesTestSuite(unittest.TestCase):
       # Invalid number for the valid GPU type.
       ct.GPUSpec.parse_arg("15xV100")
 
+    self.assertEqual(
+        ct.GPUSpec(ct.GPU.V100, 7),
+        ct.GPUSpec.parse_arg("7xV100", validate_count=False))
+
     # Valid!
     self.assertEqual(ct.GPUSpec(ct.GPU.V100, 8), ct.GPUSpec.parse_arg("8xV100"))
+
+  def test_tpuspec_parse_arg(self):
+    with self.assertRaises(ArgumentTypeError):
+      # invalid format string, no x separator.
+      ct.TPUSpec.parse_arg("face")
+
+    with self.assertRaises(ArgumentTypeError):
+      # Invalid number.
+      ct.TPUSpec.parse_arg("randomxV3")
+
+    with self.assertRaises(ArgumentTypeError):
+      # invalid TPU type.
+      ct.TPUSpec.parse_arg("8xNONSTANDARD")
+
+    with self.assertRaises(ArgumentTypeError):
+      # Invalid number for the valid TPU type.
+      ct.TPUSpec.parse_arg("15xV3")
+
+    self.assertEqual(
+        ct.TPUSpec(ct.TPU.V3, 7),
+        ct.TPUSpec.parse_arg("7xV3", validate_count=False))
+
+    # Valid!
+    self.assertEqual(ct.TPUSpec(ct.TPU.V3, 8), ct.TPUSpec.parse_arg("8xV3"))
