@@ -18,6 +18,7 @@ from google.cloud import container_v1
 from google.cloud.container_v1.types import Cluster as GCPCluster, NodePool
 from google.auth import compute_engine
 from google.auth.credentials import Credentials
+import google.auth.environment_vars as auth_env
 from google.oauth2 import service_account
 
 import googleapiclient
@@ -39,6 +40,9 @@ from caliban.cloud.types import (TPU, GPU, Accelerator, parse_machine_type,
                                  MachineType, GPUSpec, TPUSpec)
 from caliban.cluster.cli import parse_cmd_dict, invoke_command
 from caliban.cloud import generate_image_tag
+import caliban.gke.utils as utils
+import caliban.gke.constants as k
+from caliban.gke.types import NodeImage
 
 import pprint as pp
 from time import sleep
@@ -47,64 +51,21 @@ import yaml
 import tqdm
 
 # ----------------------------------------------------------------------------
-# misc constants
-_COMPUTE_SCOPE_URL = 'https://www.googleapis.com/auth/compute'
-_COMPUTE_READONLY_SCOPE_URL = 'https://www.googleapis.com/auth/compute.readonly'
-_CLOUD_PLATFORM_SCOPE_URL = 'https://www.googleapis.com/auth/cloud-platform'
-_CLOUD_PLATFORM_CREDENTIALS_ENV = 'GOOGLE_APPLICATION_CREDENTIALS'
-_KUBE_SYSTEM_NAMESPACE = 'kube-system'
-_DEFAULT_NAMESPACE = 'default'
-_BATCH_V1_VERSION = 'batch/v1'
-_NODE_SELECTOR_GKE_ACCELERATOR = 'cloud.google.com/gke-accelerator'
-_NODE_SELECTOR_INSTANCE_TYPE = 'beta.kubernetes.io/instance-type'
-_NODE_SELECTOR_PREEMPTIBLE = 'cloud.google.com/gke-preemptible'
-_CONTAINER_RESOURCE_LIMIT_TPU = 'cloud-tpus.google.com'  #/v2, /v3
-_CONTAINER_RESOURCE_LIMIT_GPU = 'nvidia.com/gpu'
-_TEMPLATE_META_ANNOTATION_TPU_TF_VERSION = 'tf-version.cloud-tpus.google.com'  #: "1.14"
-_ZONE_DEFAULT = '-'  # all zones
-_DEFAULT_MACHINE_TYPE_CPU = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.CPU].value
-_DEFAULT_MACHINE_TYPE_GPU = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.GPU].value
-_DEFAULT_GPU_SPEC = GPUSpec(GPU.P100, 1)
-_DASHBOARD_JOB_URL = 'https://pantheon.corp.google.com/kubernetes/job'
-_MAX_GB_PER_CPU = 64
-_DEFAULT_CLUSTER_NAME = 'blueshift'
-_NVIDIA_DRIVER_COS_DAEMONSET_URL = 'https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/cos/daemonset-preloaded.yaml'
-
-# ----------------------------------------------------------------------------
 # tone down logging from discovery
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 
-
 # ----------------------------------------------------------------------------
 def _user_verify(msg: str, default: bool) -> bool:
+  """prompts user to verify a choice
 
-  if default:
-    choice_str = '[Yn]]'
-  else:
-    choice_str = '[yN]'
+  Args:
+  msg: message to display to user
+  default: default value if user simply hit 'return'
 
-  while True:
-    ok = input(f'\n {msg} {choice_str}: ').lower()
-
-    if len(ok) == 0:
-      return default
-
-    if ok not in ['y', 'n']:
-      print('please enter y or n')
-      continue
-
-    return (ok == 'y')
-
-  return False
-
-
-# ----------------------------------------------------------------------------
-def _user_verify(msg: str, default: bool) -> bool:
-
-  if default:
-    choice_str = '[Yn]]'
-  else:
-    choice_str = '[yN]'
+  Returns:
+  boolean choice
+  """
+  choice_str = '[Yn]' if default else '[yN]'
 
   while True:
     ok = input(f'\n {msg} {choice_str}: ').lower()
@@ -125,13 +86,13 @@ def _wait_for_operation(client: discovery.Resource,
                         name: str,
                         conditions: List[str] = ['DONE', 'ABORTING'],
                         sleep_sec: int = 1) -> Optional[dict]:
-  """wait for cluster operation to reach given state(s)
+  """waits for cluster operation to reach given state(s)
 
   Args:
-  client (discovery.Resource(container)): api client
-  name (str): operation name, of form projects/*/locations/*/operations/*
-  conditions (list(str)): exit status conditions
-  sleep_sec (int): polling interval
+  client: api client
+  name: operation name, of form projects/*/locations/*/operations/*
+  conditions: exit status conditions
+  sleep_sec: polling interval
 
   Returns:
   response dictionary on success, None otherwise
@@ -152,44 +113,11 @@ def _wait_for_operation(client: discovery.Resource,
 
 
 # ----------------------------------------------------------------------------
-def _validate_gpu_spec_against_limits(
-    gpu_spec: GPUSpec,
-    gpu_limits: Dict[GPU, int],
-    limit_type: str,
-) -> bool:
-  """validate gpu spec against provided limits
-
-  Args:
-  gpu_spec (GPUSpec): gpu spec
-  gpu_limits (Dict(GPU, int)): limits
-  limit_type (str): label for error messages
-
-  Returns:
-  True if spec is valid, False otherwise
-  """
-
-  if gpu_spec.gpu not in gpu_limits:
-    logging.error(f'unsupported gpu type {gpu_spec.gpu.name}. ' +
-                  f'Supported types for {limit_type}:')
-    for g in gpu_limits:
-      print(g)
-      return False
-
-  if gpu_spec.count > gpu_limits[gpu_spec.gpu]:
-    logging.error(
-        f'error: requested {gpu_spec.gpu.name} gpu count {gpu_spec.count} unsupported,'
-        + f' {limit_type} max = {gpu_limits[gpu_spec.gpu]}')
-    return False
-
-  return True
-
-
-# ----------------------------------------------------------------------------
 def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
-  """parse zone into region and zone tuple
+  """parses zone into region and zone tuple
 
   Args:
-  zone (str): zone string
+  zone: zone string
 
   Returns:
   (region, zone) string tuple on success, None otherwise
@@ -210,7 +138,14 @@ def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
 
 # ----------------------------------------------------------------------------
 def _parse_tpu_spec(spec: str) -> TPUSpec:
-  """parse tpu spec, asserts if invalid"""
+  """parses tpu spec, asserts if invalid
+
+  Args:
+  spec: tpu spec string
+
+  Returns:
+  tpu spec
+  """
 
   tpu_spec_re = re.compile('^(?P<count>[0-9]+)x(?P<tpu>(V2|V3))$')
 
@@ -226,12 +161,12 @@ def _parse_tpu_spec(spec: str) -> TPUSpec:
 # ----------------------------------------------------------------------------
 def _get_zone_tpu_types(project_id: str, zone: str,
                         tpu_api: discovery.Resource) -> Optional[List[TPUSpec]]:
-  """get list of tpus available in given zone
+  """gets list of tpus available in given zone
 
   Args:
-  project_id (str): project id
-  zone (str): zone
-  tpu_api (discovery.Resource(tpu)): tpu api instance
+  project_id: project id
+  zone: zone string
+  tpu_api: tpu api instance
 
   Returns:
   list of supported tpu specs on success, None otherwise
@@ -262,12 +197,12 @@ def _get_zone_tpu_types(project_id: str, zone: str,
 def _get_zone_gpu_types(project_id: str, zone: str,
                         compute_api: discovery.Resource
                        ) -> Optional[List[GPUSpec]]:
-  """get list of gpu accelerators available in given zone
+  """gets list of gpu accelerators available in given zone
 
   Args:
-  project_id (str): project id
-  zone (str): zone
-  compute_api (discovery.Resource(compute)): compute api instance
+  project_id: project id
+  zone: zone string
+  compute_api: compute api instance
 
   Returns:
   list of GPUSpec on success (count is max count), None otherwise
@@ -275,8 +210,6 @@ def _get_zone_gpu_types(project_id: str, zone: str,
 
   rsp = compute_api.acceleratorTypes().list(project=project_id,
                                             zone=zone).execute()
-
-  pp.pprint(rsp)
 
   if rsp is None:
     logging.error('error getting accelerator types')
@@ -301,12 +234,12 @@ def _get_zone_gpu_types(project_id: str, zone: str,
 def _get_region_quotas(project_id: str, region: str,
                        compute_api: discovery.Resource
                       ) -> Optional[List[Dict[str, Any]]]:
-  """get compute quotas for given region
+  """gets compute quotas for given region
 
   Args:
-  project_id (str): project id
-  region (str): region
-  compute_api (discovery.Resource(compute)): compute_api instance
+  project_id: project id
+  region: region string
+  compute_api: compute_api instance
 
   Returns:
   list of quota dicts, with keys {'limit', 'metric', 'usage'}, None on error
@@ -329,12 +262,12 @@ def _get_region_quotas(project_id: str, region: str,
 def _generate_resource_limits(project_id: str, region: str,
                               compute_api: discovery.Resource
                              ) -> Optional[List[Dict[str, Any]]]:
-  """generate resource limits from quota information
+  """generates resource limits from quota information
 
   Args:
-  project_id (str): project id
-  region (str): region
-  compute_api (discovery.Resource(compute)): compute_api instance
+  project_id: project id
+  region: region string
+  compute_api: compute_api instance
 
   Returns:
   resource limits dictionary on success, None otherwise
@@ -356,7 +289,7 @@ def _generate_resource_limits(project_id: str, region: str,
       limits.append({'resourceType': 'cpu', 'maximum': str(limit)})
       limits.append({
           'resourceType': 'memory',
-          'maximum': str(int(limit) * _MAX_GB_PER_CPU)
+          'maximum': str(int(limit) * k.MAX_GB_PER_CPU)
       })
       continue
 
@@ -377,9 +310,10 @@ def _generate_resource_limits(project_id: str, region: str,
 
 # ----------------------------------------------------------------------------
 def _job_str(job: V1Job) -> str:
-  """format job string to remove all default (None) values
+  """formats job string to remove all default (None) values
 
-  Args: job (V1Job): job spec
+  Args:
+  job: job spec
 
   Returns:
   string describing job
@@ -404,7 +338,7 @@ def _job_str(job: V1Job) -> str:
 
 # ----------------------------------------------------------------------------
 def _sanitize_job_name(name: str) -> str:
-  """sanitize job name to fit DNS-1123 restrictions:
+  """sanitizes job name to fit DNS-1123 restrictions:
 
   ... a DNS-1123 subdomain must consist of lower case alphanumeric characters,
   '-' or '.', and must start and end with an alphanumeric character.
@@ -431,14 +365,20 @@ def _sanitize_job_name(name: str) -> str:
 
 
 # ----------------------------------------------------------------------------
-def default_credentials() -> Optional[Tuple(Credentials, str)]:
-  """get default cloud credentials
+def default_credentials() -> Tuple[Optional[Credentials], Optional[str]]:
+  """gets default cloud credentials
 
   Returns:
-  Credentials on success, None otherwise
+  tuple of credentials, project id
+
+  both credentials and project id may be None if unable to resolve
   """
-  creds, project_id = google.auth.default(
-      scopes=[_CLOUD_PLATFORM_SCOPE_URL, _COMPUTE_SCOPE_URL])
+  try:
+    creds, project_id = google.auth.default(
+        scopes=[k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL])
+  except google.auth.exceptions.DefaultCredentialsError as e:
+    return (None, None)
+
   creds.refresh(google.auth.transport.requests.Request())
 
   return (creds, project_id)
@@ -446,32 +386,18 @@ def default_credentials() -> Optional[Tuple(Credentials, str)]:
 
 # ----------------------------------------------------------------------------
 def credentials_from_file(cred_file: str) -> Optional[Credentials]:
-  """get cloud credentials from service account file
+  """gets cloud credentials from service account file
 
   Args:
-  cred_file (str): service account credentials file to read
+  cred_file: service account credentials file to read
 
   Returns:
   credentials on success, None otherwise
   """
 
   creds = service_account.Credentials.from_service_account_file(
-      cred_file, scopes=[_CLOUD_PLATFORM_SCOPE_URL, _COMPUTE_SCOPE_URL])
+      cred_file, scopes=[k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL])
 
-  creds.refresh(google.auth.transport.requests.Request())
-
-  return creds
-
-
-# ----------------------------------------------------------------------------
-def credentials_from_env() -> Optional[Credentials]:
-  """get cloud credentials from environment
-
-  Returns:
-  credentials on success, None otherwise
-  """
-  cred_file = os.environ[_CLOUD_PLATFORM_CREDENTIALS_ENV]
-  creds = credentials_from_file(cred_file)
   creds.refresh(google.auth.transport.requests.Request())
 
   return creds
@@ -482,13 +408,13 @@ def _get_gcp_clusters(client: ClusterManagerClient,
                       project_id: str,
                       creds: Credentials,
                       zone: str = '-') -> Optional[List[GCPCluster]]:
-  """get list of gcp clusters for given project, zone
+  """gets list of gcp clusters for given project, zone
 
   Args:
-  client (ClusterMangerClient): cluster api client
-  project_id (str): project id
-  creds (Credentials): credentials
-  zone (str): zone, - = all zones
+  client: cluster api client
+  project_id: project id
+  creds: credentials
+  zone: zone, - = all zones
 
   Returns:
   list of clusters on success, None otherwise
@@ -504,14 +430,14 @@ def _get_gcp_cluster(client: ClusterManagerClient,
                      project_id: str,
                      creds: Credentials,
                      zone: str = '-') -> Optional[GCPCluster]:
-  """get specific cluster instance by name
+  """gets specific cluster instance by name
 
   Args:
-  client (ClusterMangerClient): cluster api client
-  name (str): cluster name
-  project_id (str): project id
-  creds (Credentials): credentials
-  zone (str): zone, - = all zones
+  client: cluster api client
+  name: cluster name
+  project_id: project id
+  creds: credentials
+  zone: zone, - = all zones
 
   Returns:
   GCPCluster on success, None otherwise
@@ -534,7 +460,7 @@ def connected(error_value: Any) -> Any:
   """decorator for Cluster that checks connection status
 
   Args:
-  error_value (Any): return value on error
+  error_value: return value on error
 
   Returns:
   error_value if error connecting, function return value otherwise
@@ -561,7 +487,7 @@ def _k(error_value: Any) -> Any:
   This logs exceptions using logging.error()
 
   Args:
-  error_value (Any): value to return on error
+  error_value: value to return on error
 
   Returns:
   error_value on exception, function return value otherwise
@@ -608,7 +534,7 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   def connect(self) -> bool:
-    """connect to cluster instance
+    """connects to cluster instance
 
     Returns:
     True on success, False otherwise
@@ -650,7 +576,7 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   def _set_gcp_cluster(self) -> bool:
-    """set the gcp cluster for this instance
+    """sets the gcp cluster for this instance
 
     Returns:
     True on success, False otherwise
@@ -696,12 +622,12 @@ class Cluster(object):
   @staticmethod
   def list(project_id: str, creds: Credentials,
            zone: str = '-') -> Optional[List[str]]:
-    """get a list of clusters for given project and zone
+    """gets a list of clusters for given project and zone
 
     Args:
-    project_id (str): gcp project id
-    creds (Credentials): credentials
-    zone (str): zone, - = all zones
+    project_id: gcp project id
+    creds: credentials
+    zone: zone, - = all zones
 
     Returns:
     list of cluster names on success, None otherwise
@@ -726,9 +652,9 @@ class Cluster(object):
     already connected. If connect fails, then this method returns None.
 
     Args:
-    name (str): name of cluster, if None, auto-detect
-    project_id (str): project id
-    zone (str): zone, - = all zones
+    name: name of cluster, if None, auto-detect
+    project_id: project id
+    zone: zone, - = all zones
 
     Returns:
     cluster instance on success, None otherwise
@@ -747,14 +673,14 @@ class Cluster(object):
                        count: int = 1,
                        preemptible_tpu: bool = True
                       ) -> Optional[Dict[str, str]]:
-    """create container limits dictionary for given accelerator type and count
+    """creates container limits dictionary for given accelerator type and count
 
     Args:
-    accelerator (Accelerator): (optional) accelerator type
-    count (int): accelerator count
-    preemptible_tpu (bool): use preemptible tpus (valid only for v2-8 and v3-8)
-                            see: https://cloud.google.com/tpu/docs/preemptible
-                              this is ignored for other tpu specs
+    accelerator: accelerator type
+    count: accelerator count
+    preemptible_tpu: use preemptible tpus (valid only for v2-8 and v3-8)
+                     see: https://cloud.google.com/tpu/docs/preemptible
+                     this is ignored for other tpu specs
 
     Returns:
     None for cpu, limits dictionary for gpu/tpu
@@ -764,16 +690,16 @@ class Cluster(object):
       return None
 
     if type(accelerator) == GPU:
-      return {_CONTAINER_RESOURCE_LIMIT_GPU: count}
+      return {k.CONTAINER_RESOURCE_LIMIT_GPU: count}
 
     # todo: should we validate tpu/count compatibility here, or should we
     #       assume this is done upstream?
     if type(accelerator) == TPU:
       return {
           '/'.join([
-              _CONTAINER_RESOURCE_LIMIT_TPU,
-              ('preemptible-' if (preemptible_tpu and count == 8) else '') + accelerator.name.lower(
-              )
+              k.CONTAINER_RESOURCE_LIMIT_TPU,
+              ('preemptible-' if (preemptible_tpu and count == 8) else '') +
+              accelerator.name.lower()
           ]):
               count
       }
@@ -786,10 +712,10 @@ class Cluster(object):
   @staticmethod
   def template_metadata(accelerator: Optional[Accelerator] = None
                        ) -> Optional[V1ObjectMeta]:
-    """generate template metadata for given accelerator type
+    """generates template metadata for given accelerator type
 
     Args:
-    accelerator (Accelerator): (optional) accelerator type, or None for cpu
+    accelerator: accelerator type, or None for cpu
 
     Returns:
     template metadata necessary for given accelerator
@@ -799,7 +725,7 @@ class Cluster(object):
       # todo: right now this is set to 1.14, but need to pass this
       #       somehow...
       return V1ObjectMeta(
-          annotations={_TEMPLATE_META_ANNOTATION_TPU_TF_VERSION: '1.14'})
+          annotations={k.TEMPLATE_META_ANNOTATION_TPU_TF_VERSION: '1.14'})
 
     return None
 
@@ -809,12 +735,12 @@ class Cluster(object):
                     machine_type: Optional[MachineType] = None,
                     accelerator: Optional[Accelerator] = None
                    ) -> Optional[Dict[str, str]]:
-    """get node selector for given accelerator type and machine spec
+    """gets node selector for given accelerator type and machine spec
 
     Args:
-    preemptible (bool): request preemptible instance
-    machine_type (MachineType): (optional) machine type, None = not specified
-    accelerator (Accelerator): (optional) accelerator, or None for cpu
+    preemptible: request preemptible instance
+    machine_type: machine type, None = not specified
+    accelerator: accelerator, or None for cpu
 
     Returns:
     node selector dictionary for given criteria
@@ -823,15 +749,16 @@ class Cluster(object):
     selector = {}
 
     if preemptible:
-      selector[_NODE_SELECTOR_PREEMPTIBLE] = 'true'
+      selector[k.NODE_SELECTOR_PREEMPTIBLE] = 'true'
 
     if machine_type is not None:
-      selector[_NODE_SELECTOR_INSTANCE_TYPE] = machine_type.value
+      selector[k.NODE_SELECTOR_INSTANCE_TYPE] = machine_type.value
 
     # see: https://cloud.google.com/kubernetes-engine/docs/how-to/gpus
     if type(accelerator) == GPU:
-      selector[_NODE_SELECTOR_GKE_ACCELERATOR] = accelerator.value.lower(
-      ).replace('_', '-')
+      selector[
+          k.NODE_SELECTOR_GKE_ACCELERATOR] = accelerator.value.lower().replace(
+              '_', '-')
 
     if len(selector) == 0:
       return None
@@ -841,21 +768,30 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @staticmethod
   def tolerations(preemptible: bool = True) -> Optional[List[V1Toleration]]:
+    """creates tolerations for pod spec
+
+    Args:
+    preemptible: tolerate preemptible vm instances
+
+    Returns:
+    list of tolerations
+    """
 
     if not preemptible:
       return []
 
     return [
-        V1Toleration(key=_NODE_SELECTOR_PREEMPTIBLE,
-                     operator='Equal',
-                     value='true',
-                     effect='NoSchedule')
+        V1Toleration(
+            key=k.NODE_SELECTOR_PREEMPTIBLE,
+            operator='Equal',
+            value='true',
+            effect='NoSchedule')
     ]
 
   # --------------------------------------------------------------------------
   @connected(None)
   def pods(self) -> Optional[List[V1Pod]]:
-    """get a list of pods for this cluster
+    """gets a list of pods for this cluster
 
     Note that this filters out the pods in the kube-system namespace
 
@@ -869,7 +805,7 @@ class Cluster(object):
       return None
 
     cluster_pods = [
-        p for p in rsp.items if p.metadata.namespace != _KUBE_SYSTEM_NAMESPACE
+        p for p in rsp.items if p.metadata.namespace != k.KUBE_SYSTEM_NAMESPACE
     ]
 
     return cluster_pods
@@ -877,7 +813,7 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @connected(None)
   def jobs(self) -> Optional[List[V1Job]]:
-    """get a list of jobs for this cluster
+    """gets a list of jobs for this cluster
 
     Returns:
     list of V1Job instances on success, None otherwise
@@ -888,7 +824,7 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @connected(None)
   def node_pools(self) -> Optional[List[NodePool]]:
-    """get a list of node pools for this cluster
+    """gets a list of node pools for this cluster
 
     Returns:
     list of node pools on success, None otherwise
@@ -899,13 +835,14 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def submit_job(self, job: V1Job,
-                 namespace: str = _DEFAULT_NAMESPACE) -> Optional(V1Job):
-    """submit kubernetes
+  def submit_job(self,
+                 job: V1Job,
+                 namespace: str = k.DEFAULT_NAMESPACE) -> Optional(V1Job):
+    """submits kubernetes job to cluster
 
     Args:
-    job (V1Job): job spec
-    namespace (str): kubernetes namespace
+    job: job spec
+    namespace: kubernetes namespace
 
     Returns:
     V1Job on success, None otherwise
@@ -926,27 +863,26 @@ class Cluster(object):
                         env: Dict[str, str] = {},
                         accelerator: Optional[Accelerator] = None,
                         accelerator_count: int = 1,
-                        namespace: str = _DEFAULT_NAMESPACE,
+                        namespace: str = k.DEFAULT_NAMESPACE,
                         machine_type: Optional[MachineType] = None,
                         preemptible: bool = True,
                         labels: Optional[Dict[str, str]] = None,
                         preemptible_tpu: bool = True) -> Optional(V1Job):
-    """create a simple kubernetes job (1 container, 1 pod) for this cluster
+    """creates a simple kubernetes job (1 container, 1 pod) for this cluster
 
     Args:
-    name (str): job name
-    image (str): container image url (gcr.io/...)
-    command (list of strings): command to execute, None = container entrypoint
-    args (list of strings): args to pass to command
-    env (dictionary (str, str)): environment vars for container
-    accelerator (Accelerator): (optional) accelerator type, None=cpu only
-    accelerator_count (int): accelerator count
-    namespace (str): kubernetes namespace
-    machine_type (MachineType): (optional) machine type, None=default for mode
-      (cpu/gpu)
-    preemptible (bool): use preemptible instance
-    labels (dict(str,str)): (optional) labels to add to job metadata
-    preemptible_tpu (bool): use preemptible tpus
+    name: job name
+    image: container image url (gcr.io/...)
+    command: command to execute, None = container entrypoint
+    args: args to pass to command
+    env: environment vars for container
+    accelerator: accelerator type, None=cpu only
+    accelerator_count: accelerator count
+    namespace: kubernetes namespace
+    machine_type: machine type, None=default for mode (cpu/gpu)
+    preemptible: use preemptible instance
+    labels: labels to add to job metadata
+    preemptible_tpu: use preemptible tpus
 
     Returns:
     V1Job on success, None otherwise
@@ -1000,10 +936,11 @@ class Cluster(object):
     # always use generate_name here...todo: is this the best thing to do?
     job_metadata = V1ObjectMeta(generate_name=name + '-', labels=labels)
 
-    job = V1Job(api_version=_BATCH_V1_VERSION,
-                kind='Job',
-                metadata=job_metadata,
-                spec=job_spec)
+    job = V1Job(
+        api_version=k.BATCH_V1_VERSION,
+        kind='Job',
+        metadata=job_metadata,
+        spec=job_spec)
 
     return job
 
@@ -1017,24 +954,24 @@ class Cluster(object):
                         env: Dict[str, str] = {},
                         accelerator: Optional[Accelerator] = None,
                         accelerator_count: int = 1,
-                        namespace: str = _DEFAULT_NAMESPACE,
+                        namespace: str = k.DEFAULT_NAMESPACE,
                         preemptible: bool = True,
                         labels: Optional[Dict[str, str]] = None,
                         preemptible_tpu: bool = True) -> Optional(V1Job):
-    """submit a simple kubernetes job (1 container, 1 pod) for this cluster
+    """submits a simple kubernetes job (1 container, 1 pod) for this cluster
 
     Args:
-    name (str): job name
-    image (str): container image url (gcr.io/...)
-    command (list of strings): command to execute, None = container entrypoint
-    args (list of strings): args to pass to command
-    env (dictionary (str, str)): environment vars for container
-    accelerator (Accelerator): (optional) accelerator type, None=cpu only
-    accelerator_count (int): accelerator count
-    namespace (str): kubernetes namespace
-    preemptible (bool): use preemptible instance
-    labels (dict(str,str)): (optional) labels to add to job metadata
-    preemptible_tpu (bool): use preemptible tpus
+    name: job name
+    image: container image url (gcr.io/...)
+    command: command to execute, None = container entrypoint
+    args: args to pass to command
+    env: environment vars for container
+    accelerator: accelerator type, None=cpu only
+    accelerator_count: accelerator count
+    namespace: kubernetes namespace
+    preemptible: use preemptible instance
+    labels: labels to add to job metadata
+    preemptible_tpu: use preemptible tpus
 
     Returns:
     V1Job on success, None otherwise
@@ -1059,40 +996,39 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def create_simple_experiment_jobs(self,
-                                    name: str,
-                                    image: str,
-                                    experiments: Iterable[conf.Experiment],
-                                    command: Optional(List[str]) = None,
-                                    args: Optional[List[str]] = None,
-                                    env: Dict[str, str] = {},
-                                    accelerator: Optional[Accelerator] = None,
-                                    accelerator_count: int = 1,
-                                    namespace: str = _DEFAULT_NAMESPACE,
-                                    machine_type: Optional[MachineType] = None,
-                                    preemptible: bool = True,
-                                    labels: Optional[Dict[str, str]] = None,
-                                    preemptible_tpu: bool = True
-                                   ) -> Iterable[V1Job]:
-    """create an iterable of V1Job instances for a set of experiments for
+  def create_simple_experiment_jobs(
+      self,
+      name: str,
+      image: str,
+      experiments: Iterable[conf.Experiment],
+      command: Optional(List[str]) = None,
+      args: Optional[List[str]] = None,
+      env: Dict[str, str] = {},
+      accelerator: Optional[Accelerator] = None,
+      accelerator_count: int = 1,
+      namespace: str = k.DEFAULT_NAMESPACE,
+      machine_type: Optional[MachineType] = None,
+      preemptible: bool = True,
+      labels: Optional[Dict[str, str]] = None,
+      preemptible_tpu: bool = True) -> Iterable[V1Job]:
+    """creates an iterable of V1Job instances for a set of experiments for
 
     this cluster
 
     Args:
-    name (str): job name
-    image (str): container image url (gcr.io/...)
-    experiments (iterable of conf.Experiment): experiment list
-    command (list of strings): command to execute, None = container entrypoint
-    args (list of strings): args to pass to command
-    env (dictionary (str, str)): environment vars for container
-    accelerator (Accelerator): (optional) accelerator type, None=cpu only
-    accelerator_count (int): accelerator count
-    namespace (str): kubernetes namespace
-    machine_type (MachineType): (optional) machine type, None=default for mode
-      (cpu/gpu)
-    preemptible (bool): use preemptible instances
-    labels (dict(str,str)): (optional) labels to add to job metadata
-    preemptible_tpu (bool): use preemptible tpus
+    name: job name
+    image: container image url (gcr.io/...)
+    experiments: experiment list
+    command: command to execute, None = container entrypoint
+    args: args to pass to command
+    env: environment vars for container
+    accelerator: accelerator type, None=cpu only
+    accelerator_count: accelerator count
+    namespace: kubernetes namespace
+    machine_type: machine type, None=default for mode (cpu/gpu)
+    preemptible: use preemptible instances
+    labels: labels to add to job metadata
+    preemptible_tpu: use preemptible tpus
 
     Returns:
     V1Job iterable on success, None otherwise
@@ -1118,6 +1054,15 @@ class Cluster(object):
   def convert_accel_spec(gpu_spec: Optional[GPUSpec],
                          tpu_spec: Optional[TPUSpec]
                         ) -> Optional[Tuple[Accelerator, int]]:
+    """converts gpu/tpu spec pair to accelerator,count tuple
+
+    Args:
+    gpu_spec: gpu spec
+    tpu_spec: tpu spec
+
+    Returns:
+    (Accelerator, count) tuple, (none, count) tuple if cpu-only, None on error
+    """
 
     if gpu_spec is not None and tpu_spec is not None:
       logging.error('error: cannot specify both tpu and gpu')
@@ -1136,12 +1081,25 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def dashboard_url(self, job: V1Job) -> Optional[str]:
-    """return dashboard url for given job"""
+  def dashboard_url(self) -> str:
+    """returns gcp dashboard url for this cluster"""
+    return utils.dashboard_cluster_url(self.name, self.zone, self.project_id)
+
+  # --------------------------------------------------------------------------
+  @connected(None)
+  def job_dashboard_url(self, job: V1Job) -> Optional[str]:
+    """returns dashboard url for given job
+
+    Args:
+    job: job spec
+
+    Returns:
+    dashboard url for given job, None on error
+    """
 
     md = job.metadata
 
-    url = f'{_DASHBOARD_JOB_URL}/{self.zone}/{self.name}'
+    url = f'{k.DASHBOARD_JOB_URL}/{self.zone}/{self.name}'
     url += f'/{md.namespace}/{md.name}'
 
     return url
@@ -1149,7 +1107,11 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @connected(None)
   def get_tpu_types(self) -> Optional[List[TPUSpec]]:
-    """get supported tpu types for cluster"""
+    """gets supported tpu types for cluster
+
+    Returns:
+    list of supported tpu types on success, None otherwise
+    """
 
     tpu_api = googleapiclient.discovery.build('tpu',
                                               'v1',
@@ -1161,7 +1123,11 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @connected(None)
   def get_gpu_types(self) -> Optional[List[GPUSpec]]:
-    """get supported gpu types for cluster"""
+    """gets supported gpu types for cluster
+
+    Returns:
+    list of supported gpu types on success, None otherwise
+    """
 
     container_api = googleapiclient.discovery.build(
         'container', 'v1', credentials=self.credentials, cache_discovery=False)
@@ -1203,11 +1169,13 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   def validate_gpu_spec(self, gpu_spec: Optional[GPUSpec]) -> bool:
-    """validate gpu spec against zone and cluster contraints
+    """validates gpu spec against zone and cluster contraints
 
     Args
-    gpu_spec (GPUSpec): gpu spec
+    gpu_spec: gpu spec
 
+    Returns:
+    True if valid spec, False otherwise
     """
     if gpu_spec is None:
       return True
@@ -1225,7 +1193,7 @@ class Cluster(object):
       return False
 
     gpu_limits = dict([(x.gpu, x.count) for x in zone_gpus])
-    if not _validate_gpu_spec_against_limits(gpu_spec, gpu_limits, 'zone'):
+    if not utils.validate_gpu_spec_against_limits(gpu_spec, gpu_limits, 'zone'):
       return False
 
     # ------------------------------------------------------------------------
@@ -1235,25 +1203,26 @@ class Cluster(object):
       return False
 
     gpu_limits = dict([(x.gpu, x.count) for x in available_gpu])
-    if not _validate_gpu_spec_against_limits(gpu_spec, gpu_limits, 'cluster'):
+    if not utils.validate_gpu_spec_against_limits(gpu_spec, gpu_limits,
+                                                  'cluster'):
       return False
 
     return True
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def apply_daemonset(self,
-                      daemonset: V1DaemonSet,
-                      namespace: str = _DEFAULT_NAMESPACE
-                     ) -> Optional(V1DaemonSet):
-    """apply daemonset to cluster
+  def apply_daemonset(
+      self,
+      daemonset: V1DaemonSet,
+      namespace: str = k.DEFAULT_NAMESPACE) -> Optional(V1DaemonSet):
+    """applies daemonset to cluster
 
     Args:
-    daemonset (V1DaemonSet): daemonset
-    namespace (str): kubernetes namespace
+    daemonset: daemonset
+    namespace: kubernetes namespace
 
     Returns:
-    V1DaemonSet on success, None otherwise
+    V1DaemonSet (with status) on success, None otherwise
     """
 
     return _k(None)(self._apps_api.create_namespaced_daemon_set)(
@@ -1263,12 +1232,11 @@ class Cluster(object):
   @connected(None)
   def apply_daemonset_from_url(
       self, url: str, parser: Callable[[str], dict]) -> Optional(V1DaemonSet):
-    """apply daemonset to cluster from file url
+    """applies daemonset to cluster from file url
 
     Args:
-    url (str): url for data
-    parser (callable): parser for url data, must convert to dictionary or
-      V1DaemonSet
+    url: url for data
+    parser: parser for url data, must convert to dictionary or V1DaemonSet
 
     Returns:
     V1DaemonSet on success, None otherwise
@@ -1281,9 +1249,9 @@ class Cluster(object):
 
     body = parser(response.content)
 
-    namespace = _DEFAULT_NAMESPACE
+    namespace = k.DEFAULT_NAMESPACE
     if 'metadata' in body:
-      namespace = body['metadata'].get('namespace', _DEFAULT_NAMESPACE)
+      namespace = body['metadata'].get('namespace', k.DEFAULT_NAMESPACE)
 
     return self.apply_daemonset(daemonset=body, namespace=namespace)
 
@@ -1296,23 +1264,39 @@ class Cluster(object):
     True on success, False otherwise
     """
 
+    # for some reason we cannot monitor cluster deletion progress, either
+    # by using the discovery client or the ClusterManagementClient
+    # due to a strange permissions error, which persists despite having
+    # complete project ownership IAM privileges
+    #cluster_client = googleapiclient.discovery.build(
+    #    'container', 'v1', credentials=self.credentials, cache_discovery=False)
     op = self._cluster_client.delete_cluster(
         project_id=self.project_id, zone=self.zone, cluster_id=self.name)
 
-    if op is None:
-      logging.error(f'error deleting cluster {self.name}')
-      return
+    # this deletes the cluster using the discovery api:
+    # see https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters/delete
+    #rsp = cluster_client.projects().zones().clusters().delete(
+    #    projectId=self.project_id,
+    #    zone=self.zone,
+    #    clusterId=self.name,
+    #    name=f'projects/{self.project_id}/locations/{self.zone}/clusters/{self.name}'
+    #).execute()
 
-    op_name = op.name
-    op = _wait_for_operation(
-        self._cluster_client,
-        f'projects/{self.name}/locations/{self.zone}/operations/{op_name}')
+    #if rsp is None:
+    #  logging.error(f'error deleting cluster {self.name}')
+    #  return
 
-    if rsp['status'] != 'DONE':
-      logging.error(f'error deleting cluster {self.name}')
-      return
+    #op_name = rsp['name']
+    #op = _wait_for_operation(
+    #    cluster_client,
+    #    f'projects/{self.name}/locations/{self.zone}/operations/{op_name}')
 
-    print(f'successfully deleted cluster {self.name}')
+    #if rsp['status'] != 'DONE':
+    #  logging.error(f'error deleting cluster {self.name}')
+    #  return
+
+    print(f'deleting cluster {self.name}...')
+    print(f'visit {self.dashboard_url()} to monitor deletion progress')
 
     return
 
@@ -1320,21 +1304,23 @@ class Cluster(object):
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 def _project_and_creds(fn):
-  """cannot specify only one of project_id and cloud_key"""
+  """wrapper to supply project and credentials from args"""
 
   def wrapper(args: dict):
     project_id = args.get('project_id', None)
     creds_file = args.get('cloud_key', None)
+    default_creds = default_credentials()
 
+    # neither project_id or creds file specified
     if project_id is None and creds_file is None:
-      default_creds = default_credentials()
-      if default_creds is None:
-        return
       creds, project_id = default_creds
-    elif creds_file is None:
-      creds = credentials_from_env()
-    else:
-      project_id = caliban.config.extract_project_id(args)
+    elif creds_file is None:  # only project id specified
+      creds = credentials_from_file(conf.extract_cloud_key(args))
+    elif project_id is None:  # only creds file specified
+      creds = credentials_from_file(creds_file)
+      project_id = default_creds[1]
+    else:  # both project id and credentials file specified
+      project_id = conf.extract_project_id(args)
       creds = credentials_from_file(creds_file)
 
     return fn(args, project_id, creds)
@@ -1349,10 +1335,11 @@ def _with_cluster(fn):
   def wrapper(args: dict, project_id: str, creds: Credentials):
     cluster_name = args.get('cluster_name', None)
 
-    cluster = Cluster.get(name=cluster_name,
-                          project_id=project_id,
-                          zone=_ZONE_DEFAULT,
-                          creds=creds)
+    cluster = Cluster.get(
+        name=cluster_name,
+        project_id=project_id,
+        zone=k.ZONE_DEFAULT,
+        creds=creds)
 
     if cluster is None:
       return
@@ -1365,9 +1352,17 @@ def _with_cluster(fn):
 # ----------------------------------------------------------------------------
 @_project_and_creds
 def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
+  """creates a gke cluster
 
+  Args:
+  args: commandline args
+  project_id: project in which to create cluster
+  creds: credentials to use
+  """
   dry_run = args['dry_run']
-  cluster_name = args['cluster_name'] or _DEFAULT_CLUSTER_NAME
+  cluster_name = args['cluster_name'] or k.DEFAULT_CLUSTER_NAME
+  daemonset_url = utils.nvidia_daemonset_url(NodeImage.COS)
+  assert daemonset_url is not None, ('error getting daemonset url!')
 
   # --------------------------------------------------------------------------
   # see if cluster(s) already exist, and if so, check with the user before
@@ -1396,6 +1391,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     return
 
   region, _ = rz
+
+  dashboard_url = utils.dashboard_cluster_url(cluster_name, zone, project_id)
 
   # --------------------------------------------------------------------------
   # create compute api client and get generate resource limits from quota
@@ -1438,7 +1435,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
       'autoscaling': {
           'enableNodeAutoprovisioning': 'true',
           'autoprovisioningNodePoolDefaults': {
-              'oauthScopes': [_COMPUTE_SCOPE_URL, _CLOUD_PLATFORM_SCOPE_URL],
+              'oauthScopes': [k.COMPUTE_SCOPE_URL, k.CLOUD_PLATFORM_SCOPE_URL],
           },
           'resourceLimits': resource_limits,
       },
@@ -1469,6 +1466,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
 
   print(f'creating cluster {cluster_name} in project {project_id} in {zone}...')
   print(f'please be patient, this may take several minutes')
+  print(f'visit {dashboard_url} to monitor cluster creation progress')
 
   #rsp = cluster_client.create_cluster(
   #    project_id=project_id, zone=zone, cluster=cluster_spec)
@@ -1500,7 +1498,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   if cluster is None:
     print(f'error: unable to connect to cluster {cluster_name}')
     print(f'nvidia-driver daemonset not applied, to do this manually:')
-    print(f'kubectl apply -f {_NVIDIA_DRIVER_COS_DAEMONSET_URL}')
+    print(f'kubectl apply -f {daemonset_url}')
     return
 
   print(f'created cluster {cluster_name} successfully')
@@ -1508,8 +1506,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
 
   # now apply the nvidia-driver daemonset
   rsp = cluster.apply_daemonset_from_url(
-      _NVIDIA_DRIVER_COS_DAEMONSET_URL,
-      lambda x: yaml.load(x, Loader=yaml.FullLoader))
+      daemonset_url, lambda x: yaml.load(x, Loader=yaml.FullLoader))
   return
 
 
@@ -1517,11 +1514,11 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
 @_project_and_creds
 @_with_cluster
 def _cluster_delete(args: dict, cluster: Cluster) -> None:
-  """delete given cluster
+  """deletes given cluster
 
   Args:
-  args (dict): args
-  cluster (Cluster): cluster to delete
+  args: commandline args
+  cluster: cluster to delete
 
   Returns:
   None
@@ -1538,7 +1535,13 @@ def _cluster_delete(args: dict, cluster: Cluster) -> None:
 # ----------------------------------------------------------------------------
 @_project_and_creds
 def _cluster_ls(args: dict, project_id: str, creds: Credentials) -> None:
+  """lists clusters
 
+  Args:
+  args: commandline args
+  project_id: list clusters in the project
+  creds: credentials to use
+  """
   clusters = Cluster.list(project_id=project_id, creds=creds)
 
   if clusters is None:
@@ -1564,7 +1567,12 @@ def _cluster_ls(args: dict, project_id: str, creds: Credentials) -> None:
 @_project_and_creds
 @_with_cluster
 def _node_pool_ls(args: dict, cluster: Cluster) -> None:
-  """list cluster node pools"""
+  """lists cluster node pools
+
+  Args:
+  args: commandline args
+  cluster: lists node pools in this cluster instance
+  """
 
   np = cluster.node_pools()
 
@@ -1586,7 +1594,7 @@ def _node_pool_ls(args: dict, cluster: Cluster) -> None:
           (p.name, p.config.machine_type, accel, p.autoscaling.max_node_count))
 
   cluster.apply_daemonset_from_url(
-      _NVIDIA_DRIVER_COS_DAEMONSET_URL,
+      k.NVIDIA_DRIVER_COS_DAEMONSET_URL,
       lambda x: yaml.load(x, Loader=yaml.FullLoader))
 
   return
@@ -1596,7 +1604,12 @@ def _node_pool_ls(args: dict, cluster: Cluster) -> None:
 @_project_and_creds
 @_with_cluster
 def _pod_ls(args: dict, cluster: Cluster):
+  """lists pods for given cluster
 
+  Args:
+  args: commandline args
+  cluster: list pods in this cluster
+  """
   pods = cluster.pods()
   if pods is None:
     return
@@ -1612,6 +1625,12 @@ def _pod_ls(args: dict, cluster: Cluster):
 @_project_and_creds
 @_with_cluster
 def _job_ls(args: dict, cluster: Cluster):
+  """lists jobs in given cluster
+
+  Args:
+  args: commandline args
+  cluster: lists jobs from this cluster
+  """
   jobs = cluster.jobs()
 
   if jobs is None:
@@ -1628,11 +1647,11 @@ def _job_ls(args: dict, cluster: Cluster):
 @_project_and_creds
 @_with_cluster
 def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
-  """submit job(s) to cluster
+  """submits job(s) to cluster
 
   Args:
-  args (dict): argument dictionary
-  cluster (Cluster): cluster instance
+  args: argument dictionary
+  cluster: cluster instance
 
   Returns:
   list of V1Jobs submitted on success, None otherwise
@@ -1654,7 +1673,7 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   # --------------------------------------------------------------------------
   # validatate gpu spec
   if job_mode == conf.JobMode.GPU and gpu_spec is None:
-    gpu_spec = _DEFAULT_GPU_SPEC
+    gpu_spec = k.DEFAULT_GPU_SPEC
 
   if not cluster.validate_gpu_spec(gpu_spec):
     return
@@ -1730,7 +1749,7 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
       container = sj.spec.template.spec.containers[0]
       logging.info(
           f'submitted job:\n{md.name}: {" ".join(container.args or [])}\n' +
-          f'{cluster.dashboard_url(sj)}')
+          f'{cluster.job_dashboard_url(sj)}')
 
   return submitted
 
@@ -1759,9 +1778,9 @@ def parser(base) -> None:
 _PROJECT_FLAG = {
     'args': ['--project_id'],
     'kwargs': {
-        'help': 'project id, if not specified, uses $PROJECT_ID env variable',
+        'help': 'project id, if not specified, tries to determine default',
         'type': str,
-        'default': os.environ.get('PROJECT_ID', None)
+        'default': default_credentials()[1]
     }
 }
 
@@ -1815,8 +1834,8 @@ _CLOUD_KEY_FLAG = {
         'type': u.validated_file,
         'help': (f'Path to GCloud service account key. ' +
                  f'If not specified, uses default key from ' +
-                 f'{_CLOUD_PLATFORM_CREDENTIALS_ENV} environment variable.'),
-        'default': f'{os.environ.get(_CLOUD_PLATFORM_CREDENTIALS_ENV, None)}'
+                 f'{auth_env.CREDENTIALS} environment variable.'),
+        'default': f'{os.environ.get(auth_env.CREDENTIALS, None)}'
     }
 }
 
@@ -1869,8 +1888,8 @@ _MACHINE_TYPE_FLAG = {
         'choices':
             u.enum_vals(MachineType),
         'help': (f"Cloud machine type to request. Default is " +
-                 f"{_DEFAULT_MACHINE_TYPE_GPU} in GPU mode, or " +
-                 f"{_DEFAULT_MACHINE_TYPE_CPU} in CPU mode")
+                 f"{k.DEFAULT_MACHINE_TYPE_GPU} in GPU mode, or " +
+                 f"{k.DEFAULT_MACHINE_TYPE_CPU} in CPU mode")
     }
 }
 

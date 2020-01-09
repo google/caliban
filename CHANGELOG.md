@@ -1,3 +1,9 @@
+# 0.1.9
+
+- moved cluster constants to separate file
+- moved cluster gpu validation to separate file
+- added test for gpu limits validation
+
 # 0.1.8
 
 - TPU and GPU spec now accept validate_count arg to disable count validation.
