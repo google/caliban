@@ -1,3 +1,7 @@
+# 0.1.10
+
+- set host_ipc=True for cluster jobs
+
 # 0.1.9
 
 - moved cluster constants to separate file

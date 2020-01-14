@@ -54,6 +54,7 @@ import tqdm
 # tone down logging from discovery
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 
+
 # ----------------------------------------------------------------------------
 def _user_verify(msg: str, default: bool) -> bool:
   """prompts user to verify a choice
@@ -80,6 +81,7 @@ def _user_verify(msg: str, default: bool) -> bool:
     return (ok == 'y')
 
   return False
+
 
 # ----------------------------------------------------------------------------
 def _wait_for_operation(client: discovery.Resource,
@@ -194,9 +196,9 @@ def _get_zone_tpu_types(project_id: str, zone: str,
 
 
 # ----------------------------------------------------------------------------
-def _get_zone_gpu_types(project_id: str, zone: str,
-                        compute_api: discovery.Resource
-                       ) -> Optional[List[GPUSpec]]:
+def _get_zone_gpu_types(
+    project_id: str, zone: str,
+    compute_api: discovery.Resource) -> Optional[List[GPUSpec]]:
   """gets list of gpu accelerators available in given zone
 
   Args:
@@ -208,8 +210,8 @@ def _get_zone_gpu_types(project_id: str, zone: str,
   list of GPUSpec on success (count is max count), None otherwise
   """
 
-  rsp = compute_api.acceleratorTypes().list(project=project_id,
-                                            zone=zone).execute()
+  rsp = compute_api.acceleratorTypes().list(
+      project=project_id, zone=zone).execute()
 
   if rsp is None:
     logging.error('error getting accelerator types')
@@ -231,9 +233,9 @@ def _get_zone_gpu_types(project_id: str, zone: str,
 
 
 # ----------------------------------------------------------------------------
-def _get_region_quotas(project_id: str, region: str,
-                       compute_api: discovery.Resource
-                      ) -> Optional[List[Dict[str, Any]]]:
+def _get_region_quotas(
+    project_id: str, region: str,
+    compute_api: discovery.Resource) -> Optional[List[Dict[str, Any]]]:
   """gets compute quotas for given region
 
   Args:
@@ -259,9 +261,9 @@ def _get_region_quotas(project_id: str, region: str,
 
 
 # ----------------------------------------------------------------------------
-def _generate_resource_limits(project_id: str, region: str,
-                              compute_api: discovery.Resource
-                             ) -> Optional[List[Dict[str, Any]]]:
+def _generate_resource_limits(
+    project_id: str, region: str,
+    compute_api: discovery.Resource) -> Optional[List[Dict[str, Any]]]:
   """generates resource limits from quota information
 
   Args:
@@ -569,8 +571,8 @@ class Cluster(object):
 
     # using this as a connection test
     # todo: is there a better way to verify connectivity?
-    self.connected = _k(False)(
-        self._core_api.list_pod_for_all_namespaces)(watch=False)
+    self.connected = _k(False)(self._core_api.list_pod_for_all_namespaces)(
+        watch=False)
 
     return self.connected
 
@@ -620,7 +622,8 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def list(project_id: str, creds: Credentials,
+  def list(project_id: str,
+           creds: Credentials,
            zone: str = '-') -> Optional[List[str]]:
     """gets a list of clusters for given project and zone
 
@@ -660,27 +663,25 @@ class Cluster(object):
     cluster instance on success, None otherwise
     """
 
-    cluster = Cluster(name=name,
-                      project_id=project_id,
-                      zone=zone,
-                      credentials=creds)
+    cluster = Cluster(
+        name=name, project_id=project_id, zone=zone, credentials=creds)
 
     return cluster if cluster.connect() else None
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def container_limits(accelerator: Optional[Accelerator],
-                       count: int = 1,
-                       preemptible_tpu: bool = True
-                      ) -> Optional[Dict[str, str]]:
+  def container_limits(
+      accelerator: Optional[Accelerator],
+      count: int = 1,
+      preemptible_tpu: bool = True) -> Optional[Dict[str, str]]:
     """creates container limits dictionary for given accelerator type and count
 
     Args:
     accelerator: accelerator type
     count: accelerator count
     preemptible_tpu: use preemptible tpus (valid only for v2-8 and v3-8)
-                     see: https://cloud.google.com/tpu/docs/preemptible
-                     this is ignored for other tpu specs
+                     see: https://cloud.google.com/tpu/docs/preemptible this is
+                       ignored for other tpu specs
 
     Returns:
     None for cpu, limits dictionary for gpu/tpu
@@ -710,8 +711,8 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def template_metadata(accelerator: Optional[Accelerator] = None
-                       ) -> Optional[V1ObjectMeta]:
+  def template_metadata(
+      accelerator: Optional[Accelerator] = None) -> Optional[V1ObjectMeta]:
     """generates template metadata for given accelerator type
 
     Args:
@@ -731,10 +732,10 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def node_selector(preemptible: bool = True,
-                    machine_type: Optional[MachineType] = None,
-                    accelerator: Optional[Accelerator] = None
-                   ) -> Optional[Dict[str, str]]:
+  def node_selector(
+      preemptible: bool = True,
+      machine_type: Optional[MachineType] = None,
+      accelerator: Optional[Accelerator] = None) -> Optional[Dict[str, str]]:
     """gets node selector for given accelerator type and machine spec
 
     Args:
@@ -848,10 +849,8 @@ class Cluster(object):
     V1Job on success, None otherwise
     """
 
-    return _k(None)(self._batch_api.create_namespaced_job)(namespace=namespace,
-                                                           body=job,
-                                                           async_req=False,
-                                                           pretty=True)
+    return _k(None)(self._batch_api.create_namespaced_job)(
+        namespace=namespace, body=job, async_req=False, pretty=True)
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -900,12 +899,13 @@ class Cluster(object):
 
     # this is a simple 1-container, 1-pod job, so we just name the
     # container the same thing (minus the generated suffix) as the job itself
-    container = V1Container(name=name,
-                            image=image,
-                            command=command,
-                            args=args,
-                            resources=container_resources,
-                            env=container_env)
+    container = V1Container(
+        name=name,
+        image=image,
+        command=command,
+        args=args,
+        resources=container_resources,
+        env=container_env)
 
     # ------------------------------------------------------------------------
     # template
@@ -918,13 +918,15 @@ class Cluster(object):
     tolerations = Cluster.tolerations(preemptible=preemptible)
 
     # backoff count plus 'OnFailure' may be correct here
-    template_spec = V1PodSpec(restart_policy='Never',
-                              containers=[container],
-                              tolerations=tolerations,
-                              node_selector=Cluster.node_selector(
-                                  preemptible=preemptible,
-                                  machine_type=machine_type,
-                                  accelerator=accelerator))
+    template_spec = V1PodSpec(
+        restart_policy='Never',
+        containers=[container],
+        tolerations=tolerations,
+        node_selector=Cluster.node_selector(
+            preemptible=preemptible,
+            machine_type=machine_type,
+            accelerator=accelerator),
+        host_ipc=True)
 
     template = V1PodTemplateSpec(
         metadata=Cluster.template_metadata(accelerator), spec=template_spec)
@@ -977,17 +979,18 @@ class Cluster(object):
     V1Job on success, None otherwise
     """
 
-    job = self.create_simple_job(name=name,
-                                 image=image,
-                                 command=command,
-                                 args=args,
-                                 env=env,
-                                 accelerator=accelerator,
-                                 accelerator_count=accelerator_count,
-                                 namespace=namespace,
-                                 preemptible=preemptible,
-                                 labels=labels,
-                                 preemptible_tpu=preemptible_tpu)
+    job = self.create_simple_job(
+        name=name,
+        image=image,
+        command=command,
+        args=args,
+        env=env,
+        accelerator=accelerator,
+        accelerator_count=accelerator_count,
+        namespace=namespace,
+        preemptible=preemptible,
+        labels=labels,
+        preemptible_tpu=preemptible_tpu)
 
     if job is None:
       return None
@@ -1036,24 +1039,25 @@ class Cluster(object):
 
     for i, exp in enumerate(experiments, 1):
       complete_args = conf.experiment_to_args(exp, args)
-      yield self.create_simple_job(name=name,
-                                   image=image,
-                                   command=command,
-                                   args=complete_args,
-                                   env=env,
-                                   accelerator=accelerator,
-                                   accelerator_count=accelerator_count,
-                                   namespace=namespace,
-                                   machine_type=machine_type,
-                                   preemptible=preemptible,
-                                   labels=labels,
-                                   preemptible_tpu=preemptible_tpu)
+      yield self.create_simple_job(
+          name=name,
+          image=image,
+          command=command,
+          args=complete_args,
+          env=env,
+          accelerator=accelerator,
+          accelerator_count=accelerator_count,
+          namespace=namespace,
+          machine_type=machine_type,
+          preemptible=preemptible,
+          labels=labels,
+          preemptible_tpu=preemptible_tpu)
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def convert_accel_spec(gpu_spec: Optional[GPUSpec],
-                         tpu_spec: Optional[TPUSpec]
-                        ) -> Optional[Tuple[Accelerator, int]]:
+  def convert_accel_spec(
+      gpu_spec: Optional[GPUSpec],
+      tpu_spec: Optional[TPUSpec]) -> Optional[Tuple[Accelerator, int]]:
     """converts gpu/tpu spec pair to accelerator,count tuple
 
     Args:
@@ -1113,10 +1117,8 @@ class Cluster(object):
     list of supported tpu types on success, None otherwise
     """
 
-    tpu_api = googleapiclient.discovery.build('tpu',
-                                              'v1',
-                                              credentials=self.credentials,
-                                              cache_discovery=False)
+    tpu_api = googleapiclient.discovery.build(
+        'tpu', 'v1', credentials=self.credentials, cache_discovery=False)
 
     return _get_zone_tpu_types(self.project_id, self.zone, tpu_api)
 
@@ -1135,8 +1137,7 @@ class Cluster(object):
     # for some reason, autoprovisioning data is not in the _gcp__cluster
     # instance, so we query using the container api here
     rsp = container_api.projects().locations().clusters().get(
-        name=
-        f'projects/{self.project_id}/locations/{self.zone}/clusters/{self.name}'
+        name=f'projects/{self.project_id}/locations/{self.zone}/clusters/{self.name}'
     ).execute()
 
     if rsp is None:
@@ -1182,10 +1183,8 @@ class Cluster(object):
 
     # ------------------------------------------------------------------------
     # validate against zone instance limits
-    compute_api = googleapiclient.discovery.build('compute',
-                                                  'v1',
-                                                  credentials=self.credentials,
-                                                  cache_discovery=False)
+    compute_api = googleapiclient.discovery.build(
+        'compute', 'v1', credentials=self.credentials, cache_discovery=False)
 
     zone_gpus = _get_zone_gpu_types(self.project_id, self.zone, compute_api)
 
@@ -1397,10 +1396,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   # --------------------------------------------------------------------------
   # create compute api client and get generate resource limits from quota
   # information
-  compute_api = googleapiclient.discovery.build('compute',
-                                                'v1',
-                                                credentials=creds,
-                                                cache_discovery=False)
+  compute_api = googleapiclient.discovery.build(
+      'compute', 'v1', credentials=creds, cache_discovery=False)
 
   resource_limits = _generate_resource_limits(project_id, region, compute_api)
 
@@ -1412,10 +1409,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   # ClusterManagerClient...
   # todo: revisit this
   #cluster_client = container_v1.ClusterManagerClient(credentials=creds)
-  cluster_client = googleapiclient.discovery.build('container',
-                                                   'v1',
-                                                   credentials=creds,
-                                                   cache_discovery=False)
+  cluster_client = googleapiclient.discovery.build(
+      'container', 'v1', credentials=creds, cache_discovery=False)
 
   if cluster_client is None:
     logging.error('error building cluster client')
@@ -1490,10 +1485,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     return
 
   # get our newly-created cluster
-  cluster = Cluster.get(name=cluster_name,
-                        project_id=project_id,
-                        zone=zone,
-                        creds=creds)
+  cluster = Cluster.get(
+      name=cluster_name, project_id=project_id, zone=zone, creds=creds)
 
   if cluster is None:
     print(f'error: unable to connect to cluster {cluster_name}')
@@ -1696,8 +1689,9 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
       return
 
   # --------------------------------------------------------------------------
-  image_tag = (args.get('image_tag') or generate_image_tag(
-      cluster.project_id, docker_args=docker_m, dry_run=dry_run))
+  image_tag = (
+      args.get('image_tag') or generate_image_tag(
+          cluster.project_id, docker_args=docker_m, dry_run=dry_run))
 
   if args.get('machine_type') is None:
     machine_type = conf.DEFAULT_MACHINE_TYPE[job_mode]
