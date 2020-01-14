@@ -350,7 +350,7 @@ def _clean_label(s: Optional[str], is_key: bool) -> str:
 
   # lowercase, letters, - and _ are valid, so strip the leading dashes, make
   # everything lowercase and then kill any remaining unallowed characters.
-  cleaned = re.sub(r'[^a-z0-9_-]', '', s.lstrip("-").lower())
+  cleaned = re.sub(r'[^a-z0-9_-]', '', s.lower()).lstrip("-")
 
   # Keys must start with a letter. If is_key is set and the cleaned version
   # starts with something else, append `k`.
