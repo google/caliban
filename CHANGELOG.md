@@ -1,3 +1,7 @@
+# pending tag
+
+- consolidated gke tpu/gpu spec parsing with cloud types
+
 # 0.1.11
 
 - added tpu driver specification for gke jobs

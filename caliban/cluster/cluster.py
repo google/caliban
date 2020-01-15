@@ -137,29 +137,6 @@ def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
 
   return (gd['region'], gd['zone'])
 
-
-# ----------------------------------------------------------------------------
-def _parse_tpu_spec(spec: str) -> TPUSpec:
-  """parses tpu spec, asserts if invalid
-
-  Args:
-  spec: tpu spec string
-
-  Returns:
-  tpu spec
-  """
-
-  tpu_spec_re = re.compile('^(?P<count>[0-9]+)x(?P<tpu>(V2|V3))$')
-
-  match = tpu_spec_re.match(spec)
-  if match is None:
-    raise ArgumentTypeError(f'invalid tpu spec: {spec}')
-
-  gd = match.groupdict()
-
-  return TPUSpec(TPU[gd['tpu']], int(gd['count']))
-
-
 # ----------------------------------------------------------------------------
 def _get_zone_tpu_types(project_id: str, zone: str,
                         tpu_api: discovery.Resource) -> Optional[List[TPUSpec]]:
@@ -1939,7 +1916,7 @@ _GPU_SPEC_FLAG = {
         'metavar':
             GPUSpec.METAVAR,
         'type':
-            GPUSpec.parse_arg,
+            lambda x: GPUSpec.parse_arg(x, validate_count=False),
         'help': (f'Type and number of GPUs to use for each job. ' +
                  f'Defaults to 1x{conf.DEFAULT_GPU.name} for GPU mode, or ' +
                  f'None if --nogpu is passed')
@@ -1950,7 +1927,7 @@ _TPU_SPEC_FLAG = {
     'args': ['--tpu_spec'],
     'kwargs': {
         'metavar': TPUSpec.METAVAR,
-        'type': _parse_tpu_spec,
+        'type': lambda x: TPUSpec.parse_arg(x, validate_count=False),
         'help': (f'Type and number of TPUs to request for each job.'),
         'default': None
     }
