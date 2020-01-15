@@ -1,3 +1,8 @@
+# 0.1.11
+
+- added tpu driver specification for gke jobs
+- added query for getting available tpu drivers for cluster/project
+
 # 0.1.10
 
 - set host_ipc=True for cluster jobs

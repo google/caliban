@@ -22,7 +22,7 @@ import google.auth.environment_vars as auth_env
 from google.oauth2 import service_account
 
 import googleapiclient
-from googleapiclient.discovery import Resource as discovery
+from googleapiclient import discovery
 
 import kubernetes
 from kubernetes.client import (V1Job, V1ObjectMeta, V1JobSpec, V1Pod,
@@ -527,6 +527,7 @@ class Cluster(object):
     self._core_api = None
     self._batch_api = None
     self._apps_api = None
+    self._tpu_api = None
     self.name = name
     self.project_id = project_id
     self.zone = zone
@@ -568,6 +569,9 @@ class Cluster(object):
     self._core_api = kubernetes.client.CoreV1Api(api_client)
     self._batch_api = kubernetes.client.BatchV1Api(api_client)
     self._apps_api = kubernetes.client.AppsV1Api(api_client)
+
+    self._tpu_api = googleapiclient.discovery.build(
+        'tpu', 'v1', credentials=self.credentials, cache_discovery=False)
 
     # using this as a connection test
     # todo: is there a better way to verify connectivity?
@@ -712,21 +716,21 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @staticmethod
   def template_metadata(
-      accelerator: Optional[Accelerator] = None) -> Optional[V1ObjectMeta]:
+      accelerator: Optional[Accelerator] = None,
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[V1ObjectMeta]:
     """generates template metadata for given accelerator type
 
     Args:
     accelerator: accelerator type, or None for cpu
+    tpu_driver: tpu driver to use
 
     Returns:
     template metadata necessary for given accelerator
     """
 
     if type(accelerator) == TPU:
-      # todo: right now this is set to 1.14, but need to pass this
-      #       somehow...
       return V1ObjectMeta(
-          annotations={k.TEMPLATE_META_ANNOTATION_TPU_TF_VERSION: '1.14'})
+          annotations={k.TEMPLATE_META_ANNOTATION_TPU_DRIVER: tpu_driver})
 
     return None
 
@@ -854,19 +858,21 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def create_simple_job(self,
-                        name: str,
-                        image: str,
-                        command: Optional(List[str]) = None,
-                        args: Optional(List[str]) = None,
-                        env: Dict[str, str] = {},
-                        accelerator: Optional[Accelerator] = None,
-                        accelerator_count: int = 1,
-                        namespace: str = k.DEFAULT_NAMESPACE,
-                        machine_type: Optional[MachineType] = None,
-                        preemptible: bool = True,
-                        labels: Optional[Dict[str, str]] = None,
-                        preemptible_tpu: bool = True) -> Optional(V1Job):
+  def create_simple_job(
+      self,
+      name: str,
+      image: str,
+      command: Optional(List[str]) = None,
+      args: Optional(List[str]) = None,
+      env: Dict[str, str] = {},
+      accelerator: Optional[Accelerator] = None,
+      accelerator_count: int = 1,
+      namespace: str = k.DEFAULT_NAMESPACE,
+      machine_type: Optional[MachineType] = None,
+      preemptible: bool = True,
+      labels: Optional[Dict[str, str]] = None,
+      preemptible_tpu: bool = True,
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional(V1Job):
     """creates a simple kubernetes job (1 container, 1 pod) for this cluster
 
     Args:
@@ -882,6 +888,7 @@ class Cluster(object):
     preemptible: use preemptible instance
     labels: labels to add to job metadata
     preemptible_tpu: use preemptible tpus
+    tpu_driver: tpu driver to use
 
     Returns:
     V1Job on success, None otherwise
@@ -929,7 +936,9 @@ class Cluster(object):
         host_ipc=True)
 
     template = V1PodTemplateSpec(
-        metadata=Cluster.template_metadata(accelerator), spec=template_spec)
+        metadata=Cluster.template_metadata(
+            accelerator=accelerator, tpu_driver=tpu_driver),
+        spec=template_spec)
 
     # ------------------------------------------------------------------------
     # job
@@ -948,18 +957,20 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def submit_simple_job(self,
-                        name: str,
-                        image: str,
-                        command: Optional(List[str]) = None,
-                        args: Optional(List[str]) = None,
-                        env: Dict[str, str] = {},
-                        accelerator: Optional[Accelerator] = None,
-                        accelerator_count: int = 1,
-                        namespace: str = k.DEFAULT_NAMESPACE,
-                        preemptible: bool = True,
-                        labels: Optional[Dict[str, str]] = None,
-                        preemptible_tpu: bool = True) -> Optional(V1Job):
+  def submit_simple_job(
+      self,
+      name: str,
+      image: str,
+      command: Optional(List[str]) = None,
+      args: Optional(List[str]) = None,
+      env: Dict[str, str] = {},
+      accelerator: Optional[Accelerator] = None,
+      accelerator_count: int = 1,
+      namespace: str = k.DEFAULT_NAMESPACE,
+      preemptible: bool = True,
+      labels: Optional[Dict[str, str]] = None,
+      preemptible_tpu: bool = True,
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional(V1Job):
     """submits a simple kubernetes job (1 container, 1 pod) for this cluster
 
     Args:
@@ -974,6 +985,7 @@ class Cluster(object):
     preemptible: use preemptible instance
     labels: labels to add to job metadata
     preemptible_tpu: use preemptible tpus
+    tpu_driver: tpu driver
 
     Returns:
     V1Job on success, None otherwise
@@ -990,7 +1002,8 @@ class Cluster(object):
         namespace=namespace,
         preemptible=preemptible,
         labels=labels,
-        preemptible_tpu=preemptible_tpu)
+        preemptible_tpu=preemptible_tpu,
+        tpu_driver=tpu_driver)
 
     if job is None:
       return None
@@ -1013,7 +1026,8 @@ class Cluster(object):
       machine_type: Optional[MachineType] = None,
       preemptible: bool = True,
       labels: Optional[Dict[str, str]] = None,
-      preemptible_tpu: bool = True) -> Iterable[V1Job]:
+      preemptible_tpu: bool = True,
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Iterable[V1Job]:
     """creates an iterable of V1Job instances for a set of experiments for
 
     this cluster
@@ -1032,6 +1046,7 @@ class Cluster(object):
     preemptible: use preemptible instances
     labels: labels to add to job metadata
     preemptible_tpu: use preemptible tpus
+    tpu_driver: tpu driver to use
 
     Returns:
     V1Job iterable on success, None otherwise
@@ -1051,7 +1066,8 @@ class Cluster(object):
           machine_type=machine_type,
           preemptible=preemptible,
           labels=labels,
-          preemptible_tpu=preemptible_tpu)
+          preemptible_tpu=preemptible_tpu,
+          tpu_driver=tpu_driver)
 
   # --------------------------------------------------------------------------
   @staticmethod
@@ -1117,10 +1133,7 @@ class Cluster(object):
     list of supported tpu types on success, None otherwise
     """
 
-    tpu_api = googleapiclient.discovery.build(
-        'tpu', 'v1', credentials=self.credentials, cache_discovery=False)
-
-    return _get_zone_tpu_types(self.project_id, self.zone, tpu_api)
+    return _get_zone_tpu_types(self.project_id, self.zone, self._tpu_api)
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -1299,6 +1312,34 @@ class Cluster(object):
 
     return
 
+  # --------------------------------------------------------------------------
+  @connected(None)
+  def get_tpu_drivers(self) -> Optional[List[str]]:
+    """gets supported tpu drivers for this cluster
+
+    Returns:
+    list of supported tpu drivers on success, None otherwise
+    """
+
+    return utils.get_tpu_drivers(self._tpu_api, self.project_id, self.zone)
+
+  # --------------------------------------------------------------------------
+  @connected(None)
+  def validate_tpu_driver(self, tpu_driver: str) -> bool:
+    """validates tpu driver for this cluster
+
+    Args:
+    tpu_driver: tpu driver
+
+    Returns:
+    True if valid, False otherwise
+    """
+
+    valid_drivers = self.get_tpu_drivers()
+    if valid_drivers is None:
+      return False
+
+    return tpu_driver in valid_drivers
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -1586,10 +1627,6 @@ def _node_pool_ls(args: dict, cluster: Cluster) -> None:
     print(FMT %
           (p.name, p.config.machine_type, accel, p.autoscaling.max_node_count))
 
-  cluster.apply_daemonset_from_url(
-      k.NVIDIA_DRIVER_COS_DAEMONSET_URL,
-      lambda x: yaml.load(x, Loader=yaml.FullLoader))
-
   return
 
 
@@ -1672,9 +1709,10 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
     return
 
   # --------------------------------------------------------------------------
-  # validate tpu spec
+  # validate tpu spec and driver
   tpu_spec = args.get('tpu_spec')
   preemptible_tpu = args.get('preemptible_tpu')
+  tpu_driver = args.get('tpu_driver')
 
   if tpu_spec is not None:
     available_tpu = cluster.get_tpu_types()
@@ -1686,6 +1724,13 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
       logging.error(f'invalid tpu spec, cluster supports:')
       for t in available_tpu:
         print(f'{t.tpu.name}x{t.count}')
+      return
+
+    if not cluster.validate_tpu_driver(tpu_driver):
+      print(f'error: unsupported tpu driver {tpu_driver}')
+      print('supported tpu drivers for this cluster:')
+      for d in cluster.get_tpu_drivers():
+        print(f'  {d}')
       return
 
   # --------------------------------------------------------------------------
@@ -1723,7 +1768,8 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
       machine_type=machine_type,
       preemptible=preemptible,
       labels=labels,
-      preemptible_tpu=preemptible_tpu)
+      preemptible_tpu=preemptible_tpu,
+      tpu_driver=tpu_driver)
 
   if dry_run:
     print('jobs that would be submitted:')
@@ -1910,6 +1956,15 @@ _TPU_SPEC_FLAG = {
     }
 }
 
+_TPU_DRIVER_FLAG = {
+    'args': ['--tpu_driver'],
+    'kwargs': {
+        'type': str,
+        'help': (f'TPU driver to use.'),
+        'default': k.DEFAULT_TPU_DRIVER
+    }
+}
+
 _PREEMPTIBLE_TPU_FLAG = {
     'args': ['--preemptible_tpu'],
     'kwargs': {
@@ -2016,7 +2071,7 @@ _JOB_SUBMIT_CMD = {
     'add_arguments': [
         _CLUSTER_NAME_FLAG, _MODULE_FLAG, _NOGPU_FLAG, _CLOUD_KEY_FLAG,
         _EXTRAS_FLAG, _DIR_FLAG, _IMAGE_TAG_FLAG, _PROJECT_FLAG,
-        _MACHINE_TYPE_FLAG, _GPU_SPEC_FLAG, _TPU_SPEC_FLAG,
+        _MACHINE_TYPE_FLAG, _GPU_SPEC_FLAG, _TPU_SPEC_FLAG, _TPU_DRIVER_FLAG,
         _PREEMPTIBLE_TPU_FLAG, _FORCE_FLAG, _JOB_NAME_FLAG,
         _EXPERIMENT_CONFIG_FLAG, _LABEL_FLAG, _PREEMPTIBLE_FLAG, _DRY_RUN_FLAG,
         _PASSTHROUGH_ARGS

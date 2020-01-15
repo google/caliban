@@ -4,6 +4,9 @@ from typing import Dict, List, Optional
 import logging
 from urllib.parse import urlencode
 
+import googleapiclient
+from googleapiclient import discovery
+
 import caliban.gke.constants as k
 from caliban.gke.types import NodeImage
 from caliban.cloud.types import (GPU, GPUSpec)
@@ -74,3 +77,29 @@ def dashboard_cluster_url(cluster_id: str, zone: str, project_id: str):
 
   query = urlencode({'project': project_id})
   return f'{k.DASHBOARD_CLUSTER_URL}/{zone}/{cluster_id}?{query}'
+
+
+# ----------------------------------------------------------------------------
+def get_tpu_drivers(tpu_api: discovery.Resource, project_id: str,
+                    zone: str) -> Optional[List[str]]:
+  """gets supported tpu drivers for given project, zone
+
+  Args:
+  tpu_api: discovery tpu api resource
+  project_id: project id
+  zone: zone identifier
+
+  Returns:
+  list of supported drivers on success, None otherwise
+  """
+
+  location = 'projects/' + project_id + '/locations/' + zone
+
+  rsp = tpu_api.projects().locations().tensorflowVersions().list(
+      parent=location).execute()
+
+  if rsp is None:
+    logging.error('error getting tpu drivers')
+    return None
+
+  return [d['version'] for d in rsp['tensorflowVersions']]
