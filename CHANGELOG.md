@@ -13,6 +13,8 @@
 - "caliban run" now supports --experiment_config and --dry_run. These work just
   like they do for "caliban cloud"; the experiment config will expand out and
   execute N jobs on your local machine.
+- moved some methods from cluster/cluster.py to gke/utils.py
+- added unit tests for some gke/utils.py methods 
 
 # 0.1.11
 

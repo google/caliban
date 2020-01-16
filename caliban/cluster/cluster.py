@@ -41,6 +41,7 @@ from caliban.cloud.types import (TPU, GPU, Accelerator, parse_machine_type,
 from caliban.cluster.cli import parse_cmd_dict, invoke_command
 from caliban.cloud import generate_image_tag
 import caliban.gke.utils as utils
+from caliban.gke.utils import trap
 import caliban.gke.constants as k
 from caliban.gke.types import NodeImage
 
@@ -53,66 +54,6 @@ import tqdm
 # ----------------------------------------------------------------------------
 # tone down logging from discovery
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
-
-
-# ----------------------------------------------------------------------------
-def _user_verify(msg: str, default: bool) -> bool:
-  """prompts user to verify a choice
-
-  Args:
-  msg: message to display to user
-  default: default value if user simply hit 'return'
-
-  Returns:
-  boolean choice
-  """
-  choice_str = '[Yn]' if default else '[yN]'
-
-  while True:
-    ok = input(f'\n {msg} {choice_str}: ').lower()
-
-    if len(ok) == 0:
-      return default
-
-    if ok not in ['y', 'n']:
-      print('please enter y or n')
-      continue
-
-    return (ok == 'y')
-
-  return False
-
-
-# ----------------------------------------------------------------------------
-def _wait_for_operation(client: discovery.Resource,
-                        name: str,
-                        conditions: List[str] = ['DONE', 'ABORTING'],
-                        sleep_sec: int = 1) -> Optional[dict]:
-  """waits for cluster operation to reach given state(s)
-
-  Args:
-  client: api client
-  name: operation name, of form projects/*/locations/*/operations/*
-  conditions: exit status conditions
-  sleep_sec: polling interval
-
-  Returns:
-  response dictionary on success, None otherwise
-  """
-
-  while True:
-    rsp = client.projects().locations().operations().get(name=name).execute()
-    if rsp is None:
-      logging.error(f'error getting operation {name}')
-      return None
-
-    if rsp['status'] in conditions:
-      return rsp
-
-    sleep(sleep_sec)
-
-  return None
-
 
 # ----------------------------------------------------------------------------
 def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
@@ -136,156 +77,6 @@ def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
   gd = match.groupdict()
 
   return (gd['region'], gd['zone'])
-
-# ----------------------------------------------------------------------------
-def _get_zone_tpu_types(project_id: str, zone: str,
-                        tpu_api: discovery.Resource) -> Optional[List[TPUSpec]]:
-  """gets list of tpus available in given zone
-
-  Args:
-  project_id: project id
-  zone: zone string
-  tpu_api: tpu api instance
-
-  Returns:
-  list of supported tpu specs on success, None otherwise
-  """
-
-  location = 'projects/' + project_id + '/locations/' + zone
-  rsp = tpu_api.projects().locations().acceleratorTypes().list(
-      parent=location).execute()
-
-  if rsp is None:
-    logging.error('error getting tpu types')
-    return None
-
-  tpu_re = re.compile('^(?P<tpu>(v2|v3))-(?P<count>[0-9]+)$')
-
-  tpus = []
-  for t in rsp['acceleratorTypes']:
-    match = tpu_re.match(t['type'])
-    if match is None:
-      continue
-    gd = match.groupdict()
-    tpus.append(TPUSpec(TPU[gd['tpu'].upper()], int(gd['count'])))
-
-  return tpus
-
-
-# ----------------------------------------------------------------------------
-def _get_zone_gpu_types(
-    project_id: str, zone: str,
-    compute_api: discovery.Resource) -> Optional[List[GPUSpec]]:
-  """gets list of gpu accelerators available in given zone
-
-  Args:
-  project_id: project id
-  zone: zone string
-  compute_api: compute api instance
-
-  Returns:
-  list of GPUSpec on success (count is max count), None otherwise
-  """
-
-  rsp = compute_api.acceleratorTypes().list(
-      project=project_id, zone=zone).execute()
-
-  if rsp is None:
-    logging.error('error getting accelerator types')
-    return None
-
-  gpu_re = re.compile('^nvidia-tesla-(?P<type>[a-z0-9]+)$')
-
-  gpus = []
-
-  for x in rsp['items']:
-    match = gpu_re.match(x['name'])
-    if match is None:
-      continue
-    gd = match.groupdict()
-    gpus.append(
-        GPUSpec(GPU[gd['type'].upper()], int(x['maximumCardsPerInstance'])))
-
-  return gpus
-
-
-# ----------------------------------------------------------------------------
-def _get_region_quotas(
-    project_id: str, region: str,
-    compute_api: discovery.Resource) -> Optional[List[Dict[str, Any]]]:
-  """gets compute quotas for given region
-
-  Args:
-  project_id: project id
-  region: region string
-  compute_api: compute_api instance
-
-  Returns:
-  list of quota dicts, with keys {'limit', 'metric', 'usage'}, None on error
-  """
-
-  #rsp = compute.instances().list(project=project_id, zone='-').execute()
-  #print(f'{rsp}')
-
-  # get our quota data
-  rsp = compute_api.regions().get(project=project_id, region=region).execute()
-
-  if rsp is None:
-    logging.error('error getting quota information')
-    return None
-
-  return rsp['quotas']
-
-
-# ----------------------------------------------------------------------------
-def _generate_resource_limits(
-    project_id: str, region: str,
-    compute_api: discovery.Resource) -> Optional[List[Dict[str, Any]]]:
-  """generates resource limits from quota information
-
-  Args:
-  project_id: project id
-  region: region string
-  compute_api: compute_api instance
-
-  Returns:
-  resource limits dictionary on success, None otherwise
-  """
-
-  quotas = _get_region_quotas(project_id, region, compute_api)
-  if quotas is None:
-    return None
-
-  limits = []
-
-  gpu_re = re.compile('^NVIDIA_(?P<gpu>[A-Z0-9]+)_GPUS$')
-
-  for q in quotas:
-    metric = q['metric']
-    limit = q['limit']
-
-    if metric == 'CPUS':
-      limits.append({'resourceType': 'cpu', 'maximum': str(limit)})
-      limits.append({
-          'resourceType': 'memory',
-          'maximum': str(int(limit) * k.MAX_GB_PER_CPU)
-      })
-      continue
-
-    gpu_match = gpu_re.match(metric)
-    if gpu_match is None:
-      continue
-
-    gd = gpu_match.groupdict()
-    gpu_type = gd['gpu']
-
-    limits.append({
-        'resourceType': f'nvidia-tesla-{gpu_type.lower()}',
-        'maximum': str(limit)
-    })
-
-  return limits
-
 
 # ----------------------------------------------------------------------------
 def _job_str(job: V1Job) -> str:
@@ -383,6 +174,7 @@ def credentials_from_file(cred_file: str) -> Optional[Credentials]:
 
 
 # --------------------------------------------------------------------------
+@trap(None)
 def _get_gcp_clusters(client: ClusterManagerClient,
                       project_id: str,
                       creds: Credentials,
@@ -399,8 +191,8 @@ def _get_gcp_clusters(client: ClusterManagerClient,
   list of clusters on success, None otherwise
   """
 
-  response = _k(None)(client.list_clusters)(project_id=project_id, zone=zone)
-  return response.clusters if response is not None else None
+  response = client.list_clusters(project_id=project_id, zone=zone)
+  return response.clusters
 
 
 # ----------------------------------------------------------------------------
@@ -459,33 +251,6 @@ def connected(error_value: Any) -> Any:
   return check
 
 
-# ----------------------------------------------------------------------------
-def _k(error_value: Any) -> Any:
-  """decorator for kuberntes api calls that traps execptions
-
-  This logs exceptions using logging.error()
-
-  Args:
-  error_value: value to return on error
-
-  Returns:
-  error_value on exception, function return value otherwise
-  """
-
-  def check(fn):
-
-    def wrapper(*args, **kwargs):
-      try:
-        response = fn(*args, **kwargs)
-      except Exception as e:
-        logging.error(f'error in api call:\n{e}')
-        return error_value
-      return response
-
-    return wrapper
-
-  return check
-
 
 # ----------------------------------------------------------------------------
 class Cluster(object):
@@ -513,6 +278,7 @@ class Cluster(object):
     return
 
   # --------------------------------------------------------------------------
+  @trap(False)
   def connect(self) -> bool:
     """connects to cluster instance
 
@@ -552,8 +318,8 @@ class Cluster(object):
 
     # using this as a connection test
     # todo: is there a better way to verify connectivity?
-    self.connected = _k(False)(self._core_api.list_pod_for_all_namespaces)(
-        watch=False)
+    self.connected = (
+        self._core_api.get_api_resources(async_req=False) is not None)
 
     return self.connected
 
@@ -771,6 +537,7 @@ class Cluster(object):
     ]
 
   # --------------------------------------------------------------------------
+  @trap(None)
   @connected(None)
   def pods(self) -> Optional[List[V1Pod]]:
     """gets a list of pods for this cluster
@@ -782,9 +549,7 @@ class Cluster(object):
     """
 
     # this returns a V1PodList
-    rsp = _k(None)(self._core_api.list_pod_for_all_namespaces)(watch=False)
-    if rsp is None:
-      return None
+    rsp = self._core_api.list_pod_for_all_namespaces(watch=False)
 
     cluster_pods = [
         p for p in rsp.items if p.metadata.namespace != k.KUBE_SYSTEM_NAMESPACE
@@ -793,6 +558,7 @@ class Cluster(object):
     return cluster_pods
 
   # --------------------------------------------------------------------------
+  @trap(None)
   @connected(None)
   def jobs(self) -> Optional[List[V1Job]]:
     """gets a list of jobs for this cluster
@@ -800,8 +566,7 @@ class Cluster(object):
     Returns:
     list of V1Job instances on success, None otherwise
     """
-    rsp = _k(None)(self._batch_api.list_job_for_all_namespaces)(watch=False)
-    return rsp.items if rsp is not None else None
+    return self._batch_api.list_job_for_all_namespaces(watch=False).items
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -816,6 +581,7 @@ class Cluster(object):
     return self._gcp_cluster.node_pools
 
   # --------------------------------------------------------------------------
+  @trap(None)
   @connected(None)
   def submit_job(self,
                  job: V1Job,
@@ -830,7 +596,7 @@ class Cluster(object):
     V1Job on success, None otherwise
     """
 
-    return _k(None)(self._batch_api.create_namespaced_job)(
+    return self._batch_api.create_namespaced_job(
         namespace=namespace, body=job, async_req=False, pretty=True)
 
   # --------------------------------------------------------------------------
@@ -1110,7 +876,7 @@ class Cluster(object):
     list of supported tpu types on success, None otherwise
     """
 
-    return _get_zone_tpu_types(self.project_id, self.zone, self._tpu_api)
+    return utils.get_zone_tpu_types(self._tpu_api, self.project_id, self.zone)
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -1176,7 +942,8 @@ class Cluster(object):
     compute_api = googleapiclient.discovery.build(
         'compute', 'v1', credentials=self.credentials, cache_discovery=False)
 
-    zone_gpus = _get_zone_gpu_types(self.project_id, self.zone, compute_api)
+    zone_gpus = utils.get_zone_gpu_types(self.project_id, self.zone,
+                                         compute_api)
 
     if zone_gpus is None:
       return False
@@ -1199,6 +966,7 @@ class Cluster(object):
     return True
 
   # --------------------------------------------------------------------------
+  @trap(None)
   @connected(None)
   def apply_daemonset(
       self,
@@ -1214,7 +982,7 @@ class Cluster(object):
     V1DaemonSet (with status) on success, None otherwise
     """
 
-    return _k(None)(self._apps_api.create_namespaced_daemon_set)(
+    return self._apps_api.create_namespaced_daemon_set(
         namespace=namespace, body=daemonset, async_req=False, pretty=True)
 
   # --------------------------------------------------------------------------
@@ -1276,7 +1044,7 @@ class Cluster(object):
     #  return
 
     #op_name = rsp['name']
-    #op = _wait_for_operation(
+    #op = utils.wait_for_operation(
     #    cluster_client,
     #    f'projects/{self.name}/locations/{self.zone}/operations/{op_name}')
 
@@ -1395,7 +1163,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     for c in clusters:
       print(c)
 
-    if not _user_verify(
+    if not utils.user_verify(
         'Do you really want to create a new cluster?', default=False):
 
       return
@@ -1417,7 +1185,10 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   compute_api = googleapiclient.discovery.build(
       'compute', 'v1', credentials=creds, cache_discovery=False)
 
-  resource_limits = _generate_resource_limits(project_id, region, compute_api)
+  resource_limits = utils.generate_resource_limits(project_id, region,
+                                                   compute_api)
+  if resource_limits is None:
+    return
 
   # --------------------------------------------------------------------------
   # create the cluster
@@ -1494,9 +1265,10 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
 
   # wait for creation operation to complete
   operation_name = rsp['name']
-  rsp = _wait_for_operation(
+  rsp = utils.wait_for_operation(
       cluster_client,
-      f'projects/{project_id}/locations/{zone}/operations/{operation_name}')
+      f'projects/{project_id}/locations/{zone}/operations/{operation_name}',
+      message='waiting for cluster creation')
 
   if rsp['status'] != 'DONE':
     logging.error(f'error creating cluster {cluster_name}!')
@@ -1535,7 +1307,7 @@ def _cluster_delete(args: dict, cluster: Cluster) -> None:
   None
   """
 
-  if _user_verify(
+  if utils.user_verify(
       f'Are you sure you want to delete {cluster.name}?', default=False):
 
     cluster.delete()
@@ -1700,7 +1472,7 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
     if tpu_spec not in available_tpu:
       logging.error(f'invalid tpu spec, cluster supports:')
       for t in available_tpu:
-        print(f'{t.tpu.name}x{t.count}')
+        print(f'{t.count}x{t.tpu.name}')
       return
 
     if not cluster.validate_tpu_driver(tpu_driver):
