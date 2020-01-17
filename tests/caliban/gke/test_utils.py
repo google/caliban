@@ -6,22 +6,27 @@ import random
 import hypothesis.strategies as st
 from hypothesis import given, settings
 from typing import Dict, List, Any
+import re
+import random
 
 import caliban.cloud.types as ct
 import caliban.gke
 import caliban.gke.utils as utils
 import caliban.gke.constants as k
-from caliban.gke.utils import trap
+from caliban.gke.utils import trap, DNS_1123_RE
 from caliban.gke.types import NodeImage, OpStatus
 
 
+# ----------------------------------------------------------------------------
 def everything():
+  """hypothesis utility to generate, well, everything"""
   return st.from_type(type).flatmap(st.from_type)
 
 
+# ----------------------------------------------------------------------------
 def everything_except(excluded_types):
-  return st.from_type(type).flatmap(
-      st.from_type).filter(lambda x: not isinstance(x, tuple(excluded_types)))
+  """hypothesis utility to generate everything but the types in excluded_types"""
+  return everything().filter(lambda x: not isinstance(x, tuple(excluded_types)))
 
 
 # ----------------------------------------------------------------------------
@@ -160,16 +165,12 @@ class UtilsTestSuite(unittest.TestCase):
     """tests wait_for_operation method"""
 
     class mock_api:
-
       def projects(self):
         return self
-
       def locations(self):
         return self
-
       def operations(self):
         return self
-
       def get(self, name):
         return self
 
@@ -232,16 +233,12 @@ class UtilsTestSuite(unittest.TestCase):
     random.shuffle(responses)
 
     class mock_api:
-
       def projects(self):
         return self
-
       def locations(self):
         return self
-
       def acceleratorTypes(self):
         return self
-
       def list(self, parent):
         return self
 
@@ -276,6 +273,26 @@ class UtilsTestSuite(unittest.TestCase):
     return
 
   # --------------------------------------------------------------------------
+  @given(st.text())
+  def test_sanitize_job_name(self, job_name):
+    """test job name sanitizer"""
+
+    def valid(x):
+      return DNS_1123_RE.match(x) is not None
+
+    sanitized = utils.sanitize_job_name(job_name)
+
+    if valid(job_name):
+      self.assertEqual(job_name, sanitized)
+    else:
+      self.assertTrue(valid(sanitized))
+
+    # idempotency check
+    self.assertEqual(sanitized, utils.sanitize_job_name(sanitized))
+
+    return
+
+  # --------------------------------------------------------------------------
   @given(
       st.lists(
           st.integers(min_value=0, max_value=32),
@@ -302,10 +319,8 @@ class UtilsTestSuite(unittest.TestCase):
     } for x in invalid_types]
 
     class mock_api:
-
       def acceleratorTypes(self):
         return self
-
       def list(self, project, zone):
         return self
 
@@ -344,10 +359,8 @@ class UtilsTestSuite(unittest.TestCase):
     """tests get region quotas"""
 
     class mock_api:
-
       def regions(self):
         return self
-
       def get(self, project, region):
         return self
 
@@ -392,10 +405,8 @@ class UtilsTestSuite(unittest.TestCase):
     """tests generation of resource limits"""
 
     class mock_api:
-
       def regions(self):
         return self
-
       def get(self, project, region):
         return self
 
@@ -443,5 +454,46 @@ class UtilsTestSuite(unittest.TestCase):
     }])
 
     self.assertEqual(expected, utils.generate_resource_limits('p', 'r', api))
+
+    return
+
+  # --------------------------------------------------------------------------
+  @given(
+      st.lists(st.from_regex('[a-zA-Z0-9]+')), st.from_regex('_[a-zA-Z0-9]+'))
+  def test_get_gke_cluster(self, names, invalid):
+    """test getting gke cluster"""
+
+    class mock_cluster:
+      def __init__(self, name):
+        self.name = name
+        return
+
+    class mock_cluster_list:
+      def __init__(self):
+        self.clusters = [mock_cluster(x) for x in names]
+        return
+
+    class mock_api:
+      self.throws = False
+
+      def list_clusters(self, project_id, zone):
+        if self.throws:
+          raise Exception('exception')
+        return mock_cluster_list()
+
+    api = mock_api()
+    api.throws = True
+
+    # exception handling
+    self.assertIsNone(utils.get_gke_cluster(api, 'foo', 'p'))
+
+    api.throws = False
+    # single cluster
+    if len(names) > 0:
+      cname = names[random.randint(0, len(names) - 1)]
+      self.assertEqual(cname, utils.get_gke_cluster(api, cname, 'p').name)
+
+    # name not in name list
+    self.assertIsNone(utils.get_gke_cluster(api, invalid, 'p'))
 
     return

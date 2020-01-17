@@ -1,7 +1,8 @@
 """types relevant to gke"""
 
 from enum import Enum
-from typing import Set
+from typing import Set, NamedTuple, Optional
+from google.auth.credentials import Credentials
 
 # ----------------------------------------------------------------------------
 # Node image types
@@ -25,3 +26,10 @@ OpStatus = Enum(
         'DONE': 'DONE',
         'ABORTING': 'ABORTING'
     })
+
+
+# ----------------------------------------------------------------------------
+# Default credentials from google.auth.default
+class DefaultCredentials(NamedTuple):
+  credentials: Optional[Credentials] = None
+  project_id: Optional[str] = None

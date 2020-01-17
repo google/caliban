@@ -1,6 +1,6 @@
 """gke utility routines"""
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 import logging
 from urllib.parse import urlencode
 from time import sleep
@@ -9,12 +9,23 @@ import pprint as pp
 from yaspin import yaspin
 from yaspin.spinners import Spinners
 
+import google
 import googleapiclient
 from googleapiclient import discovery
+from google.auth.credentials import Credentials
+from google.oauth2 import service_account
+from google.cloud.container_v1.types import Cluster as GKECluster, NodePool
+from google.cloud.container_v1 import ClusterManagerClient
+
+from kubernetes.client import V1Job
 
 import caliban.gke.constants as k
-from caliban.gke.types import NodeImage, OpStatus
+from caliban.gke.types import NodeImage, OpStatus, DefaultCredentials
 from caliban.cloud.types import (GPU, GPUSpec, TPU, TPUSpec)
+
+# ----------------------------------------------------------------------------
+DNS_1123_RE = re.compile('\A[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?\Z')
+
 
 # ----------------------------------------------------------------------------
 def trap(error_value: Any, silent: bool = True) -> Any:
@@ -394,3 +405,173 @@ def generate_resource_limits(
     return None
 
   return resource_limits_from_quotas(quotas)
+
+
+# ----------------------------------------------------------------------------
+def job_str(job: V1Job) -> str:
+  """formats job string to remove all default (None) values
+
+  Args:
+  job: job spec
+
+  Returns:
+  string describing job
+  """
+
+  def nonnull_dict(d: dict) -> dict:
+    nnd = {}
+    for k, v in d.items():
+      if v is None:
+        continue
+      if type(v) == dict:
+        nnd[k] = nonnull_dict(v)
+      elif type(v) == list:
+        nnd[k] = [nonnull_dict(x) if type(x) == dict else x for x in v]
+      else:
+        nnd[k] = v
+
+    return nnd
+
+  return pp.pformat(nonnull_dict(job.to_dict()), indent=2, width=80)
+
+
+# ----------------------------------------------------------------------------
+def sanitize_job_name(name: str) -> str:
+  """sanitizes job name to fit DNS-1123 restrictions:
+
+  ... a DNS-1123 subdomain must consist of lower case alphanumeric characters,
+  '-' or '.', and must start and end with an alphanumeric character.
+
+  An zero-len string returns 'job'
+  Invalid characters are replaced with 'x'.
+  If the job does not start with an alnum, then the prefix 'job-' is prepended.
+  If the job does not end with an alnum, then the suffix '-0' is appended.
+
+  Args:
+  name (str): job name
+
+  Returns:
+  sanitized job name
+  """
+
+  if len(name) == 0:
+    return 'job'
+
+  name = name.lower()
+
+  # ugh, in python '²'.isalnum() returns True, so can't use isalnum
+  # also, DNS-1123 is restricted, so just use re here
+
+  def _valid(name):
+    DNS_1123_RE.match(name) is not None
+
+  alnum_re = re.compile('[a-z0-9]')
+  invalid_re = re.compile('[^a-z0-9\-\.]')
+
+  def _alnum(x):
+    return alnum_re.match(x) is not None
+
+  # already valid, so done
+  if _valid(name):
+    return name
+
+  # first char must be alnum
+  if not _alnum(name[0]):
+    name = 'job-' + name
+
+  # last char must be alnum
+  if not _alnum(name[-1]):
+    name = name + '-0'
+
+  # replace all invalid chars with 'x'
+  return invalid_re.sub('x', name)
+
+
+# ----------------------------------------------------------------------------
+@trap(DefaultCredentials(), silent=False)
+def default_credentials(
+    scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
+) -> DefaultCredentials:
+  """gets default cloud credentials
+
+  Args:
+  scopes: list of scopes for credentials
+
+  Returns:
+  DefaultCredentials
+
+  both credentials and project id may be None if unable to resolve
+  """
+
+  creds, project_id = google.auth.default(scopes=scopes)
+  creds.refresh(google.auth.transport.requests.Request())
+
+  return DefaultCredentials(creds, project_id)
+
+
+# ----------------------------------------------------------------------------
+@trap(None, silent=False)
+def credentials_from_file(
+    cred_file: str,
+    scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
+) -> Optional[Credentials]:
+  """gets cloud credentials from service account file
+
+  Args:
+  cred_file: service account credentials file to read
+  scopes: list of scopes for credentials
+
+  Returns:
+  credentials on success, None otherwise
+  """
+
+  creds = service_account.Credentials.from_service_account_file(
+      cred_file, scopes=scopes)
+
+  creds.refresh(google.auth.transport.requests.Request())
+
+  return creds
+
+
+# --------------------------------------------------------------------------
+@trap(None)
+def get_gke_clusters(client: ClusterManagerClient,
+                     project_id: str,
+                     zone: str = '-') -> Optional[List[GKECluster]]:
+  """gets list of gcp clusters for given project, zone
+
+  Args:
+  client: cluster api client
+  project_id: project id
+  zone: zone, - = all zones
+
+  Returns:
+  list of clusters on success, None otherwise
+  """
+
+  return client.list_clusters(project_id=project_id, zone=zone).clusters
+
+
+# ----------------------------------------------------------------------------
+@trap(None)
+def get_gke_cluster(client: ClusterManagerClient,
+                    name: str,
+                    project_id: str,
+                    zone: str = '-') -> Optional[GKECluster]:
+  """gets specific cluster instance by name
+
+  Args:
+  client: cluster api client
+  name: cluster name
+  project_id: project id
+  zone: zone, - = all zones
+
+  Returns:
+  GKECluster on success, None otherwise
+  """
+
+  return next(
+      filter(
+          lambda x: x.name == name,
+          get_gke_clusters(client, project_id, zone),
+      ))

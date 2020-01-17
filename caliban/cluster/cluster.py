@@ -14,8 +14,8 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 import google
-from google.cloud import container_v1
-from google.cloud.container_v1.types import Cluster as GCPCluster, NodePool
+from google.cloud.container_v1 import ClusterManagerClient
+from google.cloud.container_v1.types import Cluster as GKECluster, NodePool
 from google.auth import compute_engine
 from google.auth.credentials import Credentials
 import google.auth.environment_vars as auth_env
@@ -79,154 +79,6 @@ def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
   return (gd['region'], gd['zone'])
 
 # ----------------------------------------------------------------------------
-def _job_str(job: V1Job) -> str:
-  """formats job string to remove all default (None) values
-
-  Args:
-  job: job spec
-
-  Returns:
-  string describing job
-  """
-
-  def nonnull_dict(d: dict) -> dict:
-    nnd = {}
-    for k, v in d.items():
-      if v is None:
-        continue
-      if type(v) == dict:
-        nnd[k] = nonnull_dict(v)
-      elif type(v) == list:
-        nnd[k] = [nonnull_dict(x) if type(x) == dict else x for x in v]
-      else:
-        nnd[k] = v
-
-    return nnd
-
-  return pp.pformat(nonnull_dict(job.to_dict()), indent=2, width=80)
-
-
-# ----------------------------------------------------------------------------
-def _sanitize_job_name(name: str) -> str:
-  """sanitizes job name to fit DNS-1123 restrictions:
-
-  ... a DNS-1123 subdomain must consist of lower case alphanumeric characters,
-  '-' or '.', and must start and end with an alphanumeric character.
-
-  Args:
-  name (str): job name
-
-  Returns:
-  sanitized job name
-  """
-
-  name = name.lower()
-
-  if not name[0].isalnum():
-    name = 'job-' + name
-
-  if not name[-1].isalnum():
-    name = name + '-0'
-
-  def valid(x):
-    return x.isalnum() or x in ['-', '.']
-
-  return ''.join([x if valid(x) else '-' for x in name])
-
-
-# ----------------------------------------------------------------------------
-def default_credentials() -> Tuple[Optional[Credentials], Optional[str]]:
-  """gets default cloud credentials
-
-  Returns:
-  tuple of credentials, project id
-
-  both credentials and project id may be None if unable to resolve
-  """
-  try:
-    creds, project_id = google.auth.default(
-        scopes=[k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL])
-  except google.auth.exceptions.DefaultCredentialsError as e:
-    return (None, None)
-
-  creds.refresh(google.auth.transport.requests.Request())
-
-  return (creds, project_id)
-
-
-# ----------------------------------------------------------------------------
-def credentials_from_file(cred_file: str) -> Optional[Credentials]:
-  """gets cloud credentials from service account file
-
-  Args:
-  cred_file: service account credentials file to read
-
-  Returns:
-  credentials on success, None otherwise
-  """
-
-  creds = service_account.Credentials.from_service_account_file(
-      cred_file, scopes=[k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL])
-
-  creds.refresh(google.auth.transport.requests.Request())
-
-  return creds
-
-
-# --------------------------------------------------------------------------
-@trap(None)
-def _get_gcp_clusters(client: ClusterManagerClient,
-                      project_id: str,
-                      creds: Credentials,
-                      zone: str = '-') -> Optional[List[GCPCluster]]:
-  """gets list of gcp clusters for given project, zone
-
-  Args:
-  client: cluster api client
-  project_id: project id
-  creds: credentials
-  zone: zone, - = all zones
-
-  Returns:
-  list of clusters on success, None otherwise
-  """
-
-  response = client.list_clusters(project_id=project_id, zone=zone)
-  return response.clusters
-
-
-# ----------------------------------------------------------------------------
-def _get_gcp_cluster(client: ClusterManagerClient,
-                     name: str,
-                     project_id: str,
-                     creds: Credentials,
-                     zone: str = '-') -> Optional[GCPCluster]:
-  """gets specific cluster instance by name
-
-  Args:
-  client: cluster api client
-  name: cluster name
-  project_id: project id
-  creds: credentials
-  zone: zone, - = all zones
-
-  Returns:
-  GCPCluster on success, None otherwise
-  """
-
-  cluster_list = _get_gcp_clusters(client, project_id, creds, zone)
-  if cluster_list is None:
-    return None
-
-  cluster_dict = dict([(c.name, c) for c in cluster_list])
-  if name not in cluster_dict:
-    logging.error(f'cluster {name} not found')
-    return None
-
-  return cluster_dict[name]
-
-
-# ----------------------------------------------------------------------------
 def connected(error_value: Any) -> Any:
   """decorator for Cluster that checks connection status
 
@@ -265,7 +117,7 @@ class Cluster(object):
   def __init__(self, name: str, project_id: str, zone: str,
                credentials: Credentials):
     self._cluster_client = None
-    self._gcp_cluster = None
+    self._gke_cluster = None
     self._core_api = None
     self._batch_api = None
     self._apps_api = None
@@ -288,21 +140,21 @@ class Cluster(object):
 
     self.connected = False
 
-    # if gcp cluster info already populated, then noop
+    # if gke cluster info already populated, then noop
     # otherwise uses cluster api to get cluster info
-    if not self._set_gcp_cluster():
+    if not self._set_gke_cluster():
       return False
 
     # resolve our zone in case the wildcard '-' was passed
-    self.zone = self._gcp_cluster.zone
+    self.zone = self._gke_cluster.zone
 
     # set our name in case None was passed
-    self.name = self._gcp_cluster.name
+    self.name = self._gke_cluster.name
 
     # ok, now we set up the kubernetes api using our cluster info and
     # credentials
     cfg = kubernetes.client.Configuration()
-    cfg.host = f'https://{self._gcp_cluster.endpoint}:443'
+    cfg.host = f'https://{self._gke_cluster.endpoint}:443'
     cfg.verify_ssl = False  #True #todo: figure out how to do this properly
     #cfg.ssl_ca_cert = c.master_auth.cluster_ca_certificate
     cfg.api_key = {'authorization': 'Bearer ' + self.credentials.token}
@@ -324,25 +176,24 @@ class Cluster(object):
     return self.connected
 
   # --------------------------------------------------------------------------
-  def _set_gcp_cluster(self) -> bool:
-    """sets the gcp cluster for this instance
+  def _set_gke_cluster(self) -> bool:
+    """sets the gke cluster for this instance
 
     Returns:
     True on success, False otherwise
     """
 
-    if self._gcp_cluster is not None:
+    if self._gke_cluster is not None:
       return True
 
-    self._cluster_client = container_v1.ClusterManagerClient(
-        credentials=self.credentials)
+    self._cluster_client = ClusterManagerClient(credentials=self.credentials)
 
     if self._cluster_client is None:
       logging.error('error getting cluster management client')
       return False
 
-    cluster_list = _get_gcp_clusters(self._cluster_client, self.project_id,
-                                     self.credentials, self.zone)
+    cluster_list = utils.get_gke_clusters(self._cluster_client, self.project_id,
+                                          self.zone)
     if cluster_list is None:
       return False
     if len(cluster_list) < 1:
@@ -355,7 +206,7 @@ class Cluster(object):
       return False
 
     if self.name is None:
-      self._gcp_cluster = cluster_list[0]
+      self._gke_cluster = cluster_list[0]
       return True
 
     cluster_dict = dict([(c.name, c) for c in cluster_list])
@@ -363,7 +214,7 @@ class Cluster(object):
       logging.error(f'cluster {self.name} not found')
       return False
 
-    self._gcp_cluster = cluster_dict[self.name]
+    self._gke_cluster = cluster_dict[self.name]
 
     return True
 
@@ -375,7 +226,7 @@ class Cluster(object):
     """gets a list of clusters for given project and zone
 
     Args:
-    project_id: gcp project id
+    project_id: gke project id
     creds: credentials
     zone: zone, - = all zones
 
@@ -383,13 +234,13 @@ class Cluster(object):
     list of cluster names on success, None otherwise
     """
 
-    client = container_v1.ClusterManagerClient(credentials=creds)
+    client = ClusterManagerClient(credentials=creds)
 
     if client is None:
       logging.error('error getting cluster management client')
       return False
 
-    clusters = _get_gcp_clusters(client, project_id, creds, zone)
+    clusters = utils.get_gke_clusters(client, project_id, zone)
     return [c.name for c in clusters] if clusters is not None else None
 
   # --------------------------------------------------------------------------
@@ -578,7 +429,7 @@ class Cluster(object):
     """
 
     # todo: re-query this
-    return self._gcp_cluster.node_pools
+    return self._gke_cluster.node_pools
 
   # --------------------------------------------------------------------------
   @trap(None)
@@ -845,7 +696,7 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @connected(None)
   def dashboard_url(self) -> str:
-    """returns gcp dashboard url for this cluster"""
+    """returns gke dashboard url for this cluster"""
     return utils.dashboard_cluster_url(self.name, self.zone, self.project_id)
 
   # --------------------------------------------------------------------------
@@ -890,7 +741,7 @@ class Cluster(object):
     container_api = googleapiclient.discovery.build(
         'container', 'v1', credentials=self.credentials, cache_discovery=False)
 
-    # for some reason, autoprovisioning data is not in the _gcp__cluster
+    # for some reason, autoprovisioning data is not in the _gke_cluster
     # instance, so we query using the container api here
     rsp = container_api.projects().locations().clusters().get(
         name=f'projects/{self.project_id}/locations/{self.zone}/clusters/{self.name}'
@@ -910,7 +761,6 @@ class Cluster(object):
       return None
 
     limits = rsp['autoscaling']['resourceLimits']
-    #print(pp.pformat(limits))
 
     gpu_re = re.compile('^nvidia-tesla-(?P<type>[a-z0-9]+)$')
     gpus = []
@@ -1025,32 +875,8 @@ class Cluster(object):
     # by using the discovery client or the ClusterManagementClient
     # due to a strange permissions error, which persists despite having
     # complete project ownership IAM privileges
-    #cluster_client = googleapiclient.discovery.build(
-    #    'container', 'v1', credentials=self.credentials, cache_discovery=False)
     op = self._cluster_client.delete_cluster(
         project_id=self.project_id, zone=self.zone, cluster_id=self.name)
-
-    # this deletes the cluster using the discovery api:
-    # see https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters/delete
-    #rsp = cluster_client.projects().zones().clusters().delete(
-    #    projectId=self.project_id,
-    #    zone=self.zone,
-    #    clusterId=self.name,
-    #    name=f'projects/{self.project_id}/locations/{self.zone}/clusters/{self.name}'
-    #).execute()
-
-    #if rsp is None:
-    #  logging.error(f'error deleting cluster {self.name}')
-    #  return
-
-    #op_name = rsp['name']
-    #op = utils.wait_for_operation(
-    #    cluster_client,
-    #    f'projects/{self.name}/locations/{self.zone}/operations/{op_name}')
-
-    #if rsp['status'] != 'DONE':
-    #  logging.error(f'error deleting cluster {self.name}')
-    #  return
 
     print(f'deleting cluster {self.name}...')
     print(f'visit {self.dashboard_url()} to monitor deletion progress')
@@ -1086,7 +912,9 @@ class Cluster(object):
 
     return tpu_driver in valid_drivers
 
+
 # ----------------------------------------------------------------------------
+# cli stuff below here
 # ----------------------------------------------------------------------------
 def _project_and_creds(fn):
   """wrapper to supply project and credentials from args"""
@@ -1094,19 +922,20 @@ def _project_and_creds(fn):
   def wrapper(args: dict):
     project_id = args.get('project_id', None)
     creds_file = args.get('cloud_key', None)
-    default_creds = default_credentials()
+    default_creds = utils.default_credentials()
 
     # neither project_id or creds file specified
     if project_id is None and creds_file is None:
-      creds, project_id = default_creds
+      creds = default_creds.credentials
+      project_id = default_creds.project_id
     elif creds_file is None:  # only project id specified
-      creds = credentials_from_file(conf.extract_cloud_key(args))
+      creds = utils.credentials_from_file(conf.extract_cloud_key(args))
     elif project_id is None:  # only creds file specified
-      creds = credentials_from_file(creds_file)
-      project_id = default_creds[1]
+      creds = utils.credentials_from_file(creds_file)
+      project_id = default_creds.project_id
     else:  # both project id and credentials file specified
       project_id = conf.extract_project_id(args)
-      creds = credentials_from_file(creds_file)
+      creds = utils.credentials_from_file(creds_file)
 
     return fn(args, project_id, creds)
 
@@ -1192,12 +1021,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
 
   # --------------------------------------------------------------------------
   # create the cluster
-  # note that as of this writing (2020.01.06), there is a discrepancy between
-  # the python/protobuf api and the current rest api, (in particular support
-  # for TPUs), so we use the discovery api instead of the dedicated
-  # ClusterManagerClient...
-  # todo: revisit this
-  #cluster_client = container_v1.ClusterManagerClient(credentials=creds)
+  # see https://buganizer.corp.google.com/issues/148180423 for why we use
+  # the discovery api here
   cluster_client = googleapiclient.discovery.build(
       'container', 'v1', credentials=creds, cache_discovery=False)
 
@@ -1251,9 +1076,6 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   print(f'creating cluster {cluster_name} in project {project_id} in {zone}...')
   print(f'please be patient, this may take several minutes')
   print(f'visit {dashboard_url} to monitor cluster creation progress')
-
-  #rsp = cluster_client.create_cluster(
-  #    project_id=project_id, zone=zone, cluster=cluster_spec)
 
   # see https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters/create
   rsp = cluster_client.projects().zones().clusters().create(
@@ -1508,7 +1330,7 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
 
   # create V1 jobs
   jobs = cluster.create_simple_experiment_jobs(
-      name=_sanitize_job_name(job_name),
+      name=utils.sanitize_job_name(job_name),
       image=image_tag,
       experiments=experiments,
       args=script_args,
@@ -1523,7 +1345,7 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   if dry_run:
     print('jobs that would be submitted:')
     for j in jobs:
-      print(f'{_job_str(j)}')
+      print(f'{utils.job_str(j)}')
     return
 
   submitted = []
@@ -1569,7 +1391,7 @@ _PROJECT_FLAG = {
     'kwargs': {
         'help': 'project id, if not specified, tries to determine default',
         'type': str,
-        'default': default_credentials()[1]
+        'default': utils.default_credentials().project_id
     }
 }
 
