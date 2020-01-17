@@ -1,6 +1,15 @@
 # pending tag
 
 - consolidated gke tpu/gpu spec parsing with cloud types
+- modified all commands to accept as the module argument paths to arbitrary
+  shell scripts. Any argument of the format "trainer.train" will execute using
+  "python -m trainer.train", just as before. If instead you pass a python script
+  as a file, like "trainer/train.py", caliban will execute this file inside the
+  container using "python trainer/train.py". Any other argument, if it exists in
+  the local directory, will be executed as a bash script.
+
+  This allows users to run commands like "caliban cloud my_script.sh" and have
+  it all work.
 
 # 0.1.11
 

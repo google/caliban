@@ -24,8 +24,32 @@ t = Terminal()
 
 
 class Package(NamedTuple):
+  executable: List[str]
   package_path: str
-  main_module: str
+  script_path: str
+  main_module: Optional[str]
+
+
+def module_package(main_module: str) -> Package:
+  """Generates a Package instance for a python module executable that should be
+  executed with python -m.
+
+  """
+  script_path = module_to_path(main_module)
+  root = extract_root_directory(script_path)
+  return Package(["python", "-m"],
+                 package_path=root,
+                 script_path=script_path,
+                 main_module=main_module)
+
+
+def script_package(path: str, executable: str = "/bin/bash") -> Package:
+  """Generates a Package instance for a non-python-module executable."""
+  root = extract_root_directory(path)
+  return Package([executable],
+                 package_path=root,
+                 script_path=path,
+                 main_module=None)
 
 
 def err(s: str) -> None:
@@ -261,22 +285,51 @@ def capture_stdout(cmd: List[str], input_str: str) -> str:
 
 
 def path_to_module(path_str: str) -> str:
-  return path_str.replace(".py", "").replace("/", ".")
+  return path_str.replace(".py", "").replace(os.path.sep, ".")
 
 
 def module_to_path(module_name: str) -> str:
-  return path_to_module(module_name).replace(".", "/") + ".py"
-
-
-def generate_package(path: str) -> Package:
-  """Takes in a string and generates a package instance that we can use for
-  imports.
+  """Converts the supplied python module (module names separated by dots) into
+  the python file represented by the module name.
 
   """
-  module = path_to_module(path)
-  items = module.split(".")
-  root = "." if len(items) == 1 else items[0]
-  return Package(root, module)
+  return module_name.replace(".", os.path.sep) + ".py"
+
+
+def file_exists_in_cwd(path: str) -> bool:
+  """Returns True if the current path references a valid file in the current
+  directory, False otherwise.
+
+  """
+  return os.path.isfile(os.path.join(os.getcwd(), path))
+
+
+def extract_root_directory(path: str) -> str:
+  """Returns the root directory of the supplied path."""
+  items = path.split(os.path.sep)
+  return "." if len(items) == 1 else items[0]
+
+
+def generate_package(path: str,
+                     executable: Optional[List[str]] = None,
+                     main_module: Optional[str] = None) -> Package:
+  """Takes in a string and generates a package instance that we can use for
+  imports.
+  """
+  if executable is None:
+    _, ext = os.path.splitext(path)
+    executable = ["python"] if ext == ".py" else ["/bin/bash"]
+
+  if main_module is None and not file_exists_in_cwd(path):
+    module_path = module_to_path(path)
+
+    if file_exists_in_cwd(module_path):
+      return generate_package(module_path,
+                              executable=["python", "-m"],
+                              main_module=path_to_module(module_path))
+
+  root = extract_root_directory(path)
+  return Package(executable, root, path, main_module)
 
 
 def validated_package(path: str) -> Package:
@@ -288,14 +341,14 @@ def validated_package(path: str) -> Package:
 
   if not os.path.isdir(p.package_path):
     raise argparse.ArgumentTypeError(
-        f"""Directory '{p.package_path}' doesn't exist in directory. Modules must be
+        f"""Directory '{p.package_path}' doesn't exist in directory. Code must be
 nested in a folder that exists in the current directory.""")
 
-  filename = module_to_path(p.main_module)
-  if not os.path.isfile(os.path.join(os.getcwd(), filename)):
+  filename = p.script_path
+  if not file_exists_in_cwd(filename):
     raise argparse.ArgumentTypeError(
-        f"""File '{filename}' doesn't exist locally; modules must live inside the
-current directory.""")
+        f"""File '{filename}' doesn't exist locally as a script or python module; code
+must live inside the current directory.""")
 
   return p
 

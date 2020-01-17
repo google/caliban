@@ -85,7 +85,7 @@ but before the '--' separator and {pwas} not properly parsed.\n\n")
 moving them after the --, like this:\n\n")
   u.err(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
   u.err(f"Otherwise, if these are in fact caliban keyword arguments, \
-please move them before the python module name argument.\n\n")
+please move them before the python script/module[] name argument.\n\n")
   sys.exit(1)
 
 
@@ -108,7 +108,8 @@ def require_module(parser):
   parser.add_argument("module",
                       type=u.validated_package,
                       help="Code to execute, in either \
-'trainer.train' or 'trainer/train.py' format.")
+'trainer.train' or 'trainer/train.py' format. \
+Accepts python scripts, modules or a path to an arbitrary script.")
 
 
 def setup_extras(parser):

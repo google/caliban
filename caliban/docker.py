@@ -6,6 +6,7 @@ and notebooks in a Docker environment.
 from __future__ import absolute_import, division, print_function
 
 import itertools
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -130,12 +131,19 @@ def _package_entries(workdir: str, user_id: int, user_group: int,
 
   """
   owner = f"{user_id}:{user_group}"
+
+  arg = package.main_module or package.script_path
+
+  # This needs to use json so that quotes print as double quotes, not single
+  # quotes.
+  entrypoint_s = json.dumps(package.executable + [arg])
+
   return f"""
 # Copy project code into the docker container.
 COPY --chown={owner} {package.package_path} {workdir}/{package.package_path}
 
 # Declare an entrypoint that actually runs the container.
-ENTRYPOINT ["python", "-m", "{package.main_module}"]
+ENTRYPOINT {entrypoint_s}
   """
 
 

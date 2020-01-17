@@ -215,21 +215,39 @@ class UtilTestSuite(unittest.TestCase):
     """
     m = {
         # normal module syntax should just work.
-        "face.cake": u.Package("face", "face.cake"),
+        "caliban.util":
+            u.module_package("caliban.util"),
+
+        # This one is controversial, maybe... if something exists as a module
+        # if you replace slashes with dots, THEN it will also parse as a
+        # module. If it exists as a file in its own right this won't happen.
+        #
+        # TODO get a test in for this final claim using temp directories.
+        "caliban/util":
+            u.module_package("caliban.util"),
 
         # root scripts or packages should require the entire local directory.
-        "cake": u.Package(".", "cake"),
-        "cake.py": u.Package(".", "cake"),
+        "setup":
+            u.module_package("setup"),
+        "cake.py":
+            u.script_package("cake.py", "python"),
 
         # This is busted but should still parse.
-        "face.cake.py": u.Package("face", "face.cake"),
+        "face.cake.py":
+            u.script_package("face.cake.py", "python"),
 
         # Paths into directories should parse properly into modules and include
         # the root as their required package to import.
-        "face/cake.py": u.Package("face", "face.cake"),
+        "face/cake.py":
+            u.script_package("face/cake.py", "python"),
 
         # Deeper nesting works.
-        "face/cake/cheese.py": u.Package("face", "face.cake.cheese"),
+        "face/cake/cheese.py":
+            u.script_package("face/cake/cheese.py", "python"),
+
+        # Other executables work.
+        "face/cake/cheese.sh":
+            u.script_package("face/cake/cheese.sh"),
     }
     for k in m:
       self.assertEqual(u.generate_package(k), m[k])
@@ -246,8 +264,9 @@ class UtilTestSuite(unittest.TestCase):
         # root-level modules just get a py extension.
         "face": "face.py",
 
-        # paths shouldn't be touched.
-        "face/cake.py": "face/cake.py"
+        # This will get treated as a module nested inside of a folder, which is
+        # clearly invalid; marking this behavior in the tests.
+        "face/cake.py": "face/cake/py.py"
     }
     for k in m:
       self.assertEqual(u.module_to_path(k), m[k])
