@@ -1,5 +1,7 @@
 """gke utility routines"""
 
+from __future__ import absolute_import
+
 from typing import Dict, List, Optional, Any, Tuple
 import logging
 from urllib.parse import urlencode
@@ -13,6 +15,7 @@ from yaspin.spinners import Spinners
 import google
 import googleapiclient
 from googleapiclient import discovery
+from googleapiclient.http import HttpRequest
 from google.auth.credentials import Credentials
 from google.auth._default import (_load_credentials_from_file,
                                   _AUTHORIZED_USER_TYPE, _SERVICE_ACCOUNT_TYPE)
@@ -26,9 +29,6 @@ from kubernetes.client import V1Job
 import caliban.gke.constants as k
 from caliban.gke.types import NodeImage, OpStatus, CredentialsData
 from caliban.cloud.types import (GPU, GPUSpec, TPU, TPUSpec)
-
-# ----------------------------------------------------------------------------
-DNS_1123_RE = re.compile('\A[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?\Z')
 
 
 # ----------------------------------------------------------------------------
@@ -78,14 +78,14 @@ def validate_gpu_spec_against_limits(
 
   if gpu_spec.gpu not in gpu_limits:
     logging.error(
-        f'unsupported gpu type {gpu_spec.gpu.name}. ' +
+        f'unsupported gpu type {gpu_spec.gpu.name}. '
         f'Supported types for {limit_type}: {[g.name for g in gpu_limits]}')
     return False
 
   if gpu_spec.count > gpu_limits[gpu_spec.gpu]:
     logging.error(
         f'error: requested {gpu_spec.gpu.name} gpu count {gpu_spec.count} unsupported,'
-        + f' {limit_type} max = {gpu_limits[gpu_spec.gpu]}')
+        f' {limit_type} max = {gpu_limits[gpu_spec.gpu]}')
     return False
 
   return True
@@ -142,7 +142,7 @@ def get_tpu_drivers(tpu_api: discovery.Resource, project_id: str,
   list of supported drivers on success, None otherwise
   """
 
-  location = 'projects/' + project_id + '/locations/' + zone
+  location = f'projects/{project_id}/locations/{zone}'
 
   rsp = tpu_api.projects().locations().tensorflowVersions().list(
       parent=location).execute()
@@ -324,7 +324,7 @@ def get_zone_gpu_types(
 
 
 # ----------------------------------------------------------------------------
-@trap(None)
+@trap(None, silent=False)
 def get_region_quotas(
     project_id: str, region: str,
     compute_api: discovery.Resource) -> Optional[List[Dict[str, Any]]]:
@@ -392,15 +392,14 @@ def resource_limits_from_quotas(
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def generate_resource_limits(
-    project_id: str, region: str,
-    compute_api: discovery.Resource) -> Optional[List[Dict[str, Any]]]:
+def generate_resource_limits(compute_api: discovery.Resource, project_id: str,
+                             region: str) -> Optional[List[Dict[str, Any]]]:
   """generates resource limits from quota information
 
   Args:
+  compute_api: compute_api instance
   project_id: project id
   region: region string
-  compute_api: compute_api instance
 
   Returns:
   resource limits dictionaries on success, None otherwise
@@ -469,7 +468,7 @@ def sanitize_job_name(name: str) -> str:
   # also, DNS-1123 is restricted, so just use re here
 
   def _valid(name):
-    DNS_1123_RE.match(name) is not None
+    k.DNS_1123_RE.match(name) is not None
 
   alnum_re = re.compile('[a-z0-9]')
   invalid_re = re.compile('[^a-z0-9\-\.]')

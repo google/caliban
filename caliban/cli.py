@@ -1,8 +1,7 @@
-"""Command line parser for the Caliban app.
-
-"""
+"""Command line parser for the Caliban app."""
 import os
 import sys
+import argparse
 from argparse import REMAINDER
 from typing import Any, Dict, List, Optional, Union
 
@@ -15,6 +14,9 @@ import caliban.cluster as cluster
 import caliban.config as conf
 import caliban.docker as docker
 import caliban.util as u
+import caliban.cluster as cluster
+import caliban.gke as gke
+
 from caliban import __version__
 
 t = Terminal()
@@ -70,22 +72,22 @@ def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
   # to be options to caliban itself.
   pre_dashes, _ = u.split_by(items, "--")
 
-  joined = ' '.join(pre_dashes)
-  expected_s = ' '.join(expected)
+  joined = " ".join(pre_dashes)
+  expected_s = " ".join(expected)
 
   # caliban arguments before these unexpected arguments.
   before_pre_dashes = pre_args[:-len(pre_dashes)]
 
-  pwas = 'was' if len(pre_dashes) == 1 else 'were'
-  parg = 'argument' if len(pre_dashes) == 1 else 'arguments'
+  pwas = "was" if len(pre_dashes) == 1 else "were"
+  parg = "argument" if len(pre_dashes) == 1 else "arguments"
 
-  u.err(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments \
-but before the '--' separator and {pwas} not properly parsed.\n\n")
-  u.err(f"if you meant to pass these as script_args, try \
-moving them after the --, like this:\n\n")
+  u.err(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments "
+        f"but before the '--' separator and {pwas} not properly parsed.\n\n")
+  u.err(f"if you meant to pass these as script_args, try "
+        f"moving them after the --, like this:\n\n")
   u.err(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
-  u.err(f"Otherwise, if these are in fact caliban keyword arguments, \
-please move them before the python script/module name argument.\n\n")
+  u.err(f"Otherwise, if these are in fact caliban keyword arguments, "
+        f"please move them before the python script/module name argument.\n\n")
   sys.exit(1)
 
 
@@ -94,7 +96,7 @@ def add_script_args(parser):
   arguments provided after a '--'.
 
   """
-  parser.add_argument_group('pass-through arguments').add_argument(
+  parser.add_argument_group("pass-through arguments").add_argument(
       "script_args",
       nargs=REMAINDER,
       default=[],
@@ -105,11 +107,12 @@ any arguments after '--' will pass through.""")
 
 
 def require_module(parser):
-  parser.add_argument("module",
-                      type=u.validated_package,
-                      help="Code to execute, in either \
-'trainer.train' or 'trainer/train.py' format. \
-Accepts python scripts, modules or a path to an arbitrary script.")
+  parser.add_argument(
+      "module",
+      type=u.validated_package,
+      help=
+      f"Code to execute, in either trainer.train' or 'trainer/train.py' format. "
+      f"Accepts python scripts, modules or a path to an arbitrary script.")
 
 
 def setup_extras(parser):
@@ -119,9 +122,7 @@ def setup_extras(parser):
 
 
 def docker_run_arg(parser):
-  """Adds a command that accepts arguments to pass directly to `docker run`.
-
-  """
+  """Adds a command that accepts arguments to pass directly to `docker run`."""
   parser.add_argument("--docker_run_args",
                       type=lambda s: s.split(" "),
                       help="String of args to add to Docker.")
@@ -133,8 +134,8 @@ def extra_dirs(parser):
       "--dir",
       action="append",
       type=u.validated_directory,
-      help="Extra directories to include. List these from large to small \
-to take full advantage of Docker's build cache.")
+      help="Extra directories to include. List these from large to small "
+      "to take full advantage of Docker's build cache.")
 
 
 def no_gpu_flag(parser):
@@ -147,9 +148,9 @@ def no_gpu_flag(parser):
 def project_id_arg(parser):
   parser.add_argument(
       "--project_id",
-      help="ID of the GCloud AI Platform project to use for Cloud job \
-submission and image persistence. (Defaults to $PROJECT_ID; errors if \
-both the argument and $PROJECT_ID are empty.)")
+      help="ID of the GCloud AI Platform/GKE project to use for Cloud job "
+      "submission and image persistence. (Defaults to $PROJECT_ID; errors if "
+      "both the argument and $PROJECT_ID are empty.)")
 
 
 def region_arg(parser):
@@ -157,30 +158,31 @@ def region_arg(parser):
   parser.add_argument(
       "--region",
       type=ct.parse_region,
-      help=f"Region to use for Cloud job submission and image persistence. \
-Must be one of {regions}. \
-(Defaults to $REGION or '{conf.DEFAULT_REGION.value}'.)")
+      help=f"Region to use for Cloud job submission and image persistence. "
+      f"Must be one of {regions}. "
+      f"(Defaults to $REGION or '{conf.DEFAULT_REGION.value}'.)")
 
 
 def cloud_key_arg(parser):
   parser.add_argument("--cloud_key",
                       type=u.validated_file,
-                      help=f"Path to GCloud service account key. \
-(Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)")
+                      help=f"Path to GCloud service account key. "
+                      f"(Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)")
 
 
 def image_id_arg(parser):
   parser.add_argument(
       "--image_id",
-      help=f"Docker image ID accessible in the local Docker registry. \
-If supplied, Caliban will skip the 'docker build' step and use this image.")
+      help=f"Docker image ID accessible in the local Docker registry. "
+      "If supplied, Caliban will skip the 'docker build' step and use this image."
+  )
 
 
 def image_tag_arg(parser):
   parser.add_argument(
       "--image_tag",
-      help=f"Docker image tag accessible via Container Registry. If supplied, \
-Caliban will skip the build and push steps and use this image tag.")
+      help=f"Docker image tag accessible via Container Registry. If supplied, "
+      f"Caliban will skip the build and push steps and use this image tag.")
 
 
 def machine_type_arg(parser):
@@ -188,11 +190,12 @@ def machine_type_arg(parser):
   cpu_default = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.CPU].value
   gpu_default = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.GPU].value
 
-  parser.add_argument("--machine_type",
-                      type=ct.parse_machine_type,
-                      help=f"Cloud machine type to request. Must be one of \
-{machine_types}. Defaults to '{gpu_default}' in GPU mode, or '{cpu_default}' \
-if --nogpu is passed.")
+  parser.add_argument(
+      "--machine_type",
+      type=ct.parse_machine_type,
+      help=f"Cloud machine type to request. Must be one of "
+      f"{machine_types}. Defaults to '{gpu_default}' in GPU mode, or '{cpu_default}' "
+      f"if --nogpu is passed.")
 
 
 # Parsers for each command supported by Caliban.
@@ -222,22 +225,14 @@ def executing_parser(base):
   """
   building_parser(base)
   add_script_args(base)
-
-  base.add_argument(
-      "--experiment_config",
-      type=conf.load_experiment_config,
-      help="Path to an experiment config, or 'stdin' to read from stdin.")
-
-  base.add_argument(
-      conf.DRY_RUN_FLAG,
-      action="store_true",
-      help="Don't actually submit; log everything that's going to happen.")
+  experiment_config_arg(base)
+  dry_run_arg(base)
 
 
 def shell_parser(base):
   """Configure the Shell subparser."""
   parser = base.add_parser(
-      'shell', help='Start an interactive shell with this dir mounted.')
+      "shell", help="Start an interactive shell with this dir mounted.")
   base_parser(parser)
   image_id_arg(parser)
   docker_run_arg(parser)
@@ -257,8 +252,8 @@ variable, or 'bash' if your shell isn't supported.""")
 
 def notebook_parser(base):
   """Configure the notebook subparser."""
-  parser = base.add_parser('notebook',
-                           help='Run a local Jupyter notebook instance.')
+  parser = base.add_parser("notebook",
+                           help="Run a local Jupyter notebook instance.")
   base_parser(parser)
   docker_run_arg(parser)
 
@@ -284,54 +279,86 @@ def notebook_parser(base):
 def local_build_parser(base):
   """Configure the subparser for `caliban run`."""
   parser = base.add_parser(
-      'build',
-      help='Build a Docker image without submitting or running any code.')
+      "build",
+      help="Build a Docker image without submitting or running any code.")
   building_parser(parser)
 
 
 def local_run_parser(base):
   """Configure the subparser for `caliban run`."""
-  parser = base.add_parser('run', help='Run a job inside a Docker container.')
+  parser = base.add_parser("run", help="Run a job inside a Docker container.")
   executing_parser(parser)
   image_id_arg(parser)
   docker_run_arg(parser)
 
 
-def container_parser(parser):
-  executing_parser(parser)
-
-  image_tag_arg(parser)
-  project_id_arg(parser)
-  region_arg(parser)
-  machine_type_arg(parser)
-
+def gpu_spec_arg(parser, validate_count: bool = False):
   parser.add_argument(
       "--gpu_spec",
       metavar=ct.GPUSpec.METAVAR,
-      type=ct.GPUSpec.parse_arg,
-      help=f"Type and number of GPUs to use for each AI Platform submission. \
-Defaults to 1x{conf.DEFAULT_GPU.name} in GPU mode or None if --nogpu is passed."
-  )
+      type=lambda x: ct.GPUSpec.parse_arg(x, validate_count=validate_count),
+      help=f"Type and number of GPUs to use for each AI Platform/GKE "
+      f"submission.  Defaults to 1x{conf.DEFAULT_GPU.name} in GPU mode "
+      f"or None if --nogpu is passed.")
 
-  parser.add_argument("--tpu_spec",
-                      metavar=ct.TPUSpec.METAVAR,
-                      type=ct.TPUSpec.parse_arg,
-                      help=f"Type and number of TPUs to request for each \
-AI Platform submission. Defaults to None.")
 
+def tpu_spec_arg(parser, validate_count: bool = True):
+  parser.add_argument(
+      "--tpu_spec",
+      metavar=ct.TPUSpec.METAVAR,
+      type=lambda x: ct.TPUSpec.parse_arg(x, validate_count=validate_count),
+      help=f"Type and number of TPUs to request for each "
+      f"AI Platform/GKE submission. Defaults to None.")
+
+
+def force_arg(parser):
   parser.add_argument(
       "--force",
       action="store_true",
       help="Force past validations and submit the job as specified.")
 
-  parser.add_argument("--name", help="Set a job name for AI Platform jobs.")
 
+def job_name_arg(parser):
+  parser.add_argument("--name",
+                      help="Set a job name for AI Platform or GKE jobs.")
+
+
+def experiment_config_arg(parser):
+  parser.add_argument(
+      "--experiment_config",
+      type=conf.load_experiment_config,
+      help="Path to an experiment config, or 'stdin' to read from stdin.")
+
+
+def label_arg(parser):
   parser.add_argument("-l",
                       "--label",
                       metavar="KEY=VALUE",
                       action="append",
                       type=u.parse_kv_pair,
                       help="Extra label k=v pair to submit to Cloud.")
+
+
+def dry_run_arg(parser):
+  parser.add_argument(
+      conf.DRY_RUN_FLAG,
+      action="store_true",
+      help="Don't actually submit; log everything that's going to happen.")
+
+
+def container_parser(parser):
+
+  executing_parser(parser)
+
+  image_tag_arg(parser)
+  project_id_arg(parser)
+  region_arg(parser)
+  machine_type_arg(parser)
+  gpu_spec_arg(parser)
+  tpu_spec_arg(parser)
+  force_arg(parser)
+  job_name_arg(parser)
+  label_arg(parser)
 
 
 def cloud_parser(base):
@@ -359,7 +386,7 @@ def caliban_parser():
   local_build_parser(subparser)
   local_run_parser(subparser)
   cloud_parser(subparser)
-  cluster.parser(subparser)
+  cluster_parser(subparser)
 
   return parser
 
@@ -368,17 +395,14 @@ def caliban_parser():
 
 
 def mac_gpu_check(job_mode: conf.JobMode, command: str) -> None:
-  """If the command depends on 'docker run' and is running on a Mac, fail
-fast.
-
-  """
+  """If the command depends on 'docker run' and is running on a Mac, fail fast."""
   if conf.gpu(job_mode) and command in ("shell", "notebook", "run"):
     u.err(
-        f"\n'caliban {command}' doesn't support GPU usage on Macs! Please pass \
---nogpu to use this command.\n\n")
+        f"\n'caliban {command}' doesn't support GPU usage on Macs! Please pass "
+        f"--nogpu to use this command.\n\n")
     u.err(
-        "(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs \
-locally.)\n\n")
+        f"(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs "
+        f"locally.)\n\n")
     sys.exit(1)
 
 
@@ -389,8 +413,8 @@ def _validate_no_gpu_type(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec]):
   """
   gpu_disabled = not use_gpu
   if gpu_disabled and gpu_spec is not None:
-    u.err(f"\n'--nogpu' is incompatible with an explicit --gpu_spec option. \
-Please remove one or the other!\n\n")
+    u.err(f"\n'--nogpu' is incompatible with an explicit --gpu_spec option. "
+          f"Please remove one or the other!\n\n")
     sys.exit(1)
 
 
@@ -406,8 +430,8 @@ def _validate_machine_type(gpu_spec: Optional[ct.GPUSpec],
       # prefixes stick together.
       allowed = u.enum_vals(gpu_spec.allowed_machine_types())
       allowed.sort()
-      u.err(f"\n'{machine_type.value}' isn't a valid machine type \
-for {gpu_spec.count} {gpu_spec.gpu.name} GPUs.\n\n")
+      u.err(f"\n'{machine_type.value}' isn't a valid machine type "
+            f"for {gpu_spec.count} {gpu_spec.gpu.name} GPUs.\n\n")
       u.err(ct.with_gpu_advice_suffix(f"Try one of these: {allowed}"))
       u.err("\n")
       sys.exit(1)
@@ -427,11 +451,13 @@ def _validate_accelerator_region(spec: Optional[Union[ct.GPUSpec, ct.TPUSpec]],
       # prefixes stick together.
       allowed = u.enum_vals(spec.allowed_regions())
       allowed.sort()
-      u.err(f"\n'{region.value}' isn't a valid region \
-for {accel}s of type {spec.name}.\n\n")
+      u.err(f"\n'{region.value}' isn't a valid region "
+            f"for {accel}s of type {spec.name}.\n\n")
       u.err(f"Try one of these: {allowed}\n\n")
-      u.err(f"See this page for more info about regional \
-support for {accel}s: https://cloud.google.com/ml-engine/docs/regions \n")
+      u.err(
+          f"See this page for more info about regional "
+          f"support for {accel}s: https://cloud.google.com/ml-engine/docs/regions\n"
+      )
       sys.exit(1)
 
 
@@ -464,7 +490,9 @@ def validate_across_args(args) -> None:
 
 
 def parse_flags(argv):
-  """Function required by absl.app.run. Internally generates a parser and returns
+  """Function required by absl.app.run.
+
+  Internally generates a parser and returns
   the results of parsing caliban arguments.
 
   """
@@ -472,7 +500,7 @@ def parse_flags(argv):
   ret = caliban_parser().parse_args(args)
 
   # Validate that extra script args were properly parsed.
-  validate_script_args(args, vars(ret).get('script_args', []))
+  validate_script_args(args, vars(ret).get("script_args", []))
 
   return validate_across_args(ret)
 
@@ -505,3 +533,210 @@ def generate_docker_args(job_mode: conf.JobMode,
   }
 
   return docker_args
+
+
+# ----------------------------------------------------------------------------
+def cluster_parser(base):
+  """cli parser for cluster commands"""
+
+  parser = base.add_parser("cluster",
+                           description="cluster commands",
+                           help="cluster-related commands")
+
+  subparser = parser.add_subparsers(dest="cluster_cmd")
+  cluster_ls_cmd(subparser)
+  cluster_pod_parser(subparser)
+  cluster_job_parser(subparser)
+  cluster_node_pool_parser(subparser)
+  cluster_create_cmd(subparser)
+  cluster_delete_cmd(subparser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_ls_cmd(base):
+  """caliban cluster ls"""
+
+  parser = base.add_parser(
+      "ls",
+      description="list clusters",
+      help="list clusters",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  project_id_arg(parser)
+  cloud_key_arg(parser)
+  zone_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_name_arg(parser):
+  parser.add_argument("--cluster_name", help="cluster name", type=str)
+
+
+# ----------------------------------------------------------------------------
+def zone_arg(parser, default=None):
+  parser.add_argument("--zone", help="zone", type=str, default=default)
+
+
+# ----------------------------------------------------------------------------
+def cluster_pod_parser(base):
+  parser = base.add_parser(
+      "pod",
+      description="pod commands",
+      help="pod commands",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  subparser = parser.add_subparsers(dest="pod_cmd")
+  cluster_pod_ls_cmd(subparser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_pod_ls_cmd(base):
+  parser = base.add_parser("ls", description="list pods", help="list pods")
+  project_id_arg(parser)
+  cloud_key_arg(parser)
+  cluster_name_arg(parser)
+  zone_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_job_parser(base):
+  parser = base.add_parser(
+      "job",
+      description="job commands",
+      help="job commands",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  subparser = parser.add_subparsers(dest="job_cmd")
+  cluster_job_ls_cmd(subparser)
+  cluster_job_submit_cmd(subparser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_job_ls_cmd(base):
+  parser = base.add_parser(
+      "ls",
+      description="list jobs",
+      help="list jobs",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  project_id_arg(parser)
+  cloud_key_arg(parser)
+  cluster_name_arg(parser)
+  zone_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_job_submit_cmd(base):
+  parser = base.add_parser(
+      "submit",
+      description="submit cluster job(s)",
+      help="submit cluster job(s)",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  cluster_name_arg(parser)
+  no_gpu_flag(parser)
+  cloud_key_arg(parser)
+  setup_extras(parser)
+  extra_dirs(parser)
+  image_tag_arg(parser)
+  project_id_arg(parser)
+  machine_type_arg(parser)
+  gpu_spec_arg(parser, validate_count=False)
+  tpu_spec_arg(parser, validate_count=False)
+  tpu_driver_arg(parser)
+  nonpreemptible_tpu_arg(parser)
+  force_arg(parser)
+  job_name_arg(parser)
+  experiment_config_arg(parser)
+  label_arg(parser)
+  nonpreemptible_arg(parser)
+  dry_run_arg(parser)
+
+  require_module(parser)
+  add_script_args(parser)
+
+
+# ----------------------------------------------------------------------------
+def tpu_driver_arg(parser):
+  parser.add_argument("--tpu_driver",
+                      type=str,
+                      help="tpu driver",
+                      default=gke.constants.DEFAULT_TPU_DRIVER)
+
+
+# ----------------------------------------------------------------------------
+def nonpreemptible_tpu_arg(parser):
+  parser.add_argument(
+      "--nonpreemptible_tpu",
+      action="store_true",
+      help=("use non-preemptible tpus: "
+            "note this only applies to v2-8 and v3-8 tpus currently, see: "
+            "https://cloud.google.com/tpu/docs/preemptible"))
+
+
+# ----------------------------------------------------------------------------
+def nonpreemptible_arg(parser):
+  parser.add_argument(
+      "--nonpreemptible",
+      action="store_true",
+      help=("use non-preemptible instance: "
+            "As of 2020.01.17 this is not supported for autoscaling clusters, "
+            "but is under development. Until this is supported in GKE, this "
+            "will be a no-op"))
+
+
+# ----------------------------------------------------------------------------
+def cluster_node_pool_parser(base):
+  parser = base.add_parser(
+      "node_pool",
+      description="node pool commands",
+      help="node pool commands",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  subparser = parser.add_subparsers(dest="node_pool_cmd")
+  cluster_node_pool_ls_cmd(subparser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_node_pool_ls_cmd(base):
+  parser = base.add_parser(
+      "ls",
+      description="list node pools",
+      help="list node pools",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  project_id_arg(parser)
+  cloud_key_arg(parser)
+  cluster_name_arg(parser)
+  zone_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_create_cmd(base):
+  """caliban cluster create"""
+
+  parser = base.add_parser(
+      "create",
+      description="create cluster",
+      help="create cluster",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  project_id_arg(parser)
+  cloud_key_arg(parser)
+  cluster_name_arg(parser)
+  zone_arg(parser)
+  dry_run_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def cluster_delete_cmd(base):
+  """caliban cluster delete"""
+
+  parser = base.add_parser(
+      "delete",
+      description="delete cluster",
+      help="delete cluster",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  project_id_arg(parser)
+  cloud_key_arg(parser)
+  cluster_name_arg(parser)
+  zone_arg(parser)

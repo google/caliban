@@ -8,6 +8,7 @@ import os
 from argparse import REMAINDER, ArgumentTypeError
 import re
 import sys
+import json
 
 # silence warnings about ssl connection not being verified
 import urllib3
@@ -38,18 +39,16 @@ import caliban.util as u
 import caliban.config as conf
 from caliban.cloud.types import (TPU, GPU, Accelerator, parse_machine_type,
                                  MachineType, GPUSpec, TPUSpec)
-from caliban.cluster.cli import parse_cmd_dict, invoke_command
-from caliban.cloud.core import generate_image_tag
+
 import caliban.gke.utils as utils
 from caliban.gke.utils import trap
 import caliban.gke.constants as k
-from caliban.gke.types import NodeImage
+from caliban.gke.types import NodeImage, OpStatus
 
 import pprint as pp
 from time import sleep
 import requests
 import yaml
-import tqdm
 
 # ----------------------------------------------------------------------------
 # tone down logging from discovery
@@ -103,6 +102,77 @@ def connected(error_value: Any) -> Any:
     return wrapper
 
   return check
+
+
+# ----------------------------------------------------------------------------
+def _create_cluster_spec(cluster_name: str, zone: str,
+                         resource_limits: dict) -> dict:
+  """creates cluster spec dictionary
+
+  Args:
+  cluster_name: name of cluster
+  zone: zone for cluster
+  resource_limits: resource limits dictionary
+
+  Returns:
+  dictionary
+  """
+
+  # see https://cloud.google.com/container-engine/reference/rest/v1/projects.zones.clusters
+  cluster_spec = {
+      'name':
+          cluster_name,
+      'zone':
+          zone,
+      'ipAllocationPolicy': {
+          'useIpAliases': 'true'
+      },
+      'enable_tpu':
+          'true',
+      'autoscaling': {
+          'enableNodeAutoprovisioning': 'true',
+          'autoprovisioningNodePoolDefaults': {
+              'oauthScopes': [k.COMPUTE_SCOPE_URL, k.CLOUD_PLATFORM_SCOPE_URL],
+          },
+          'resourceLimits': resource_limits,
+      },
+      'nodePools': [{
+          'name': 'default-pool',
+          'initialNodeCount': '3',
+          'config': {
+              'oauthScopes': [
+                  'https://www.googleapis.com/auth/devstorage.read_only',
+                  'https://www.googleapis.com/auth/logging.write',
+                  'https://www.googleapis.com/auth/monitoring',
+                  'https://www.googleapis.com/auth/service.management.readonly',
+                  'https://www.googleapis.com/auth/servicecontrol',
+                  'https://www.googleapis.com/auth/trace.append'
+              ],
+          },
+      }],
+  }
+
+  return cluster_spec
+
+
+# ----------------------------------------------------------------------------
+def _cluster_create_request_body(project_id: str, zone: str,
+                                 cluster_spec: dict) -> dict:
+  '''creates a cluster create request body
+
+  Args:
+  project_id: project id for cluster
+  zone: zone where cluster will exist
+  cluster_spec: dictionary specifying cluster parameters
+
+  Returns:
+  cluster creation request body dictionary
+  '''
+
+  return {
+      'cluster': cluster_spec,
+      'parent': f'projects/{project_id}/locations/{zone}'
+  }
 
 
 # ----------------------------------------------------------------------------
@@ -916,857 +986,111 @@ class Cluster(object):
 
     return tpu_driver in valid_drivers
 
+  # ----------------------------------------------------------------------------
+  @staticmethod
+  @trap(None, silent=False)
+  def create_request(cluster_api: discovery.Resource, creds: Credentials,
+                     cluster_name: str, project_id: str,
+                     zone: str) -> Optional[HttpRequest]:
+    '''generates cluster create request
 
-# ----------------------------------------------------------------------------
-# cli stuff below here
-# ----------------------------------------------------------------------------
-def _project_and_creds(fn):
-  """wrapper to supply project and credentials from args"""
+    Args:
+    cluster_api: cluster api client
+    creds: credentials
+    cluster_name: name of cluster to create
+    project_id: project id
+    zone: zone in which to create cluster
 
-  def wrapper(args: dict):
-    project_id = args.get('project_id')
-    creds_file = args.get('cloud_key')
+    Returns:
+    HttpRequest on success, None otherwise
+    '''
 
-    creds_data = utils.credentials(creds_file)
-    creds = creds_data.credentials
+    rz = _parse_zone(zone)
+    if rz is None:
+      logging.error(f'invalid zone specified: {zone}')
+      return
 
-    if project_id is None:
-      project_id = creds_data.project_id
+    region, _ = rz
 
-    return fn(args, project_id, creds)
+    compute_api = discovery.build('compute',
+                                  'v1',
+                                  credentials=creds,
+                                  cache_discovery=False)
 
-  return wrapper
+    resource_limits = utils.generate_resource_limits(compute_api, project_id,
+                                                     region)
 
+    if resource_limits is None:
+      logging.error('error generating resource limits')
+      return
 
-# ----------------------------------------------------------------------------
-def _with_cluster(fn):
-  """decorator for cluster methods to get cluster from args"""
+    request_body = _cluster_create_request_body(
+        project_id, zone,
+        _create_cluster_spec(cluster_name, zone, resource_limits))
 
-  def wrapper(args: dict, project_id: str, creds: Credentials):
-    cluster_name = args.get('cluster_name', None)
+    # see https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters/create
+    return cluster_api.projects().zones().clusters().create(
+        projectId=project_id, zone=zone, body=request_body)
 
+  # ----------------------------------------------------------------------------
+  @staticmethod
+  @trap(None, silent=False)
+  def create(cluster_api: discovery.Resource, creds: Credentials,
+             request: HttpRequest, project_id: str) -> Optional[Cluster]:
+    '''create cluster
+
+    Note that this is a blocking call.
+
+    Args:
+    cluster_api: cluster api client
+    cred: credentials
+    request: cluster creation http request
+    project_id: project id
+    zone: zone
+
+    Returns:
+    Cluster instance on success, None otherwise
+    '''
+
+    daemonset_url = utils.nvidia_daemonset_url(NodeImage.COS)
+    body = json.loads(request.body)
+    zone = body['cluster']['zone']
+    cluster_name = body['cluster']['name']
+
+    # execute
+    rsp = request.execute()
+
+    if rsp is None:
+      logging.error('error: could not create cluster')
+      return
+
+    # wait for creation operation to complete
+    operation_name = rsp['name']
+    rsp = utils.wait_for_operation(
+        cluster_api,
+        f'projects/{project_id}/locations/{zone}/operations/{operation_name}')
+
+    if rsp['status'] != OpStatus.DONE.value:
+      logging.error(f'error creating cluster {cluster_name}!')
+      return
+
+    # get our newly-created cluster
     cluster = Cluster.get(name=cluster_name,
                           project_id=project_id,
-                          zone=k.ZONE_DEFAULT,
+                          zone=zone,
                           creds=creds)
 
     if cluster is None:
+      logging.error(f'error: unable to connect to cluster {cluster_name}')
+      logging.error(
+          f'nvidia-driver daemonset not applied, to do this manually:')
+      logging.error(f'kubectl apply -f {daemonset_url}')
       return
 
-    return fn(args, cluster=cluster)
+    logging.info(f'created cluster {cluster_name} successfully')
+    logging.info(f'applying nvidia driver daemonset...')
 
-  return wrapper
+    rsp = cluster.apply_daemonset_from_url(
+        daemonset_url, lambda x: yaml.load(x, Loader=yaml.FullLoader))
 
-
-# ----------------------------------------------------------------------------
-@_project_and_creds
-def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
-  """creates a gke cluster
-
-  Args:
-  args: commandline args
-  project_id: project in which to create cluster
-  creds: credentials to use
-  """
-  dry_run = args['dry_run']
-  cluster_name = args['cluster_name'] or k.DEFAULT_CLUSTER_NAME
-  daemonset_url = utils.nvidia_daemonset_url(NodeImage.COS)
-  assert daemonset_url is not None, ('error getting daemonset url!')
-
-  # --------------------------------------------------------------------------
-  # see if cluster(s) already exist, and if so, check with the user before
-  # creating another
-  clusters = Cluster.list(project_id=project_id, creds=creds)
-
-  if len(clusters):
-    if cluster_name in clusters:
-      logging.error(f'cluster {cluster_name} already exists')
-      return
-
-    print(f'{len(clusters)} clusters already exist for this project:')
-    for c in clusters:
-      print(c)
-
-    if not utils.user_verify('Do you really want to create a new cluster?',
-                             default=False):
-
-      return
-
-  # --------------------------------------------------------------------------
-  zone = args['zone']
-  rz = _parse_zone(zone)
-  if rz is None:
-    logging.error(f'invalid zone specified: {zone}')
-    return
-
-  region, _ = rz
-
-  dashboard_url = utils.dashboard_cluster_url(cluster_name, zone, project_id)
-
-  # --------------------------------------------------------------------------
-  # create compute api client and get generate resource limits from quota
-  # information
-  compute_api = googleapiclient.discovery.build('compute',
-                                                'v1',
-                                                credentials=creds,
-                                                cache_discovery=False)
-
-  resource_limits = utils.generate_resource_limits(project_id, region,
-                                                   compute_api)
-  if resource_limits is None:
-    return
-
-  # --------------------------------------------------------------------------
-  # create the cluster
-  # see https://buganizer.corp.google.com/issues/148180423 for why we use
-  # the discovery api here
-  cluster_client = googleapiclient.discovery.build('container',
-                                                   'v1',
-                                                   credentials=creds,
-                                                   cache_discovery=False)
-
-  if cluster_client is None:
-    logging.error('error building cluster client')
-    return
-
-  # see https://cloud.google.com/container-engine/reference/rest/v1/projects.zones.clusters
-  cluster_spec = {
-      'name':
-          cluster_name,
-      'zone':
-          zone,
-      'ipAllocationPolicy': {
-          'useIpAliases': 'true'
-      },
-      'enable_tpu':
-          'true',
-      'autoscaling': {
-          'enableNodeAutoprovisioning': 'true',
-          'autoprovisioningNodePoolDefaults': {
-              'oauthScopes': [k.COMPUTE_SCOPE_URL, k.CLOUD_PLATFORM_SCOPE_URL],
-          },
-          'resourceLimits': resource_limits,
-      },
-      'nodePools': [{
-          'name': 'default-pool',
-          'initialNodeCount': '3',
-          'config': {
-              'oauthScopes': [
-                  'https://www.googleapis.com/auth/devstorage.read_only',
-                  'https://www.googleapis.com/auth/logging.write',
-                  'https://www.googleapis.com/auth/monitoring',
-                  'https://www.googleapis.com/auth/service.management.readonly',
-                  'https://www.googleapis.com/auth/servicecontrol',
-                  'https://www.googleapis.com/auth/trace.append'
-              ],
-          },
-      }],
-  }
-
-  request = {
-      'cluster': cluster_spec,
-      'parent': f'projects/{project_id}/locations/{zone}'
-  }
-
-  if dry_run:
-    print(f'\nrequest:\n{pp.pformat(request)}')
-    return
-
-  print(f'creating cluster {cluster_name} in project {project_id} in {zone}...')
-  print(f'please be patient, this may take several minutes')
-  print(f'visit {dashboard_url} to monitor cluster creation progress')
-
-  # see https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters/create
-  rsp = cluster_client.projects().zones().clusters().create(
-      projectId=project_id, zone=zone, body=request).execute()
-
-  if rsp is None:
-    logging.error('error: could not create cluster')
-    return
-
-  # wait for creation operation to complete
-  operation_name = rsp['name']
-  rsp = utils.wait_for_operation(
-      cluster_client,
-      f'projects/{project_id}/locations/{zone}/operations/{operation_name}',
-      message='waiting for cluster creation')
-
-  if rsp['status'] != 'DONE':
-    logging.error(f'error creating cluster {cluster_name}!')
-    return
-
-  # get our newly-created cluster
-  cluster = Cluster.get(name=cluster_name,
-                        project_id=project_id,
-                        zone=zone,
-                        creds=creds)
-
-  if cluster is None:
-    print(f'error: unable to connect to cluster {cluster_name}')
-    print(f'nvidia-driver daemonset not applied, to do this manually:')
-    print(f'kubectl apply -f {daemonset_url}')
-    return
-
-  print(f'created cluster {cluster_name} successfully')
-  print(f'applying nvidia driver daemonset...')
-
-  # now apply the nvidia-driver daemonset
-  rsp = cluster.apply_daemonset_from_url(
-      daemonset_url, lambda x: yaml.load(x, Loader=yaml.FullLoader))
-  return
-
-
-# ----------------------------------------------------------------------------
-@_project_and_creds
-@_with_cluster
-def _cluster_delete(args: dict, cluster: Cluster) -> None:
-  """deletes given cluster
-
-  Args:
-  args: commandline args
-  cluster: cluster to delete
-
-  Returns:
-  None
-  """
-
-  if utils.user_verify(f'Are you sure you want to delete {cluster.name}?',
-                       default=False):
-
-    cluster.delete()
-
-  return
-
-
-# ----------------------------------------------------------------------------
-@_project_and_creds
-def _cluster_ls(args: dict, project_id: str, creds: Credentials) -> None:
-  """lists clusters
-
-  Args:
-  args: commandline args
-  project_id: list clusters in the project
-  creds: credentials to use
-  """
-  clusters = Cluster.list(project_id=project_id, creds=creds)
-
-  if clusters is None:
-    return
-
-  cluster_name = args.get('cluster_name', None)
-
-  if cluster_name is not None:
-    if cluster_name not in clusters:
-      print(f'cluster {cluster_name} not found')
-      return
-    print(cluster_name)
-    return
-
-  print(f'{len(clusters)} clusters found')
-  for c in clusters:
-    print(c)
-
-  return
-
-
-# ----------------------------------------------------------------------------
-@_project_and_creds
-@_with_cluster
-def _node_pool_ls(args: dict, cluster: Cluster) -> None:
-  """lists cluster node pools
-
-  Args:
-  args: commandline args
-  cluster: lists node pools in this cluster instance
-  """
-
-  np = cluster.node_pools()
-
-  if np is None:
-    return
-
-  if len(np) == 0:
-    print('no node pools found')
-    return
-
-  FMT = '%-20s%-20s%-40s%-20s'
-  print(FMT % ('NAME', 'MACHINE TYPE', 'ACCELERATORS', 'MAX NODES'))
-  for p in np:
-    accel = ','.join([
-        '%s(%d)' % (a.accelerator_type, a.accelerator_count)
-        for a in p.config.accelerators
-    ])
-    print(FMT %
-          (p.name, p.config.machine_type, accel, p.autoscaling.max_node_count))
-
-  return
-
-
-# ----------------------------------------------------------------------------
-@_project_and_creds
-@_with_cluster
-def _pod_ls(args: dict, cluster: Cluster):
-  """lists pods for given cluster
-
-  Args:
-  args: commandline args
-  cluster: list pods in this cluster
-  """
-  pods = cluster.pods()
-  if pods is None:
-    return
-
-  print(f'{len(pods)} pods found')
-  for p in pods:
-    print(p.metadata.name)
-
-  return
-
-
-# ----------------------------------------------------------------------------
-@_project_and_creds
-@_with_cluster
-def _job_ls(args: dict, cluster: Cluster):
-  """lists jobs in given cluster
-
-  Args:
-  args: commandline args
-  cluster: lists jobs from this cluster
-  """
-  jobs = cluster.jobs()
-
-  if jobs is None:
-    return
-
-  print(f'{len(jobs)} jobs found')
-  for j in jobs:
-    print(j.metadata.name)
-
-  return
-
-
-# ----------------------------------------------------------------------------
-@_project_and_creds
-@_with_cluster
-def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
-  """submits job(s) to cluster
-
-  Args:
-  args: argument dictionary
-  cluster: cluster instance
-
-  Returns:
-  list of V1Jobs submitted on success, None otherwise
-  """
-
-  script_args = conf.extract_script_args(args)
-  job_mode = cli.resolve_job_mode(args)
-  docker_args = cli.generate_docker_args(job_mode, args)
-  docker_run_args = args.get('docker_run_args', []) or []
-  dry_run = args['dry_run']
-  package = args['module']
-  job_name = args.get('name') or f"caliban_{u.current_user()}"
-  gpu_spec = args.get('gpu_spec')
-  preemptible = args['preemptible']
-
-  # Arguments to internally build the image required to submit to Cloud.
-  docker_m = {'job_mode': job_mode, 'package': package, **docker_args}
-
-  # --------------------------------------------------------------------------
-  # validatate gpu spec
-  if job_mode == conf.JobMode.GPU and gpu_spec is None:
-    gpu_spec = k.DEFAULT_GPU_SPEC
-
-  if not cluster.validate_gpu_spec(gpu_spec):
-    return
-
-  # --------------------------------------------------------------------------
-  # validate tpu spec and driver
-  tpu_spec = args.get('tpu_spec')
-  preemptible_tpu = args.get('preemptible_tpu')
-  tpu_driver = args.get('tpu_driver')
-
-  if tpu_spec is not None:
-    available_tpu = cluster.get_tpu_types()
-    if available_tpu is None:
-      logging.error('error getting valid tpu types for cluster')
-      return
-
-    if tpu_spec not in available_tpu:
-      logging.error(f'invalid tpu spec, cluster supports:')
-      for t in available_tpu:
-        print(f'{t.count}x{t.tpu.name}')
-      return
-
-    if not cluster.validate_tpu_driver(tpu_driver):
-      print(f'error: unsupported tpu driver {tpu_driver}')
-      print('supported tpu drivers for this cluster:')
-      for d in cluster.get_tpu_drivers():
-        print(f'  {d}')
-      return
-
-  # --------------------------------------------------------------------------
-  image_tag = (args.get('image_tag') or generate_image_tag(
-      cluster.project_id, docker_args=docker_m, dry_run=dry_run))
-
-  if args.get('machine_type') is None:
-    machine_type = conf.DEFAULT_MACHINE_TYPE[job_mode]
-  else:
-    machine_type = parse_machine_type(args.get('machine_type'))
-
-  experiments = conf.expand_experiment_config(
-      args.get('experiment_config') or [{}])
-
-  labels = args.get('label')
-  if labels is not None:
-    labels = dict(u.sanitize_labels(args.get('label')))
-
-  # convert accelerator spec
-  accel_spec = Cluster.convert_accel_spec(gpu_spec, tpu_spec)
-  if accel_spec is None:
-    return
-
-  accel, accel_count = accel_spec
-
-  # create V1 jobs
-  jobs = cluster.create_simple_experiment_jobs(
-      name=utils.sanitize_job_name(job_name),
-      image=image_tag,
-      experiments=experiments,
-      args=script_args,
-      accelerator=accel,
-      accelerator_count=accel_count,
-      machine_type=machine_type,
-      preemptible=preemptible,
-      labels=labels,
-      preemptible_tpu=preemptible_tpu,
-      tpu_driver=tpu_driver)
-
-  if dry_run:
-    print('jobs that would be submitted:')
-    for j in jobs:
-      print(f'{utils.job_str(j)}')
-    return
-
-  submitted = []
-  for j in jobs:
-    sj = cluster.submit_job(j)
-    if sj is None:
-      logging.error(f'error submitting job:\n {j}')
-    else:
-      submitted.append(sj)
-      md = sj.metadata
-      spec = sj.spec
-      container = sj.spec.template.spec.containers[0]
-      logging.info(
-          f'submitted job:\n{md.name}: {" ".join(container.args or [])}\n' +
-          f'{cluster.job_dashboard_url(sj)}')
-
-  return submitted
-
-
-# ----------------------------------------------------------------------------
-def run_cli_command(args) -> None:
-  """cli entrypoint for cluster commands"""
-
-  invoke_command(args, _COMMAND_DICT)
-
-  return
-
-
-# ----------------------------------------------------------------------------
-def parser(base) -> None:
-  """configure parser for cluster commands"""
-
-  parse_cmd_dict(base, _COMMAND_DICT)
-
-  return
-
-
-# ----------------------------------------------------------------------------
-# cli data
-# ----------------------------------------------------------------------------
-_PROJECT_FLAG = {
-    'args': ['--project_id'],
-    'kwargs': {
-        'help': 'project id, if not specified, tries to determine default',
-        'type': str,
-        'default': utils.default_credentials().project_id
-    }
-}
-
-_CREDS_FILE_FLAG = {
-    'args': ['--creds_file'],
-    'kwargs': {
-        'help': 'path to credentials file',
-        'type': str
-    }
-}
-
-_ZONE_FLAG = {  #
-    'args': ['--zone'],
-    'kwargs': {
-        'help': 'zone',
-        'type': str,
-        'required': True
-    }
-}
-
-_ZONE_WILDCARD_FLAG = {
-    'args': ['--zone'],
-    'kwargs': {
-        'default': '-',
-        'help': 'zone',
-        'type': str
-    }
-}
-
-_CLUSTER_NAME_FLAG = {
-    'args': ['--cluster_name'],
-    'kwargs': {
-        'default': None,
-        'help': 'cluster name',
-        'type': str
-    }
-}
-
-_NOGPU_FLAG = {
-    'args': ['--nogpu'],
-    'kwargs': {
-        'dest': 'use_gpu',
-        'help': 'Disable GPU mode and force CPU-only.',
-        'action': 'store_false'
-    }
-}
-
-_CLOUD_KEY_FLAG = {
-    'args': ['--cloud_key'],
-    'kwargs': {
-        'type': u.validated_file,
-        'help': (f'Path to GCloud service account key. ' +
-                 f'If not specified, uses default key from ' +
-                 f'{auth_env.CREDENTIALS} environment variable ' +
-                 f'or gcloud default credentials from ' +
-                 f'{utils.get_application_default_credentials_path()}'),
-        'default': None,
-    }
-}
-
-_EXTRAS_FLAG = {
-    'args': ['--extras'],
-    'kwargs': {
-        'action': 'append',
-        'help': 'setup.py dependency keys'
-    }
-}
-
-_DIR_FLAG = {
-    'args': ['-d', '--dir'],
-    'kwargs': {
-        'action':
-            'append',
-        'type':
-            u.validated_directory,
-        'help': ('Extra directories to include. List these from large to ' +
-                 "small to take full advantage of Docker's build cache.")
-    }
-}
-
-_IMAGE_TAG_FLAG = {
-    'args': ['--image_tag'],
-    'kwargs': {
-        'type':
-            str,
-        'help': ('Docker image tag accessible via Container Registry. If ' +
-                 'supplied, Caliban will skip the build and push steps ' +
-                 'and use this image tag.')
-    }
-}
-
-_MODULE_FLAG = {
-    'args': ['module'],
-    'kwargs': {
-        'type':
-            u.validated_package,
-        'help': ('Code to execute, in either trainer.train or ' +
-                 'trainer/train.py format.')
-    }
-}
-
-_MACHINE_TYPE_FLAG = {
-    'args': ['--machine_type'],
-    'kwargs': {
-        'type':
-            str,
-        'choices':
-            u.enum_vals(MachineType),
-        'help': (f"Cloud machine type to request. Default is " +
-                 f"{k.DEFAULT_MACHINE_TYPE_GPU} in GPU mode, or " +
-                 f"{k.DEFAULT_MACHINE_TYPE_CPU} in CPU mode")
-    }
-}
-
-_GPU_SPEC_FLAG = {
-    'args': ['--gpu_spec'],
-    'kwargs': {
-        'metavar':
-            GPUSpec.METAVAR,
-        'type':
-            lambda x: GPUSpec.parse_arg(x, validate_count=False),
-        'help': (f'Type and number of GPUs to use for each job. ' +
-                 f'Defaults to 1x{conf.DEFAULT_GPU.name} for GPU mode, or ' +
-                 f'None if --nogpu is passed')
-    }
-}
-
-_TPU_SPEC_FLAG = {
-    'args': ['--tpu_spec'],
-    'kwargs': {
-        'metavar': TPUSpec.METAVAR,
-        'type': lambda x: TPUSpec.parse_arg(x, validate_count=False),
-        'help': (f'Type and number of TPUs to request for each job.'),
-        'default': None
-    }
-}
-
-_TPU_DRIVER_FLAG = {
-    'args': ['--tpu_driver'],
-    'kwargs': {
-        'type': str,
-        'help': (f'TPU driver to use.'),
-        'default': k.DEFAULT_TPU_DRIVER
-    }
-}
-
-_PREEMPTIBLE_TPU_FLAG = {
-    'args': ['--preemptible_tpu'],
-    'kwargs': {
-        'type': int,
-        'choices': (0, 1),
-        'help': ('use preemptible tpus: ' +
-                 'note this only applies to v2-8 and v3-8 tpus, see: ' +
-                 'https://cloud.google.com/tpu/docs/preemptible'),
-        'default': 1
-    }
-}
-
-_FORCE_FLAG = {
-    'args': ['--force'],
-    'kwargs': {
-        'action': 'store_true',
-        'help': 'Force past validations and submit the job as specified.'
-    }
-}
-
-_JOB_NAME_FLAG = {
-    'args': ['--name'],
-    'kwargs': {
-        'type': str,
-        'help': 'job name'
-    }
-}
-
-_EXPERIMENT_CONFIG_FLAG = {
-    'args': ['--experiment_config'],
-    'kwargs': {
-        'type': conf.load_experiment_config,
-        'help': "Path to an experiment config, or 'stdin' to read from stdin."
-    }
-}
-
-_LABEL_FLAG = {
-    'args': ['-l', '--label'],
-    'kwargs': {
-        'metavar': 'KEY=VALUE',
-        'action': 'append',
-        'type': u.parse_kv_pair,
-        'help': 'Extra label k=v pair for job'
-    }
-}
-
-_DRY_RUN_FLAG = {
-    'args': ['--dry_run'],
-    'kwargs': {
-        'action': 'store_true',
-        'help': "Don't actually submit; log everything that's going to happen."
-    }
-}
-
-_PASSTHROUGH_ARGS = {
-    'args': ['script_args'],
-    'kwargs': {
-        'nargs':
-            REMAINDER,
-        'default': [],
-        'metavar':
-            '-- YOUR_ARGS',
-        'help': ('This is a catch-all for arguments you want to pass through' +
-                 'to your script. Any args after -- will pass through')
-    }
-}
-
-# todo: when this feature comes in, change the default here
-_PREEMPTIBLE_FLAG = {
-    'args': ['--preemptible'],
-    'kwargs': {
-        'type': int,
-        'choices': (0, 1),
-        'help': ('use preemptible vm instance: as of 2020.01.03 this is not ' +
-                 'supported, but is being developed'),
-        'default': 0
-    }
-}
-
-# ----------------------------------------------------------------------------
-_LS_FLAGS = [
-    _PROJECT_FLAG, _CREDS_FILE_FLAG, _CLUSTER_NAME_FLAG, _ZONE_WILDCARD_FLAG
-]
-_CLUSTER_LS_FLAGS = [_PROJECT_FLAG, _CREDS_FILE_FLAG, _ZONE_WILDCARD_FLAG]
-
-# ----------------------------------------------------------------------------
-# job commands
-_JOB_LS_CMD = {
-    'parser_name': 'ls',
-    'parser_kwargs': {
-        'description': 'list jobs',
-        'help': 'list jobs'
-    },
-    'add_arguments': (_LS_FLAGS),
-    'callback': _job_ls
-}
-
-_JOB_SUBMIT_CMD = {
-    'parser_name': 'submit',
-    'parser_kwargs': {
-        'description': 'submit cluster job',
-        'help': 'submit cluster job'
-    },
-    'add_arguments': [
-        _CLUSTER_NAME_FLAG, _MODULE_FLAG, _NOGPU_FLAG, _CLOUD_KEY_FLAG,
-        _EXTRAS_FLAG, _DIR_FLAG, _IMAGE_TAG_FLAG, _PROJECT_FLAG,
-        _MACHINE_TYPE_FLAG, _GPU_SPEC_FLAG, _TPU_SPEC_FLAG, _TPU_DRIVER_FLAG,
-        _PREEMPTIBLE_TPU_FLAG, _FORCE_FLAG, _JOB_NAME_FLAG,
-        _EXPERIMENT_CONFIG_FLAG, _LABEL_FLAG, _PREEMPTIBLE_FLAG, _DRY_RUN_FLAG,
-        _PASSTHROUGH_ARGS
-    ],
-    'callback': _job_submit
-}
-
-_JOB_CMD_DICT = {
-    'parser_name': 'job',
-    'parser_kwargs': {
-        'description': 'job commands',
-        'help': 'job-related commands'
-    },
-    'subparser': {
-        'kwargs': {
-            'dest': 'job_cmd'
-        },
-        'parsers': [_JOB_LS_CMD, _JOB_SUBMIT_CMD]
-    }
-}
-
-# ----------------------------------------------------------------------------
-# pod commands
-_POD_LS_CMD = {
-    'parser_name': 'ls',
-    'parser_kwargs': {
-        'description': 'list pods',
-        'help': 'list pods'
-    },
-    'add_arguments': (_LS_FLAGS),
-    'callback': _pod_ls
-}
-
-_POD_CMD_DICT = {
-    'parser_name': 'pod',
-    'parser_kwargs': {
-        'description': 'pod commands',
-        'help': 'pod-related commands'
-    },
-    'subparser': {
-        'kwargs': {
-            'dest': 'pod_cmd'
-        },
-        'parsers': [_POD_LS_CMD]
-    }
-}
-
-# ----------------------------------------------------------------------------
-# node pool commands
-_NODE_POOL_LS_CMD = {
-    'parser_name': 'ls',
-    'parser_kwargs': {
-        'description': 'list node pools',
-        'help': 'list node pools'
-    },
-    'add_arguments': (_LS_FLAGS),
-    'callback': _node_pool_ls
-}
-
-_NODE_POOL_CMD_DICT = {
-    'parser_name': 'node_pool',
-    'parser_kwargs': {
-        'description': 'node pool commands',
-        'help': 'node pool-related commands'
-    },
-    'subparser': {
-        'kwargs': {
-            'dest': 'node_pool_cmd'
-        },
-        'parsers': [_NODE_POOL_LS_CMD]
-    }
-}
-
-# ----------------------------------------------------------------------------
-# cluster commands
-_CLUSTER_LS_CMD = {
-    'parser_name': 'ls',
-    'parser_kwargs': {
-        'description': 'list clusters',
-        'help': 'list clusters'
-    },
-    'add_arguments': (_CLUSTER_LS_FLAGS),
-    'callback': _cluster_ls
-}
-
-_CLUSTER_CREATE_FLAGS = [_ZONE_FLAG, _CLUSTER_NAME_FLAG, _DRY_RUN_FLAG]
-
-_CLUSTER_CREATE_CMD = {
-    'parser_name': 'create',
-    'parser_kwargs': {
-        'description': 'create cluster',
-        'help': 'create cluster'
-    },
-    'add_arguments': (_CLUSTER_CREATE_FLAGS),
-    'callback': _cluster_create
-}
-
-_CLUSTER_DELETE_CMD = {
-    'parser_name': 'delete',
-    'parser_kwargs': {
-        'description': 'delete cluster',
-        'help': 'delete cluster'
-    },
-    'add_arguments': [_CLUSTER_NAME_FLAG],
-    'callback': _cluster_delete
-}
-
-# ----------------------------------------------------------------------------
-# top-level cluster command dictionary
-_COMMAND_DICT = {
-    'parser_name': 'cluster',
-    'parser_kwargs': {
-        'description': 'cluster commands',
-        'help': 'cluster-related commands'
-    },
-    'subparser': {
-        'kwargs': {
-            'dest': 'cluster_cmd'
-        },
-        'parsers': [
-            _CLUSTER_LS_CMD, _POD_CMD_DICT, _JOB_CMD_DICT, _NODE_POOL_CMD_DICT,
-            _CLUSTER_CREATE_CMD, _CLUSTER_DELETE_CMD
-        ]
-    }
-}
+    return cluster

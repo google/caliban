@@ -1,5 +1,7 @@
 """constants for gke"""
 
+import re
+
 from caliban.config import JobMode, DEFAULT_MACHINE_TYPE
 from caliban.cloud.types import GPUSpec, GPU
 
@@ -36,3 +38,6 @@ NVIDIA_DRIVER_COS_DAEMONSET_URL = 'https://raw.githubusercontent.com/GoogleCloud
 
 # daemonset for Ubuntu instances
 NVIDIA_DRIVER_UBUNTU_DAEMONSET_URL = 'https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/ubuntu/daemonset-preloaded.yaml'
+
+# ----------------------------------------------------------------------------
+DNS_1123_RE = re.compile('\A[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?\Z')

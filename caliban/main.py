@@ -14,6 +14,8 @@ import caliban.cluster as cluster
 import caliban.config as c
 import caliban.docker as docker
 import caliban.util as u
+import caliban.gke as gke
+import caliban.gke.cli
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
@@ -29,7 +31,7 @@ def run_app(arg_input):
   command = args["command"]
 
   if command == "cluster":
-    return cluster.run_cli_command(args)
+    return gke.cli.run_cli_command(args)
 
   job_mode = cli.resolve_job_mode(args)
   docker_args = cli.generate_docker_args(job_mode, args)

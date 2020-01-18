@@ -13,7 +13,7 @@ import caliban.cloud.types as ct
 import caliban.gke
 import caliban.gke.utils as utils
 import caliban.gke.constants as k
-from caliban.gke.utils import trap, DNS_1123_RE
+from caliban.gke.utils import trap
 from caliban.gke.types import NodeImage, OpStatus
 
 
@@ -289,7 +289,7 @@ class UtilsTestSuite(unittest.TestCase):
     """test job name sanitizer"""
 
     def valid(x):
-      return DNS_1123_RE.match(x) is not None
+      return k.DNS_1123_RE.match(x) is not None
 
     sanitized = utils.sanitize_job_name(job_name)
 
@@ -448,11 +448,11 @@ class UtilsTestSuite(unittest.TestCase):
 
     # exception handling
     api.execute = _raises
-    self.assertIsNone(utils.generate_resource_limits('p', 'r', api))
+    self.assertIsNone(utils.generate_resource_limits(api, 'p', 'r'))
 
     # invalid return
     api.execute = _invalid
-    self.assertEqual([], utils.generate_resource_limits('p', 'r', api))
+    self.assertEqual([], utils.generate_resource_limits(api, 'p', 'r'))
 
     # normal execution
     api.execute = _normal
@@ -468,7 +468,7 @@ class UtilsTestSuite(unittest.TestCase):
         'maximum': str(quotas[1]['limit'])
     }])
 
-    self.assertEqual(expected, utils.generate_resource_limits('p', 'r', api))
+    self.assertEqual(expected, utils.generate_resource_limits(api, 'p', 'r'))
 
     return
 
