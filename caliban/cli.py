@@ -1,20 +1,20 @@
 """Command line parser for the Caliban app.
 
 """
-import sys
 import os
+import sys
 from argparse import REMAINDER
 from typing import Any, Dict, List, Optional, Union
 
+import google.auth._cloud_sdk as csdk
 from absl.flags import argparse_flags
 from blessings import Terminal
 
 import caliban.cloud.types as ct
-import caliban.config as conf
-import caliban.util as u
-import caliban.docker as docker
 import caliban.cluster as cluster
-
+import caliban.config as conf
+import caliban.docker as docker
+import caliban.util as u
 from caliban import __version__
 
 t = Terminal()
@@ -472,6 +472,10 @@ def generate_docker_args(job_mode: conf.JobMode,
   # Google application credentials, from the CLI or from an env variable.
   creds_path = conf.extract_cloud_key(args)
 
+  # Application default credentials location.
+  adc_loc = csdk.get_application_default_credentials_path()
+  adc_path = adc_loc if os.path.isfile(adc_loc) else None
+
   # TODO we may want to take a custom path, here, in addition to detecting it.
   reqs = "requirements.txt"
 
@@ -480,6 +484,7 @@ def generate_docker_args(job_mode: conf.JobMode,
       "extra_dirs": args.get("dir"),
       "requirements_path": reqs if os.path.exists(reqs) else None,
       "credentials_path": creds_path,
+      "adc_path": adc_path,
       "setup_extras": setup_extras
   }
 

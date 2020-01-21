@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import time
+import uuid
 from enum import Enum
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
                     Set, Tuple, Union)
@@ -242,7 +243,7 @@ class TempCopy(object):
 
   def __init__(self, original_path=None, tmp_name=None):
     if tmp_name is None:
-      self.tmp_path = ".caliban_tmp_dev_key.json"
+      self.tmp_path = f".{str(uuid.uuid1())}.json"
 
     self.original_path = None
     if original_path:

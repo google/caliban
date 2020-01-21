@@ -10,9 +10,15 @@
 
   This allows users to run commands like "caliban cloud my_script.sh" and have
   it all work.
+
 - "caliban run" now supports --experiment_config and --dry_run. These work just
   like they do for "caliban cloud"; the experiment config will expand out and
   execute N jobs on your local machine.
+
+- Support for ADC credentials! if application_default_credentials.json is
+  present on the user's machine, they now get copied into the container.
+- if ADC credentials are NOT present but a service account key is we write a
+  placeholder. this is required to get ctpu working inside containers.
 
 # 0.1.11
 
