@@ -5,17 +5,21 @@ and notebooks in a Docker environment.
 
 from __future__ import absolute_import, division, print_function
 
-import itertools
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
-from typing import Callable, Dict, List, NewType, Optional
+from typing import Callable, Iterable, List, NewType, Optional
 
+import tqdm
 from absl import logging
+from blessings import Terminal
 
 import caliban.config as c
 import caliban.util as u
+
+t = Terminal()
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
 TF_VERSIONS = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
@@ -23,6 +27,7 @@ DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
 
 ImageId = NewType('ImageId', str)
+ArgSeq = NewType('ArgSeq', List[str])
 
 
 def tf_base_image(job_mode: c.JobMode, tensorflow_version: str) -> str:
@@ -356,7 +361,7 @@ def build_image(job_mode: c.JobMode,
     logging.info(f"Running command: {' '.join(cmd)}")
 
     try:
-      output = u.capture_stdout(cmd, input_str=dockerfile)
+      output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
       return docker_image_id(output)
 
     except subprocess.CalledProcessError as e:
@@ -422,11 +427,89 @@ def _interactive_opts(workdir: str) -> List[str]:
   ]
 
 
-def run(job_mode: c.JobMode,
-        run_args: Optional[List[str]] = None,
-        script_args: Optional[List[str]] = None,
-        image_id: Optional[str] = None,
-        **build_image_kwargs) -> None:
+def log_arg_instance(args: ArgSeq, i: int) -> ArgSeq:
+  """Prints logging as a side effect for the supplied sequence of arguments
+  generated from an experiment definition; returns the input args.
+
+  """
+  logging.info("")
+  logging.info(f"Job {i} - Experiment args: {t.yellow(str(args))}")
+  return args
+
+
+def logged_args(experiments: Iterable[c.Experiment],
+                base_args: ArgSeq) -> Iterable[ArgSeq]:
+  """Generates an iterable of arguments that should be passed to `docker run` to
+  execute the experiments defined by the supplied iterable.
+
+  """
+  for i, m in enumerate(experiments, 1):
+    args = c.experiment_to_args(m, base_args)
+    yield log_arg_instance(args, i)
+
+
+def execute_dry_run(experiments: Iterable[c.Experiment],
+                    base_args: ArgSeq) -> None:
+  """Expands the supplied sequence of experiments into sequences of args and logs
+  the jobs that WOULD have been executed, had the dry run flag not been
+  applied.
+
+  """
+  list(logged_args(experiments, base_args))
+
+  logging.info('')
+  logging.info(
+      t.yellow(f"To build your image and execute these jobs, \
+run your command again without {c.DRY_RUN_FLAG}."))
+  logging.info('')
+  return None
+
+
+def local_callback(ret_code: int, job_idx: int, script_args: List[str]) -> None:
+  """Provides logging feedback for jobs run locally. If the return code is 0,
+  logs success; else, logs the failure as an error and logs the script args
+  that provided the failure.
+
+  """
+  if ret_code == 0:
+    logging.info(t.green(f"Job {job_idx} succeeded!"))
+  else:
+    logging.error(t.red(f"Job {job_idx} failed with return code {ret_code}."))
+    logging.error(t.red(f"Failing args for job {job_idx}: {script_args}"))
+
+
+def execute_experiments(experiments: Iterable[c.Experiment],
+                        base_args: List[str], job_mode: c.JobMode,
+                        run_args: List[str], image_id: str) -> None:
+  """Execute all batches in the supplied generator of batch requests. Results
+  aren't returned directly; the callbacks passed to each request when it was
+  generated handle any response or exception.
+
+  """
+  base_cmd = _run_cmd(job_mode, run_args) + [image_id]
+
+  with u.tqdm_logging() as orig_stream:
+    pbar = tqdm.tqdm(logged_args(experiments, base_args),
+                     file=orig_stream,
+                     total=len(experiments),
+                     unit="experiment",
+                     desc="Executing")
+    for idx, script_args in enumerate(pbar, 1):
+      command = base_cmd + script_args
+      logging.info(f"Running command: {' '.join(command)}")
+      _, ret_code = u.capture_stdout(command, "", u.TqdmFile(sys.stderr))
+      local_callback(ret_code, idx, script_args)
+
+  return None
+
+
+def run_experiments(job_mode: c.JobMode,
+                    run_args: Optional[List[str]] = None,
+                    script_args: Optional[List[str]] = None,
+                    image_id: Optional[str] = None,
+                    dry_run: bool = False,
+                    experiment_config: Optional[c.ExpConf] = None,
+                    **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker
   run` on the resulting image using sensible defaults.
 
@@ -439,7 +522,55 @@ def run(job_mode: c.JobMode,
   - override the default container entrypoint by supplying a new one inside
     run_args.)
   - image_id: ID of the image to run. Supplying this will skip an image build.
+  - experiment_config: dict of string to list, boolean, string or int. Any
+    lists will trigger a cartesian product out with the rest of the config. A
+    job will be executed for every combination of parameters in the experiment
+    config.
+  - dry_run: if True, no actual jobs will be executed and docker won't
+    actually build; logging side effects will show the user what will happen
+    without dry_run=True.
 
+  any extra kwargs supplied are passed through to build_image.
+  """
+  if run_args is None:
+    run_args = []
+
+  if script_args is None:
+    script_args = []
+
+  if experiment_config is None:
+    experiment_config = {}
+
+  if image_id is None:
+    if dry_run:
+      logging.info("Dry run - skipping actual 'docker build'.")
+      image_id = "dry_run_tag"
+    else:
+      image_id = build_image(job_mode, **build_image_kwargs)
+
+  experiments = c.expand_experiment_config(experiment_config)
+
+  if dry_run:
+    return execute_dry_run(experiments, script_args)
+
+  return execute_experiments(experiments, script_args, job_mode, run_args,
+                             image_id)
+
+
+def run(job_mode: c.JobMode,
+        run_args: Optional[List[str]] = None,
+        script_args: Optional[List[str]] = None,
+        image_id: Optional[str] = None,
+        **build_image_kwargs) -> None:
+  """Builds an image using the supplied **build_image_kwargs and calls `docker
+  run` on the resulting image using sensible defaults.
+  Keyword args:
+  - job_mode: c.JobMode.
+  - run_args: extra arguments to supply to `docker run` after our defaults.
+  - script_args: extra arguments to supply to the entrypoint. (You can
+  - override the default container entrypoint by supplying a new one inside
+    run_args.)
+  - image_id: ID of the image to run. Supplying this will skip an image build.
   any extra kwargs supplied are passed through to build_image.
   """
   if run_args is None:
@@ -452,10 +583,12 @@ def run(job_mode: c.JobMode,
     image_id = build_image(job_mode, **build_image_kwargs)
 
   base_cmd = _run_cmd(job_mode, run_args)
+
   command = base_cmd + [image_id] + script_args
 
   logging.info(f"Running command: {' '.join(command)}")
   subprocess.call(command)
+  return None
 
 
 # TODO convert run_options to a list instead of a dictionary and move it into

@@ -10,10 +10,10 @@ from absl import app, logging
 
 import caliban.cli as cli
 import caliban.cloud.core as cloud
+import caliban.cluster as cluster
 import caliban.config as c
 import caliban.docker as docker
 import caliban.util as u
-import caliban.cluster as cluster
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 
@@ -60,12 +60,17 @@ def run_app(arg_input):
     docker.build_image(job_mode, package=package, **docker_args)
 
   elif command == "run":
+    dry_run = args["dry_run"]
     package = args["module"]
-    docker.run(job_mode,
-               run_args=docker_run_args,
-               script_args=script_args,
-               package=package,
-               **docker_args)
+    exp_config = args.get("experiment_config")
+
+    docker.run_experiments(job_mode,
+                           run_args=docker_run_args,
+                           script_args=script_args,
+                           experiment_config=exp_config,
+                           dry_run=dry_run,
+                           package=package,
+                           **docker_args)
 
   elif command == "cloud":
     project_id = c.extract_project_id(args)
@@ -104,7 +109,11 @@ def run_app(arg_input):
 
 def main():
   logging.use_python_logging()
-  app.run(run_app, flags_parser=cli.parse_flags)
+  try:
+    app.run(run_app, flags_parser=cli.parse_flags)
+  except KeyboardInterrupt:
+    logging.info('Shutting down.')
+    sys.exit(0)
 
 
 if __name__ == '__main__':

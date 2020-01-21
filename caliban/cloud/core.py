@@ -3,9 +3,8 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
-import itertools
 from pprint import pformat
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import tqdm
 from absl import logging
@@ -403,7 +402,7 @@ def execute_dry_run(specs: List[JobSpec]) -> None:
   logging.info('')
   logging.info(
       t.yellow(f"To build your image and submit these jobs, \
-run your command again without {conf.DRY_RUN_FLAG}."                                                                                                        ))
+run your command again without {conf.DRY_RUN_FLAG}."))
   logging.info('')
   return None
 

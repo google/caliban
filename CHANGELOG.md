@@ -1,4 +1,4 @@
-# pending tag
+# 0.1.12
 
 - consolidated gke tpu/gpu spec parsing with cloud types
 - modified all commands to accept as the module argument paths to arbitrary
@@ -10,6 +10,9 @@
 
   This allows users to run commands like "caliban cloud my_script.sh" and have
   it all work.
+- "caliban run" now supports --experiment_config and --dry_run. These work just
+  like they do for "caliban cloud"; the experiment config will expand out and
+  execute N jobs on your local machine.
 
 # 0.1.11
 

@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from enum import Enum
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
                     Set, Tuple, Union)
@@ -265,23 +266,48 @@ class TempCopy(object):
       self.path = None
 
 
-def capture_stdout(cmd: List[str], input_str: str) -> str:
+def capture_stdout(cmd: List[str], input_str: Optional[str] = None,
+                   file=None) -> str:
   """Executes the supplied command with the supplied string of std input, then
-  streams the output to stdout, and returns it as a string.
+  streams the output to stdout, and returns it as a string along with the
+  process's return code.
+
+  Args:
+  cmd: list of strings to send in as the command
+  input_str: if supplied, this string will be passed as stdin to the supplied
+             command. if None, stdin will get closed immediately.
+  file: optional file-like object (stream): the output from the executed
+        process's stdout will get sent to this stream. Defaults to sys.stdout.
+
+  Returns:
+  Pair of
+  - string of all stdout received during the command's execution
+  - return code of the process
+
   """
   buf = io.StringIO()
+  ret_code = None
   with subprocess.Popen(cmd,
                         stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         bufsize=1,
                         encoding="utf-8") as p:
-    p.stdin.write(input_str)
+    if input_str:
+      p.stdin.write(input_str)
     p.stdin.close()
+
     for line in p.stdout:
-      print(line, end='')
+      print(line, end='', file=file)
       buf.write(line)
 
-  return buf.getvalue()
+    while p.poll() is None:
+      # Process hasn't exited yet, let's wait some
+      time.sleep(0.5)
+
+    ret_code = p.returncode
+    p.stdout.close()
+
+  return buf.getvalue(), ret_code
 
 
 def path_to_module(path_str: str) -> str:

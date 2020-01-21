@@ -216,6 +216,16 @@ def executing_parser(base):
   building_parser(base)
   add_script_args(base)
 
+  base.add_argument(
+      "--experiment_config",
+      type=conf.load_experiment_config,
+      help="Path to an experiment config, or 'stdin' to read from stdin.")
+
+  base.add_argument(
+      conf.DRY_RUN_FLAG,
+      action="store_true",
+      help="Don't actually submit; log everything that's going to happen.")
+
 
 def shell_parser(base):
   """Configure the Shell subparser."""
@@ -271,7 +281,6 @@ def local_run_parser(base):
 
 
 def container_parser(parser):
-
   executing_parser(parser)
 
   image_tag_arg(parser)
@@ -300,22 +309,12 @@ AI Platform submission. Defaults to None.")
 
   parser.add_argument("--name", help="Set a job name for AI Platform jobs.")
 
-  parser.add_argument(
-      "--experiment_config",
-      type=conf.load_experiment_config,
-      help="Path to an experiment config, or 'stdin' to read from stdin.")
-
   parser.add_argument("-l",
                       "--label",
                       metavar="KEY=VALUE",
                       action="append",
                       type=u.parse_kv_pair,
                       help="Extra label k=v pair to submit to Cloud.")
-
-  parser.add_argument(
-      conf.DRY_RUN_FLAG,
-      action="store_true",
-      help="Don't actually submit; log everything that's going to happen.")
 
 
 def cloud_parser(base):
