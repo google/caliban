@@ -30,6 +30,25 @@ ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
 
 
+def adc_location(home_dir: Optional[str] = None) -> str:
+  """Returns the location for application default credentials, INSIDE the
+  container (so, hardcoded unix separators), given the supplied home directory.
+
+  """
+  if home_dir is None:
+    home_dir = Path.home()
+
+  return f"{home_dir}/.config/gcloud/application_default_credentials.json"
+
+
+def container_home():
+  """Returns the location of the home directory inside the generated
+  container.
+
+  """
+  return f"/home/{u.current_user()}"
+
+
 def tf_base_image(job_mode: c.JobMode, tensorflow_version: str) -> str:
   """Returns the base image to use, depending on whether or not we're using a
   GPU. This is JUST for building our base images for Blueshift; not for
@@ -152,13 +171,62 @@ ENTRYPOINT {entrypoint_s}
   """
 
 
-def _credentials_entries(credentials_path: str,
-                         user_id: int,
+def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
+                           docker_credentials_dir: str,
+                           write_adc_placeholder: bool):
+  """Generates the Dockerfile entries required to transfer a set of Cloud service
+  account credentials into the Docker container.
+
+  NOTE the write_adc_placeholder variable is here because the "ctpu" script
+  that we use to interact with TPUs has a bug in it, as of 1/21/2020, where the
+  script will fail if the application_default_credentials.json file isn't
+  present, EVEN THOUGH it properly uses the service account credentials
+  registered with gcloud instead of ADC creds.
+
+  If a service account is present, we write a placeholder string to get past
+  this problem. This shouldn't matter for anyone else since adc isn't used if a
+  service account is present.
+
+  """
+  container_creds = f"{docker_credentials_dir}/credentials.json"
+  ret = f"""
+COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
+
+# Use the credentials file to activate gcloud, gsutil inside the container.
+RUN gcloud auth activate-service-account --key-file={container_creds}
+
+ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
+"""
+
+  if write_adc_placeholder:
+    ret += f"""
+RUN echo "placeholder" >> {adc_location(container_home())}
+"""
+
+  return ret
+
+
+def _adc_entry(user_id: int, user_group: int, adc_path: str):
+  """Returns the Dockerfile line required to transfer the
+  application_default_credentials.json file into the container's home
+  directory.
+
+  """
+  return f"""
+COPY --chown={user_id}:{user_group} {adc_path} {adc_location(container_home())}
+    """
+
+
+def _credentials_entries(user_id: int,
                          user_group: int,
+                         adc_path: Optional[str],
+                         credentials_path: Optional[str],
                          docker_credentials_dir: Optional[str] = None) -> str:
   """Returns the Dockerfile entries necessary to copy a user's Cloud credentials
-into the Docker container.
+  into the Docker container.
 
+  - adc_path is the relative path inside the current directory to an
+    application_default_credentials.json file containing... well, you get it.
   - credentials_path is the relative path inside the current directory to a
     JSON credentials file.
   - docker_credentials_dir is the relative path inside the docker container
@@ -168,16 +236,18 @@ into the Docker container.
   if docker_credentials_dir is None:
     docker_credentials_dir = CREDS_DIR
 
-  container_creds = f"{docker_credentials_dir}/credentials.json"
+  ret = ""
+  if credentials_path is not None:
+    ret += _service_account_entry(user_id,
+                                  user_group,
+                                  credentials_path,
+                                  docker_credentials_dir,
+                                  write_adc_placeholder=adc_path is None)
 
-  return f"""
-COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
+  if adc_path is not None:
+    ret += _adc_entry(user_id, user_group, adc_path)
 
-# Use the credentials file to activate gcloud, gsutil inside the container.
-RUN gcloud auth activate-service-account --key-file={container_creds}
-
-ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
-"""
+  return ret
 
 
 def _notebook_entries(version: Optional[str] = None) -> str:
@@ -249,6 +319,7 @@ def _dockerfile_template(
     package: Optional[u.Package] = None,
     requirements_path: Optional[str] = None,
     setup_extras: Optional[List[str]] = None,
+    adc_path: Optional[str] = None,
     credentials_path: Optional[str] = None,
     jupyter_version: Optional[str] = None,
     inject_notebook: bool = False,
@@ -298,9 +369,9 @@ RUN useradd --no-create-home -u {uid} -g {gid} --shell /bin/bash {username}
 
 # The directory is created by root. This sets permissions so that any user can
 # access the folder.
-RUN mkdir -m 777 {workdir} {CREDS_DIR} /home/{username}
+RUN mkdir -m 777 {workdir} {CREDS_DIR} {container_home()}
 
-ENV HOME=/home/{username}
+ENV HOME={container_home()}
 
 WORKDIR {workdir}
 
@@ -315,8 +386,10 @@ USER {uid}:{gid}
   if inject_notebook:
     dockerfile += _notebook_entries(version=jupyter_version)
 
-  if credentials_path is not None:
-    dockerfile += _credentials_entries(credentials_path, uid, gid)
+  dockerfile += _credentials_entries(uid,
+                                     gid,
+                                     adc_path=adc_path,
+                                     credentials_path=credentials_path)
 
   if extra_dirs is not None:
     dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
@@ -343,30 +416,34 @@ def docker_image_id(output: str) -> ImageId:
 
 def build_image(job_mode: c.JobMode,
                 credentials_path: Optional[str] = None,
+                adc_path: Optional[str] = None,
                 **kwargs) -> str:
   """Builds a Docker image by generating a Dockerfile and passing it to `docker
-  build` via stdin. All output from the `docker build` process prints to stdout.
+  build` via stdin. All output from the `docker build` process prints to
+  stdout.
 
   Returns the image ID of the new docker container; throws on error.
 
   TODO better error printing if the build fails.
 
   """
-  with u.TempCopy(credentials_path) as cred_path:
-    cmd = ["docker", "build", "--rm", "-f-", os.getcwd()]
-    dockerfile = _dockerfile_template(job_mode,
-                                      credentials_path=cred_path,
-                                      **kwargs)
+  with u.TempCopy(credentials_path) as creds:
+    with u.TempCopy(adc_path) as adc:
+      cmd = ["docker", "build", "--rm", "-f-", os.getcwd()]
+      dockerfile = _dockerfile_template(job_mode,
+                                        credentials_path=creds,
+                                        adc_path=adc,
+                                        **kwargs)
 
-    logging.info(f"Running command: {' '.join(cmd)}")
+      logging.info(f"Running command: {' '.join(cmd)}")
 
-    try:
-      output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
-      return docker_image_id(output)
+      try:
+        output, ret_Code = u.capture_stdout(cmd, input_str=dockerfile)
+        return docker_image_id(output)
 
-    except subprocess.CalledProcessError as e:
-      logging.error(e.output)
-      logging.error(e.stderr)
+      except subprocess.CalledProcessError as e:
+        logging.error(e.output)
+        logging.error(e.stderr)
 
 
 def push_uuid_tag(project_id: str, image_id: str) -> str:
@@ -412,7 +489,7 @@ def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
   """
   ret = []
   if enable_home_mount:
-    ret = ["-v", f"{Path.home()}:/home/{u.current_user()}"]
+    ret = ["-v", f"{Path.home()}:{container_home()}"]
   return ret
 
 
