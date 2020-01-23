@@ -85,7 +85,7 @@ but before the '--' separator and {pwas} not properly parsed.\n\n")
 moving them after the --, like this:\n\n")
   u.err(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
   u.err(f"Otherwise, if these are in fact caliban keyword arguments, \
-please move them before the python script/module[] name argument.\n\n")
+please move them before the python script/module name argument.\n\n")
   sys.exit(1)
 
 
@@ -169,6 +169,13 @@ def cloud_key_arg(parser):
 (Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)")
 
 
+def image_id_arg(parser):
+  parser.add_argument(
+      "--image_id",
+      help=f"Docker image ID accessible in the local Docker registry. \
+If supplied, Caliban will skip the 'docker build' step and use this image.")
+
+
 def image_tag_arg(parser):
   parser.add_argument(
       "--image_tag",
@@ -232,6 +239,7 @@ def shell_parser(base):
   parser = base.add_parser(
       'shell', help='Start an interactive shell with this dir mounted.')
   base_parser(parser)
+  image_id_arg(parser)
   docker_run_arg(parser)
   parser.add_argument(
       "--bare",
@@ -277,6 +285,7 @@ def local_run_parser(base):
   """Configure the subparser for `caliban run`."""
   parser = base.add_parser('run', help='Run a job inside a Docker container.')
   executing_parser(parser)
+  image_id_arg(parser)
   docker_run_arg(parser)
 
 

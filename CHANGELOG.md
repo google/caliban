@@ -1,3 +1,9 @@
+# 0.1.13
+
+- 'caliban run' and 'caliban shell' now take an --image_id argument; if
+  provided, these commands will skip their 'docker build' phase and use the
+  image ID directly.
+
 # 0.1.12
 
 - consolidated gke tpu/gpu spec parsing with cloud types
@@ -15,7 +21,7 @@
   like they do for "caliban cloud"; the experiment config will expand out and
   execute N jobs on your local machine.
 - moved some methods from cluster/cluster.py to gke/utils.py
-- added unit tests for some gke/utils.py methods 
+- added unit tests for some gke/utils.py methods
 
 - Support for ADC credentials! if application_default_credentials.json is
   present on the user's machine, they now get copied into the container.

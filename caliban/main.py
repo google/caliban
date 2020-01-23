@@ -37,7 +37,10 @@ def run_app(arg_input):
 
   if command == "shell":
     mount_home = not args['bare']
+    image_id = args.get("image_id")
+
     docker.run_interactive(job_mode,
+                           image_id=image_id,
                            run_args=docker_run_args,
                            mount_home=mount_home,
                            **docker_args)
@@ -62,11 +65,13 @@ def run_app(arg_input):
   elif command == "run":
     dry_run = args["dry_run"]
     package = args["module"]
+    image_id = args.get("image_id")
     exp_config = args.get("experiment_config")
 
     docker.run_experiments(job_mode,
                            run_args=docker_run_args,
                            script_args=script_args,
+                           image_id=image_id,
                            experiment_config=exp_config,
                            dry_run=dry_run,
                            package=package,
