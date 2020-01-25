@@ -428,6 +428,11 @@ def _clean_label(s: Optional[str], is_key: bool) -> str:
   if s is None:
     return ""
 
+  # periods are not allowed by AI Platform labels, but often occur in,
+  # e.g., learning rates
+  DECIMAL_REPLACEMENT = '_'
+  s = s.replace('.', DECIMAL_REPLACEMENT)
+
   # lowercase, letters, - and _ are valid, so strip the leading dashes, make
   # everything lowercase and then kill any remaining unallowed characters.
   cleaned = re.sub(r'[^a-z0-9_-]', '', s.lower()).lstrip("-")
