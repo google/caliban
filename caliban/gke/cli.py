@@ -91,6 +91,33 @@ def _check_for_existing_cluster(cluster_name: str, project_id: str,
 
 
 # ----------------------------------------------------------------------------
+def _export_jobs(export: str, jobs: List[V1Job]) -> bool:
+  """exports job(s) to file
+
+  If there is more than one job in the list, the output filenames are
+  generated as:
+  {export string without extension}_{list index}.{export file extension}
+
+  Args:
+  export: filename for exported job spec, must have extension of .json or .yaml
+  jobs: V1Job list
+
+  Returns:
+  True on success, False otherwise
+  """
+
+  if len(jobs) == 1:
+    return utils.export_job(jobs[0], export)
+  else:
+    base, ext = os.path.splitext(export)
+    for i, j in enumerate(jobs):
+      if not utils.export_job(j, f'{base}_{i}{ext}'):
+        return False
+
+  return True
+
+
+# ----------------------------------------------------------------------------
 @_project_and_creds
 def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   """creates a gke cluster
@@ -374,14 +401,24 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
       preemptible_tpu=preemptible_tpu,
       tpu_driver=tpu_driver)
 
+  job_list = [j for j in jobs]
+
+  # just a dry run
   if dry_run:
     logging.info('jobs that would be submitted:')
-    for j in jobs:
+    for j in job_list:
       logging.info(f'\n{utils.job_str(j)}')
     return
 
+  # export jobs to file
+  export = args.get('export', None)
+  if export is not None:
+    if not _export_jobs(export, job_list):
+      print(f'error exporting jobs to {export}')
+      return
+
   submitted = []
-  for j in jobs:
+  for j in job_list:
     sj = cluster.submit_job(j)
     if sj is None:
       logging.error(f'error submitting job:\n {j}')
@@ -395,6 +432,33 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
           f'{cluster.job_dashboard_url(sj)}')
 
   return submitted
+
+
+# ----------------------------------------------------------------------------
+@_project_and_creds
+@_with_cluster
+def _job_submit_file(args: dict, cluster: Cluster) -> None:
+  """submit gke job from k8s yaml/json file"""
+
+  job_file = args['job_file']
+
+  job_spec = utils.parse_job_file(job_file)
+  if job_spec is None:
+    logging.error(f'error parsing job file {job_file}')
+    return
+
+  if args['dry_run']:
+    logging.info(f'job to submit:\n{pp.pformat(job_spec)}')
+    return
+
+  job = cluster.submit_job(job=job_spec)
+  if job is None:
+    logging.error(f'error submitting job:\n{pp.pformat(job_spec)}')
+    return
+
+  logging.info(f'submitted job: {cluster.job_dashboard_url(job)}')
+
+  return
 
 
 # ----------------------------------------------------------------------------
@@ -423,7 +487,11 @@ def _pod_commands(args) -> None:
 # ----------------------------------------------------------------------------
 def _job_commands(args) -> None:
   """job commands"""
-  JOB_CMDS = {'ls': _job_ls, 'submit': _job_submit}
+  JOB_CMDS = {
+      'ls': _job_ls,
+      'submit': _job_submit,
+      'submit_file': _job_submit_file
+  }
   JOB_CMDS[args['job_cmd']](args)
   return
 

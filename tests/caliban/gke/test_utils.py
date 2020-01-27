@@ -8,6 +8,7 @@ from hypothesis import given, settings
 from typing import Dict, List, Any
 import re
 import random
+import pprint as pp
 
 import caliban.cloud.types as ct
 import caliban.gke
@@ -513,4 +514,54 @@ class UtilsTestSuite(unittest.TestCase):
     # name not in name list
     self.assertIsNone(utils.get_gke_cluster(api, invalid, 'p'))
 
+    return
+
+  # --------------------------------------------------------------------------
+  def _validate_nonnull_dict(self, d: dict, ref: dict):
+    """helper method for testing nonnull_dict, nonnull_list"""
+    for k, v in d.items():
+      self.assertIsNotNone(v)
+      self.assertTrue(k in ref)
+      self.assertEqual(type(v), type(ref[k]))
+      if trap(True)(lambda z: z != z)(v):
+        continue
+      elif type(v) == dict:
+        self._validate_nonnull_dict(v, ref[k])
+      elif type(v) == list:
+        self._validate_nonnull_list(v, ref[k])
+      else:
+        self.assertEqual(v, ref[k])
+
+  # --------------------------------------------------------------------------
+  def _validate_nonnull_list(self, lst: list, ref: list):
+    """helper method for testing nonnull_dict, nonnull_list"""
+    ref = [x for x in ref if x is not None]
+    self.assertEqual(len(lst), len(ref))
+    for i, x in enumerate(lst):
+      self.assertIsNotNone(x)
+      self.assertEqual(type(x), type(ref[i]))
+      if trap(True)(lambda z: z != z)(x):
+        continue
+      elif type(x) == list:
+        self._validate_nonnull_list(x, ref[i])
+      elif type(x) == dict:
+        self._validate_nonnull_dict(x, ref[i])
+      else:
+        self.assertEqual(x, ref[i])
+
+  # --------------------------------------------------------------------------
+  @given(
+      st.dictionaries(
+          keys=st.from_regex('\A[a-z]+\Z'),
+          values=everything(),
+      ))
+  def test_nonnull_dict(self, input_dict):
+    self._validate_nonnull_dict(utils.nonnull_dict(input_dict), input_dict)
+    return
+
+
+  # --------------------------------------------------------------------------
+  @given(st.lists(everything()))
+  def test_nonnull_list(self, input_list):
+    self._validate_nonnull_list(utils.nonnull_list(input_list), input_list)
     return

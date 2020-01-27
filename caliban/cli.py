@@ -16,6 +16,8 @@ import caliban.docker as docker
 import caliban.util as u
 import caliban.cluster as cluster
 import caliban.gke as gke
+import caliban.gke.constants as gke_k
+import caliban.gke.utils as gke_u
 
 from caliban import __version__
 
@@ -609,6 +611,7 @@ def cluster_job_parser(base):
   subparser = parser.add_subparsers(dest="job_cmd")
   cluster_job_ls_cmd(subparser)
   cluster_job_submit_cmd(subparser)
+  cluster_job_submit_file_cmd(subparser)
 
 
 # ----------------------------------------------------------------------------
@@ -650,9 +653,47 @@ def cluster_job_submit_cmd(base):
   label_arg(parser)
   nonpreemptible_arg(parser)
   dry_run_arg(parser)
+  job_export_arg(parser)
 
   require_module(parser)
   add_script_args(parser)
+
+
+# ----------------------------------------------------------------------------
+def job_file_arg(parser):
+  parser.add_argument(
+      'job_file',
+      type=gke_u.validate_job_filename,
+      help=f'kubernetes k8s job file {gke_k.VALID_JOB_FILE_EXT}')
+
+
+# ----------------------------------------------------------------------------
+def job_export_arg(parser):
+  parser.add_argument(
+      '--export',
+      type=gke_u.validate_job_filename,
+      help=(
+          f'Export job spec(s) to file, extension must be one of '
+          f'{gke_k.VALID_JOB_FILE_EXT} (for example: --export my-job-spec.yaml) '
+          f'For multiple jobs (i.e. in an experiment config scenario), '
+          f'multiple files will be generated with an index inserted '
+          f'(for example: --export my-job-spec.yaml would yield '
+          f'my-job-spec_0.yaml, my-job-spec_1.yaml...)'))
+
+
+# ----------------------------------------------------------------------------
+def cluster_job_submit_file_cmd(base):
+  parser = base.add_parser(
+      "submit_file",
+      description='submit gke job from yaml/json file',
+      help='submit gke job from yaml/json file',
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  cluster_name_arg(parser)
+  cloud_key_arg(parser)
+  project_id_arg(parser)
+  dry_run_arg(parser)
+  job_file_arg(parser)
 
 
 # ----------------------------------------------------------------------------

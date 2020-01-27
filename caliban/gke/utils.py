@@ -7,8 +7,11 @@ import logging
 from urllib.parse import urlencode
 from time import sleep
 import re
+import os
 import pprint as pp
 import json
+import yaml
+import argparse
 from yaspin import yaspin
 from yaspin.spinners import Spinners
 
@@ -25,6 +28,7 @@ from google.cloud.container_v1 import ClusterManagerClient
 from google.auth._cloud_sdk import get_application_default_credentials_path
 
 from kubernetes.client import V1Job
+from kubernetes.client.api_client import ApiClient
 
 import caliban.gke.constants as k
 from caliban.gke.types import NodeImage, OpStatus, CredentialsData
@@ -413,6 +417,79 @@ def generate_resource_limits(compute_api: discovery.Resource, project_id: str,
 
 
 # ----------------------------------------------------------------------------
+@trap(None, silent=False)
+def job_to_dict(job: V1Job) -> Optional[dict]:
+  """convert V1Job to dictionary
+
+  Note that this is *different* than what is returned by V1Job.to_dict().
+  That method uses object attribute names, which are often different than
+  the names used in the REST api and yaml/json spec files.
+
+  Args:
+  job: V1Job instance
+
+  Returns:
+  dictionary representation on success, None otherwise
+  """
+
+  return ApiClient().sanitize_for_serialization(job)
+
+
+# ----------------------------------------------------------------------------
+def nonnull_list(lst: list) -> list:
+  """recursively removes all None-valued entries from list
+
+  Note that this recursively removes None values only for lists or dicts.
+
+  Args:
+  lst: input list
+
+  Returns:
+  list with None-valued entries removed
+  """
+
+  nnl = []
+  for x in lst:
+    if x is None:
+      continue
+    if type(x) == dict:
+      nnl.append(nonnull_dict(x))
+    elif type(x) == list:
+      nnl.append(nonnull_list(x))
+    else:
+      nnl.append(x)
+
+  return nnl
+
+
+# ----------------------------------------------------------------------------
+def nonnull_dict(d: dict) -> dict:
+  """recursively removes all None-valued keys from a dictionary
+
+  Note that this recursively removes None values only for dicts or lists.
+
+  Args:
+  d: input dictionary
+
+  Returns:
+  dictionary with None-valued keys removed
+  """
+
+  nnd = {}
+  for k, v in d.items():
+    if v is None:
+      continue
+    if type(v) == dict:
+      nnd[k] = nonnull_dict(v)
+    elif type(v) == list:
+      nnd[k] = nonnull_list(v)
+    else:
+      nnd[k] = v
+
+  return nnd
+
+
+# ----------------------------------------------------------------------------
 def job_str(job: V1Job) -> str:
   """formats job string to remove all default (None) values
 
@@ -422,22 +499,62 @@ def job_str(job: V1Job) -> str:
   Returns:
   string describing job
   """
+  return pp.pformat(nonnull_dict(job_to_dict(job)), indent=2, width=80)
 
-  def nonnull_dict(d: dict) -> dict:
-    nnd = {}
-    for k, v in d.items():
-      if v is None:
-        continue
-      if type(v) == dict:
-        nnd[k] = nonnull_dict(v)
-      elif type(v) == list:
-        nnd[k] = [nonnull_dict(x) if type(x) == dict else x for x in v]
-      else:
-        nnd[k] = v
 
-    return nnd
+# ----------------------------------------------------------------------------
+def valid_job_file_ext(ext: str) -> bool:
+  '''tests validity of file extension for job spec
+  Args:
+  ext: extension (must include '.', i.e. '.json')
+  Returns:
+  True if valid, False otherwise '''
+  return ext in k.VALID_JOB_FILE_EXT
 
-  return pp.pformat(nonnull_dict(job.to_dict()), indent=2, width=80)
+
+# ----------------------------------------------------------------------------
+def validate_job_filename(s: str) -> str:
+  '''validates a job filename string
+  if invalid, raises argparse.ArgumentTypeError
+  '''
+  _, ext = os.path.splitext(s)
+
+  if not valid_job_file_ext(ext):
+    raise argparse.ArgumentTypeError(
+        f'invalid job file extension: {ext}, must be in {k.VALID_JOB_FILE_EXT}')
+  return s
+
+
+# ----------------------------------------------------------------------------
+@trap(False, silent=False)
+def export_job(job: V1Job, filename: str) -> bool:
+  """exports job as a kubernetes job spec to file
+
+  The output format is determined from the file extension.
+  (only .json and .yaml are supported)
+
+  Args:
+  job: V1Job instance
+  filename: output file
+
+  Returns:
+  True on success, False on error
+  """
+
+  _, ext = os.path.splitext(filename)
+
+  if not valid_job_file_ext(ext):
+    logging.error(
+        f'invalid job file extension: {ext}, must be in {k.VALID_JOB_FILE_EXT}')
+    return False
+
+  with open(filename, 'w') as f:
+    if ext == '.json':
+      json.dump(nonnull_dict(job_to_dict(job)), f, indent=4)
+    else:
+      yaml.dump(nonnull_dict(job_to_dict(job)), f)
+
+  return True
 
 
 # ----------------------------------------------------------------------------
@@ -616,3 +733,40 @@ def get_gke_cluster(client: ClusterManagerClient,
           lambda x: x.name == name,
           get_gke_clusters(client, project_id, zone),
       ))
+
+
+# ----------------------------------------------------------------------------
+def parse_job_file(job_file: str) -> Optional[dict]:
+  '''parses a kubernetes job spec file
+
+  Args:
+  job_file: path to job spec file (.json or .yaml)
+
+  Returns:
+  job spec dictionary on success, None otherwise
+  '''
+
+  _, ext = os.path.splitext(job_file)
+
+  if not valid_job_file_ext(ext):
+    logging.error(f'invalid job file extension: {ext}, '
+                  f'must be in {k.VALID_JOB_FILE_EXT}')
+    return
+
+  if not os.path.exists(job_file):
+    logging.error(f'error: job file {job_file} not found')
+    return
+
+  try:
+    if ext == '.json':
+      with open(job_file, 'r') as f:
+        job_spec = json.load(f)
+    else:
+      with open(job_file, 'r') as f:
+        job_spec = yaml.load(f, Loader=yaml.FullLoader)
+
+  except Exception as e:
+    logging.error(f'error loading job file {job_file}:\n{e}')
+    return None
+
+  return job_spec

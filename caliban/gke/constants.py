@@ -26,6 +26,7 @@ DASHBOARD_JOB_URL = 'https://pantheon.corp.google.com/kubernetes/job'
 DASHBOARD_CLUSTER_URL = 'https://pantheon.corp.google.com/kubernetes/clusters/details'
 MAX_GB_PER_CPU = 64
 DEFAULT_CLUSTER_NAME = 'blueshift'
+VALID_JOB_FILE_EXT = ('.yaml', '.json')
 
 # ----------------------------------------------------------------------------
 # The following urls specify kubernetes daemonsets that apply the appropriate

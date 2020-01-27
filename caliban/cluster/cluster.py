@@ -32,6 +32,7 @@ from kubernetes.client import (V1Job, V1ObjectMeta, V1JobSpec, V1Pod,
                                V1DaemonSet)
 
 import logging
+import json
 
 import caliban
 import caliban.cli as cli
@@ -504,7 +505,7 @@ class Cluster(object):
     return self._gke_cluster.node_pools
 
   # --------------------------------------------------------------------------
-  @trap(None)
+  @trap(None, silent=False)
   @connected(None)
   def submit_job(self,
                  job: V1Job,
