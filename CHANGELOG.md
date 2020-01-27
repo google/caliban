@@ -1,8 +1,21 @@
-# 0.1.13
+# 0.1.13 (NOT YET RELEASED)
 
 - 'caliban run' and 'caliban shell' now take an --image_id argument; if
   provided, these commands will skip their 'docker build' phase and use the
   image ID directly.
+
+- AI Platform labels now swap periods for underscores (thanks to vinay@!); this
+  means that floating point numbers will no longer have pre- and post- decimal
+  components concatenated.
+
+- A new `expansion` script will expand experiment configs into all of the
+  individual experiments they'd generate. This command can accept `stdin`, just
+  like the `--experiment_config` argument. Options include `--pprint` and
+  `--print_flags`. The output of this script can be piped directly into `caliban
+  cloud --experiment_config stdin`.
+
+- `caliban shell` will now default to bash if you're using a shell that's not
+  `bash` or `zsh` (fish shell, for example) instead of erroring out.
 
 # 0.1.12
 
@@ -22,7 +35,6 @@
   execute N jobs on your local machine.
 - moved some methods from cluster/cluster.py to gke/utils.py
 - added unit tests for some gke/utils.py methods
-
 - Support for ADC credentials! if application_default_credentials.json is
   present on the user's machine, they now get copied into the container.
 - if ADC credentials are NOT present but a service account key is we write a

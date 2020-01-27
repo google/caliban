@@ -24,6 +24,9 @@ from blessings import Terminal
 
 t = Terminal()
 
+# key and value for labels can be at most this-many-characters long.
+AI_PLATFORM_MAX_LABEL_LENGTH = 63
+
 
 class Package(NamedTuple):
   executable: List[str]
@@ -443,8 +446,7 @@ def _clean_label(s: Optional[str], is_key: bool) -> str:
   if is_key and cleaned != "" and not cleaned[0].isalpha():
     cleaned = "k" + cleaned
 
-  # key and value for labels can be at most 63 characters long.
-  return _truncate(cleaned, 63)
+  return _truncate(cleaned, AI_PLATFORM_MAX_LABEL_LENGTH)
 
 
 def key_label(k: Optional[str]) -> str:

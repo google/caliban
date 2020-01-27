@@ -213,7 +213,8 @@ def load_experiment_config(s):
   return validate_experiment_config(json)
 
 
-def experiment_to_args(m: Experiment, base: List[str]) -> List[str]:
+def experiment_to_args(m: Experiment,
+                       base: Optional[List[str]] = None) -> List[str]:
   """Returns the list of flag keys and values that corresponds to the supplied
   experiment.
 
@@ -225,6 +226,9 @@ def experiment_to_args(m: Experiment, base: List[str]) -> List[str]:
   --key_name). If the value is False, the key isn't inserted at all.
 
   """
+  if base is None:
+    base = []
+
   ret = [] + base
 
   for k, v in m.items():

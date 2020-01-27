@@ -39,7 +39,7 @@ import caliban.config as conf
 from caliban.cloud.types import (TPU, GPU, Accelerator, parse_machine_type,
                                  MachineType, GPUSpec, TPUSpec)
 from caliban.cluster.cli import parse_cmd_dict, invoke_command
-from caliban.cloud import generate_image_tag
+from caliban.cloud.core import generate_image_tag
 import caliban.gke.utils as utils
 from caliban.gke.utils import trap
 import caliban.gke.constants as k

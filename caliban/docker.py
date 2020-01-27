@@ -9,8 +9,10 @@ import json
 import os
 import subprocess
 import sys
+from enum import Enum
 from pathlib import Path
-from typing import Callable, Iterable, List, NewType, Optional
+from typing import (Callable, Dict, Iterable, List, NamedTuple, NewType,
+                    Optional, Set)
 
 import tqdm
 from absl import logging
@@ -21,13 +23,72 @@ import caliban.util as u
 
 t = Terminal()
 
-DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
-TF_VERSIONS = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
-DEFAULT_WORKDIR = "/usr/app"
-CREDS_DIR = "/.creds"
+DEV_CONTAINER_ROOT: str = "gcr.io/blueshift-playground/blueshift"
+TF_VERSIONS: Set[str] = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
+DEFAULT_WORKDIR: str = "/usr/app"
+CREDS_DIR: str = "/.creds"
 
 ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
+
+
+class Shell(Enum):
+  """Add new shells here and below, in SHELL_DICT."""
+  bash = 'bash'
+  zsh = 'zsh'
+
+  def __str__(self):
+    return self.value
+
+
+class ShellData(NamedTuple):
+  """Tuple to track the information required to install and execute some custom
+  shell into a container.
+
+  """
+  executable: str
+  install_cmds: List[str]
+
+
+def apt_install(*packages: str) -> str:
+  """Returns a command that will install the supplied list of packages without
+  requiring confirmation or any user interaction.
+
+  """
+  package_str = ' '.join(packages)
+  return f"apt-get install --yes --no-install-recommends {package_str}"
+
+
+def apt_command(commands: List[str]) -> List[str]:
+  """Pre-and-ap-pends the supplied commands with the appropriate in-container and
+  cleanup command for aptitude.
+
+  """
+  update = ["apt-get update"]
+  cleanup = ["rm -rf /var/lib/apt/lists/*"]
+  return update + commands + cleanup
+
+
+# Dict linking a particular supported shell to the data required to run and
+# install the shell inside a container.
+SHELL_DICT: Dict[Shell, ShellData] = {
+    Shell.bash: ShellData("/bin/bash", []),
+    Shell.zsh: ShellData("/bin/zsh", apt_command([apt_install("zsh")]))
+}
+
+
+def default_shell() -> Shell:
+  """Returns the shell to load into the container. Defaults to Shell.bash, but if
+  the user's SHELL variable refers to a supported sub-shell, returns that
+  instead.
+
+  """
+  ret = Shell.bash
+
+  if "zsh" in os.environ.get("SHELL"):
+    ret = Shell.zsh
+
+  return ret
 
 
 def adc_location(home_dir: Optional[str] = None) -> str:
@@ -105,11 +166,6 @@ def base_extras(job_mode: c.JobMode, path: str,
     ret = base if extra in base else [extra] + base
 
   return ret
-
-
-def default_shell() -> str:
-  """Returns the shell command of the current system. Defaults to bash"""
-  return os.environ.get("SHELL", "/bin/bash")
 
 
 def _dependency_entries(workdir: str,
@@ -266,21 +322,24 @@ RUN pip install jupyterlab{version_suffix}
 """
 
 
-def _custom_shell_entries(shell_cmd: Optional[str], user_id: int,
-                          user_group: int) -> str:
+def _custom_shell_entries(user_id: int,
+                          user_group: int,
+                          shell: Optional[Shell] = None) -> str:
   """Returns the Dockerfile entries necessary to install the dependencies for the
-  shell referenced by the supplied shell_cmd.
+  supplied shell.
 
   """
+  if shell is None:
+    shell = Shell.bash
+
   ret = ""
-  if shell_cmd is not None:
-    if shell_cmd == "/bin/zsh":
-      ret = f"""
+
+  commands = SHELL_DICT[shell].install_cmds
+  if len(commands) != 0:
+    ret = f"""
 USER root
 
-RUN apt-get update && \
-      apt-get install -y --no-install-recommends zsh && \
-      rm -rf /var/lib/apt/lists/*
+RUN {" && ".join(commands)}
 
 USER {user_id}:{user_group}
 """
@@ -323,7 +382,7 @@ def _dockerfile_template(job_mode: c.JobMode,
                          credentials_path: Optional[str] = None,
                          jupyter_version: Optional[str] = None,
                          inject_notebook: bool = False,
-                         shell_cmd: Optional[str] = None,
+                         shell: Optional[Shell] = None,
                          extra_dirs: Optional[List[str]] = None) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
@@ -394,7 +453,7 @@ USER {uid}:{gid}
   if extra_dirs is not None:
     dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
 
-  dockerfile += _custom_shell_entries(shell_cmd, uid, gid)
+  dockerfile += _custom_shell_entries(uid, gid, shell)
 
   if package is not None:
     # The actual entrypoint and final copied code.
@@ -668,14 +727,12 @@ def run(job_mode: c.JobMode,
   return None
 
 
-# TODO convert run_options to a list instead of a dictionary and move it into
-# _run_cmd, then pass it as run_args.
 def run_interactive(job_mode: c.JobMode,
                     workdir: Optional[str] = None,
                     image_id: Optional[str] = None,
                     run_args: Optional[List[str]] = None,
                     mount_home: Optional[bool] = None,
-                    shell_cmd: Optional[str] = None,
+                    shell: Optional[Shell] = None,
                     entrypoint: Optional[str] = None,
                     entrypoint_args: Optional[List[str]] = None,
                     **build_image_kwargs) -> None:
@@ -689,15 +746,13 @@ def run_interactive(job_mode: c.JobMode,
   - run_args: extra arguments to supply to `docker run`.
   - mount_home: if true, mounts the user's $HOME directory into the container
     to `/home/$USERNAME`. If False, nothing.
-  - shell_cmd: command of the shell to install into the container. Also used as
-    the entrypoint if that's not supplied.
-  - entrypoint: command to run. Defaults to the shell_cmd.
+  - shell: name of the shell to install into the container. Also configures the
+    entrypoint if that's not supplied.
+  - entrypoint: command to run. Defaults to the executable command for the
+    supplied shell.
   - entrypoint_args: extra arguments to supply to the entrypoint.
 
   any extra kwargs supplied are passed through to build_image.
-
-  TODO image_id should be image_build_fn, and default to build_image. Then
-  image_id can be a function that returns a constant.
 
   """
   if workdir is None:
@@ -712,13 +767,13 @@ def run_interactive(job_mode: c.JobMode,
   if mount_home is None:
     mount_home = True
 
-  if shell_cmd is None:
+  if shell is None:
     # Only set a default shell if we're also mounting the home volume.
     # Otherwise a custom shell won't have access to the user's profile.
-    shell_cmd = default_shell() if mount_home else "/bin/bash"
+    shell = default_shell() if mount_home else Shell.bash
 
   if entrypoint is None:
-    entrypoint = shell_cmd
+    entrypoint = SHELL_DICT[shell].executable
 
   interactive_run_args = _interactive_opts(workdir) + [
       "-it", \
@@ -729,7 +784,7 @@ def run_interactive(job_mode: c.JobMode,
       run_args=interactive_run_args,
       script_args=entrypoint_args,
       image_id=image_id,
-      shell_cmd=shell_cmd,
+      shell=shell,
       workdir=workdir,
       **build_image_kwargs)
 

@@ -1,4 +1,4 @@
-"""Entry point for Caliban's shell, notebook, local and cloud modes."""
+"""Entry point for Caliban's various modes."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -38,11 +38,12 @@ def run_app(arg_input):
   if command == "shell":
     mount_home = not args['bare']
     image_id = args.get("image_id")
-
+    shell = args['shell']
     docker.run_interactive(job_mode,
                            image_id=image_id,
                            run_args=docker_run_args,
                            mount_home=mount_home,
+                           shell=shell,
                            **docker_args)
 
   elif command == "notebook":

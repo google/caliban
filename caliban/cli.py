@@ -242,6 +242,14 @@ def shell_parser(base):
   image_id_arg(parser)
   docker_run_arg(parser)
   parser.add_argument(
+      "--shell",
+      choices=docker.Shell,
+      type=docker.Shell,
+      help=
+      f"""This argument sets the shell used inside the container to one of Caliban's
+supported shells. Defaults to the shell specified by the $SHELL environment
+variable, or 'bash' if your shell isn't supported.""")
+  parser.add_argument(
       "--bare",
       action="store_true",
       help="Skip mounting the $HOME directory; load a bare shell.")
@@ -337,8 +345,7 @@ def caliban_parser():
 
   parser = argparse_flags.ArgumentParser(description=f"""Docker and AI
   Platform model training and development script. For detailed
-  documentation, visit the Git repo at
-  https://team.git.corp.google.com/blueshift/caliban/ """,
+  documentation, visit http://go/caliban""",
                                          prog="caliban")
   parser.add_argument('--version',
                       action='version',

@@ -43,4 +43,8 @@ setup(
     },
     packages=find_packages(),
     description='Docker-based job runner for AI research.',
-    entry_points={'console_scripts': ['caliban = caliban.main:main']})
+    entry_points={
+        'console_scripts': [
+            'caliban = caliban.main:main', 'expansion = caliban.expansion:main'
+        ]
+    })
