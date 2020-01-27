@@ -242,6 +242,7 @@ def gke_tpu_to_tpuspec(tpu: str) -> Optional[TPUSpec]:
 
   return TPUSpec(TPU[gd['tpu'].upper()], int(gd['count']))
 
+
 # ----------------------------------------------------------------------------
 @trap(None)
 def get_zone_tpu_types(tpu_api: discovery.Resource, project_id: str,
@@ -304,8 +305,8 @@ def get_zone_gpu_types(
   list of GPUSpec on success (count is max count), None otherwise
   """
 
-  rsp = compute_api.acceleratorTypes().list(
-      project=project_id, zone=zone).execute()
+  rsp = compute_api.acceleratorTypes().list(project=project_id,
+                                            zone=zone).execute()
 
   gpus = []
 
@@ -337,8 +338,8 @@ def get_region_quotas(
   list of quota dicts, with keys {'limit', 'metric', 'usage'}, None on error
   """
 
-  return compute_api.regions().get(
-      project=project_id, region=region).execute().get('quotas', [])
+  return compute_api.regions().get(project=project_id,
+                                   region=region).execute().get('quotas', [])
 
 
 # ----------------------------------------------------------------------------
@@ -383,6 +384,7 @@ def resource_limits_from_quotas(
     })
 
   return limits
+
 
 # ----------------------------------------------------------------------------
 @trap(None)
@@ -525,8 +527,8 @@ def credentials_from_file(
   credentials on success, None otherwise
   """
 
-  creds = service_account.Credentials.from_service_account_file(
-      cred_file, scopes=scopes)
+  creds = service_account.Credentials.from_service_account_file(cred_file,
+                                                                scopes=scopes)
 
   creds.refresh(google.auth.transport.requests.Request())
 

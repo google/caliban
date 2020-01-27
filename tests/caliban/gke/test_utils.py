@@ -35,10 +35,9 @@ class UtilsTestSuite(unittest.TestCase):
 
   # --------------------------------------------------------------------------
   @given(
-      st.lists(
-          st.integers(min_value=0, max_value=4),
-          min_size=len(ct.GPU),
-          max_size=len(ct.GPU)), st.sampled_from(ct.GPU),
+      st.lists(st.integers(min_value=0, max_value=4),
+               min_size=len(ct.GPU),
+               max_size=len(ct.GPU)), st.sampled_from(ct.GPU),
       st.integers(min_value=1, max_value=8))
   def test_validate_gpu_spec_against_limits(
       self,
@@ -92,8 +91,8 @@ class UtilsTestSuite(unittest.TestCase):
 
       # default input
       mocked_input.side_effect = ['']
-      self.assertEqual(
-          utils.user_verify('test default', default=default), default)
+      self.assertEqual(utils.user_verify('test default', default=default),
+                       default)
 
       # upper/lower true input
       for x in ['y', 'Y']:
@@ -156,8 +155,9 @@ class UtilsTestSuite(unittest.TestCase):
   # --------------------------------------------------------------------------
   @given(
       st.lists(st.sampled_from(list(OpStatus)), min_size=1, max_size=8),
-      st.sets(
-          st.sampled_from(list(OpStatus)), min_size=1, max_size=len(OpStatus)),
+      st.sets(st.sampled_from(list(OpStatus)),
+              min_size=1,
+              max_size=len(OpStatus)),
       st.sets(st.from_regex('\A_[a-zA-Z0-9]+\Z'), min_size=1, max_size=4),
   )
   @settings(deadline=1000)  # in ms
@@ -165,12 +165,16 @@ class UtilsTestSuite(unittest.TestCase):
     """tests wait_for_operation method"""
 
     class mock_api:
+
       def projects(self):
         return self
+
       def locations(self):
         return self
+
       def operations(self):
         return self
+
       def get(self, name):
         return self
 
@@ -207,8 +211,11 @@ class UtilsTestSuite(unittest.TestCase):
 
     if expected_response is not None:
       self.assertEqual({'status': expected_response},
-                       utils.wait_for_operation(
-                           api, 'name', list(conds), 0, spinner=False))
+                       utils.wait_for_operation(api,
+                                                'name',
+                                                list(conds),
+                                                0,
+                                                spinner=False))
     else:
       self.assertIsNone(
           utils.wait_for_operation(api, 'name', list(conds), 0, spinner=False))
@@ -218,8 +225,8 @@ class UtilsTestSuite(unittest.TestCase):
   # --------------------------------------------------------------------------
   @given(
       st.sets(
-          st.tuples(
-              st.integers(min_value=1, max_value=32), st.sampled_from(ct.TPU))),
+          st.tuples(st.integers(min_value=1, max_value=32),
+                    st.sampled_from(ct.TPU))),
       st.sets(st.from_regex('\A_[a-z0-9]+-[0-9]+\Z')),
   )
   def test_get_zone_tpu_types(self, tpu_types, invalid_types):
@@ -233,12 +240,16 @@ class UtilsTestSuite(unittest.TestCase):
     random.shuffle(responses)
 
     class mock_api:
+
       def projects(self):
         return self
+
       def locations(self):
         return self
+
       def acceleratorTypes(self):
         return self
+
       def list(self, parent):
         return self
 
@@ -294,14 +305,12 @@ class UtilsTestSuite(unittest.TestCase):
 
   # --------------------------------------------------------------------------
   @given(
-      st.lists(
-          st.integers(min_value=0, max_value=32),
-          min_size=len(ct.GPU),
-          max_size=len(ct.GPU)),
+      st.lists(st.integers(min_value=0, max_value=32),
+               min_size=len(ct.GPU),
+               max_size=len(ct.GPU)),
       st.sets(
-          st.tuples(
-              st.from_regex('\A[a-z0-9]+\Z'),
-              st.integers(min_value=1, max_value=32))),
+          st.tuples(st.from_regex('\A[a-z0-9]+\Z'),
+                    st.integers(min_value=1, max_value=32))),
   )
   def test_get_zone_gpu_types(self, gpu_counts, invalid_types):
     """tests get_zone_gpu_types"""
@@ -319,8 +328,10 @@ class UtilsTestSuite(unittest.TestCase):
     } for x in invalid_types]
 
     class mock_api:
+
       def acceleratorTypes(self):
         return self
+
       def list(self, project, zone):
         return self
 
@@ -359,8 +370,10 @@ class UtilsTestSuite(unittest.TestCase):
     """tests get region quotas"""
 
     class mock_api:
+
       def regions(self):
         return self
+
       def get(self, project, region):
         return self
 
@@ -405,8 +418,10 @@ class UtilsTestSuite(unittest.TestCase):
     """tests generation of resource limits"""
 
     class mock_api:
+
       def regions(self):
         return self
+
       def get(self, project, region):
         return self
 
@@ -458,17 +473,19 @@ class UtilsTestSuite(unittest.TestCase):
     return
 
   # --------------------------------------------------------------------------
-  @given(
-      st.lists(st.from_regex('[a-zA-Z0-9]+')), st.from_regex('_[a-zA-Z0-9]+'))
+  @given(st.lists(st.from_regex('[a-zA-Z0-9]+')),
+         st.from_regex('_[a-zA-Z0-9]+'))
   def test_get_gke_cluster(self, names, invalid):
     """test getting gke cluster"""
 
     class mock_cluster:
+
       def __init__(self, name):
         self.name = name
         return
 
     class mock_cluster_list:
+
       def __init__(self):
         self.clusters = [mock_cluster(x) for x in names]
         return

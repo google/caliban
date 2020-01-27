@@ -55,6 +55,7 @@ import tqdm
 # tone down logging from discovery
 logging.getLogger('googleapiclient.discovery').setLevel(logging.ERROR)
 
+
 # ----------------------------------------------------------------------------
 def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
   """parses zone into region and zone tuple
@@ -77,6 +78,7 @@ def _parse_zone(zone: str) -> Optional[Tuple[str, str]]:
   gd = match.groupdict()
 
   return (gd['region'], gd['zone'])
+
 
 # ----------------------------------------------------------------------------
 def connected(error_value: Any) -> Any:
@@ -101,7 +103,6 @@ def connected(error_value: Any) -> Any:
     return wrapper
 
   return check
-
 
 
 # ----------------------------------------------------------------------------
@@ -170,8 +171,8 @@ class Cluster(object):
 
     # using this as a connection test
     # todo: is there a better way to verify connectivity?
-    self.connected = (
-        self._core_api.get_api_resources(async_req=False) is not None)
+    self.connected = (self._core_api.get_api_resources(async_req=False) is
+                      not None)
 
     return self.connected
 
@@ -261,8 +262,10 @@ class Cluster(object):
     cluster instance on success, None otherwise
     """
 
-    cluster = Cluster(
-        name=name, project_id=project_id, zone=zone, credentials=creds)
+    cluster = Cluster(name=name,
+                      project_id=project_id,
+                      zone=zone,
+                      credentials=creds)
 
     return cluster if cluster.connect() else None
 
@@ -297,8 +300,8 @@ class Cluster(object):
       return {
           '/'.join([
               k.CONTAINER_RESOURCE_LIMIT_TPU,
-              ('preemptible-' if (preemptible_tpu and count == 8) else '') +
-              accelerator.name.lower()
+              ('preemptible-' if (preemptible_tpu and count == 8) else '') + accelerator.name.lower(
+              )
           ]):
               count
       }
@@ -380,11 +383,10 @@ class Cluster(object):
       return []
 
     return [
-        V1Toleration(
-            key=k.NODE_SELECTOR_PREEMPTIBLE,
-            operator='Equal',
-            value='true',
-            effect='NoSchedule')
+        V1Toleration(key=k.NODE_SELECTOR_PREEMPTIBLE,
+                     operator='Equal',
+                     value='true',
+                     effect='NoSchedule')
     ]
 
   # --------------------------------------------------------------------------
@@ -447,8 +449,10 @@ class Cluster(object):
     V1Job on success, None otherwise
     """
 
-    return self._batch_api.create_namespaced_job(
-        namespace=namespace, body=job, async_req=False, pretty=True)
+    return self._batch_api.create_namespaced_job(namespace=namespace,
+                                                 body=job,
+                                                 async_req=False,
+                                                 pretty=True)
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -500,13 +504,12 @@ class Cluster(object):
 
     # this is a simple 1-container, 1-pod job, so we just name the
     # container the same thing (minus the generated suffix) as the job itself
-    container = V1Container(
-        name=name,
-        image=image,
-        command=command,
-        args=args,
-        resources=container_resources,
-        env=container_env)
+    container = V1Container(name=name,
+                            image=image,
+                            command=command,
+                            args=args,
+                            resources=container_resources,
+                            env=container_env)
 
     # ------------------------------------------------------------------------
     # template
@@ -519,20 +522,18 @@ class Cluster(object):
     tolerations = Cluster.tolerations(preemptible=preemptible)
 
     # backoff count plus 'OnFailure' may be correct here
-    template_spec = V1PodSpec(
-        restart_policy='Never',
-        containers=[container],
-        tolerations=tolerations,
-        node_selector=Cluster.node_selector(
-            preemptible=preemptible,
-            machine_type=machine_type,
-            accelerator=accelerator),
-        host_ipc=True)
+    template_spec = V1PodSpec(restart_policy='Never',
+                              containers=[container],
+                              tolerations=tolerations,
+                              node_selector=Cluster.node_selector(
+                                  preemptible=preemptible,
+                                  machine_type=machine_type,
+                                  accelerator=accelerator),
+                              host_ipc=True)
 
-    template = V1PodTemplateSpec(
-        metadata=Cluster.template_metadata(
-            accelerator=accelerator, tpu_driver=tpu_driver),
-        spec=template_spec)
+    template = V1PodTemplateSpec(metadata=Cluster.template_metadata(
+        accelerator=accelerator, tpu_driver=tpu_driver),
+                                 spec=template_spec)
 
     # ------------------------------------------------------------------------
     # job
@@ -541,11 +542,10 @@ class Cluster(object):
     # always use generate_name here...todo: is this the best thing to do?
     job_metadata = V1ObjectMeta(generate_name=name + '-', labels=labels)
 
-    job = V1Job(
-        api_version=k.BATCH_V1_VERSION,
-        kind='Job',
-        metadata=job_metadata,
-        spec=job_spec)
+    job = V1Job(api_version=k.BATCH_V1_VERSION,
+                kind='Job',
+                metadata=job_metadata,
+                spec=job_spec)
 
     return job
 
@@ -585,19 +585,18 @@ class Cluster(object):
     V1Job on success, None otherwise
     """
 
-    job = self.create_simple_job(
-        name=name,
-        image=image,
-        command=command,
-        args=args,
-        env=env,
-        accelerator=accelerator,
-        accelerator_count=accelerator_count,
-        namespace=namespace,
-        preemptible=preemptible,
-        labels=labels,
-        preemptible_tpu=preemptible_tpu,
-        tpu_driver=tpu_driver)
+    job = self.create_simple_job(name=name,
+                                 image=image,
+                                 command=command,
+                                 args=args,
+                                 env=env,
+                                 accelerator=accelerator,
+                                 accelerator_count=accelerator_count,
+                                 namespace=namespace,
+                                 preemptible=preemptible,
+                                 labels=labels,
+                                 preemptible_tpu=preemptible_tpu,
+                                 tpu_driver=tpu_driver)
 
     if job is None:
       return None
@@ -648,20 +647,19 @@ class Cluster(object):
 
     for i, exp in enumerate(experiments, 1):
       complete_args = conf.experiment_to_args(exp, args)
-      yield self.create_simple_job(
-          name=name,
-          image=image,
-          command=command,
-          args=complete_args,
-          env=env,
-          accelerator=accelerator,
-          accelerator_count=accelerator_count,
-          namespace=namespace,
-          machine_type=machine_type,
-          preemptible=preemptible,
-          labels=labels,
-          preemptible_tpu=preemptible_tpu,
-          tpu_driver=tpu_driver)
+      yield self.create_simple_job(name=name,
+                                   image=image,
+                                   command=command,
+                                   args=complete_args,
+                                   env=env,
+                                   accelerator=accelerator,
+                                   accelerator_count=accelerator_count,
+                                   namespace=namespace,
+                                   machine_type=machine_type,
+                                   preemptible=preemptible,
+                                   labels=labels,
+                                   preemptible_tpu=preemptible_tpu,
+                                   tpu_driver=tpu_driver)
 
   # --------------------------------------------------------------------------
   @staticmethod
@@ -744,7 +742,8 @@ class Cluster(object):
     # for some reason, autoprovisioning data is not in the _gke_cluster
     # instance, so we query using the container api here
     rsp = container_api.projects().locations().clusters().get(
-        name=f'projects/{self.project_id}/locations/{self.zone}/clusters/{self.name}'
+        name=
+        f'projects/{self.project_id}/locations/{self.zone}/clusters/{self.name}'
     ).execute()
 
     if rsp is None:
@@ -789,8 +788,10 @@ class Cluster(object):
 
     # ------------------------------------------------------------------------
     # validate against zone instance limits
-    compute_api = googleapiclient.discovery.build(
-        'compute', 'v1', credentials=self.credentials, cache_discovery=False)
+    compute_api = googleapiclient.discovery.build('compute',
+                                                  'v1',
+                                                  credentials=self.credentials,
+                                                  cache_discovery=False)
 
     zone_gpus = utils.get_zone_gpu_types(self.project_id, self.zone,
                                          compute_api)
@@ -832,8 +833,10 @@ class Cluster(object):
     V1DaemonSet (with status) on success, None otherwise
     """
 
-    return self._apps_api.create_namespaced_daemon_set(
-        namespace=namespace, body=daemonset, async_req=False, pretty=True)
+    return self._apps_api.create_namespaced_daemon_set(namespace=namespace,
+                                                       body=daemonset,
+                                                       async_req=False,
+                                                       pretty=True)
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -875,8 +878,9 @@ class Cluster(object):
     # by using the discovery client or the ClusterManagementClient
     # due to a strange permissions error, which persists despite having
     # complete project ownership IAM privileges
-    op = self._cluster_client.delete_cluster(
-        project_id=self.project_id, zone=self.zone, cluster_id=self.name)
+    op = self._cluster_client.delete_cluster(project_id=self.project_id,
+                                             zone=self.zone,
+                                             cluster_id=self.name)
 
     print(f'deleting cluster {self.name}...')
     print(f'visit {self.dashboard_url()} to monitor deletion progress')
@@ -949,11 +953,10 @@ def _with_cluster(fn):
   def wrapper(args: dict, project_id: str, creds: Credentials):
     cluster_name = args.get('cluster_name', None)
 
-    cluster = Cluster.get(
-        name=cluster_name,
-        project_id=project_id,
-        zone=k.ZONE_DEFAULT,
-        creds=creds)
+    cluster = Cluster.get(name=cluster_name,
+                          project_id=project_id,
+                          zone=k.ZONE_DEFAULT,
+                          creds=creds)
 
     if cluster is None:
       return
@@ -992,8 +995,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     for c in clusters:
       print(c)
 
-    if not utils.user_verify(
-        'Do you really want to create a new cluster?', default=False):
+    if not utils.user_verify('Do you really want to create a new cluster?',
+                             default=False):
 
       return
 
@@ -1011,8 +1014,10 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   # --------------------------------------------------------------------------
   # create compute api client and get generate resource limits from quota
   # information
-  compute_api = googleapiclient.discovery.build(
-      'compute', 'v1', credentials=creds, cache_discovery=False)
+  compute_api = googleapiclient.discovery.build('compute',
+                                                'v1',
+                                                credentials=creds,
+                                                cache_discovery=False)
 
   resource_limits = utils.generate_resource_limits(project_id, region,
                                                    compute_api)
@@ -1023,8 +1028,10 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   # create the cluster
   # see https://buganizer.corp.google.com/issues/148180423 for why we use
   # the discovery api here
-  cluster_client = googleapiclient.discovery.build(
-      'container', 'v1', credentials=creds, cache_discovery=False)
+  cluster_client = googleapiclient.discovery.build('container',
+                                                   'v1',
+                                                   credentials=creds,
+                                                   cache_discovery=False)
 
   if cluster_client is None:
     logging.error('error building cluster client')
@@ -1097,8 +1104,10 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     return
 
   # get our newly-created cluster
-  cluster = Cluster.get(
-      name=cluster_name, project_id=project_id, zone=zone, creds=creds)
+  cluster = Cluster.get(name=cluster_name,
+                        project_id=project_id,
+                        zone=zone,
+                        creds=creds)
 
   if cluster is None:
     print(f'error: unable to connect to cluster {cluster_name}')
@@ -1129,8 +1138,8 @@ def _cluster_delete(args: dict, cluster: Cluster) -> None:
   None
   """
 
-  if utils.user_verify(
-      f'Are you sure you want to delete {cluster.name}?', default=False):
+  if utils.user_verify(f'Are you sure you want to delete {cluster.name}?',
+                       default=False):
 
     cluster.delete()
 
@@ -1305,9 +1314,8 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
       return
 
   # --------------------------------------------------------------------------
-  image_tag = (
-      args.get('image_tag') or generate_image_tag(
-          cluster.project_id, docker_args=docker_m, dry_run=dry_run))
+  image_tag = (args.get('image_tag') or generate_image_tag(
+      cluster.project_id, docker_args=docker_m, dry_run=dry_run))
 
   if args.get('machine_type') is None:
     machine_type = conf.DEFAULT_MACHINE_TYPE[job_mode]

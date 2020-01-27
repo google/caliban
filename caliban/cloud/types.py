@@ -246,8 +246,9 @@ COMPATIBILITY_TABLE: Dict[MachineType, Dict[Accelerator, Set[int]]] = {
     }
 }
 
-_AccelMTCount: Dict[Accelerator, Dict[MachineType, Set[int]]] = u.reorderm(
-    COMPATIBILITY_TABLE, (1, 0, 2))
+_AccelMTCount: Dict[Accelerator,
+                    Dict[MachineType,
+                         Set[int]]] = u.reorderm(COMPATIBILITY_TABLE, (1, 0, 2))
 
 _AccelCountMT: Dict[Accelerator, Dict[int, Set[MachineType]]] = u.reorderm(
     COMPATIBILITY_TABLE, (1, 2, 0))
@@ -312,7 +313,7 @@ def validate_accelerator_count(accel: Accelerator, count: int) -> int:
     raise argparse.ArgumentTypeError(
         with_advice_suffix(
             accel, f"{count} {ucase}s of type {accel.name} aren't available \
-for any machine type. Try one of the following counts: {valid_counts}\n"                                                                                                                                                                                                                                                                                                ))
+for any machine type. Try one of the following counts: {valid_counts}\n"))
 
   return count
 
@@ -327,7 +328,7 @@ def parse_machine_type(s: str) -> MachineType:
   except ValueError:
     valid_values = u.enum_vals(MachineType)
     raise argparse.ArgumentTypeError(f"'{s}' isn't a valid machine type. \
-Must be one of {valid_values}."                                                                                                                            )
+Must be one of {valid_values}.")
 
 
 def parse_region(s: str) -> Region:
@@ -340,7 +341,7 @@ def parse_region(s: str) -> Region:
   except ValueError:
     valid_values = u.enum_vals(valid_regions())
     raise argparse.ArgumentTypeError(f"'{s}' isn't a valid region. \
-Must be one of {valid_values}."                                                                                                                            )
+Must be one of {valid_values}.")
 
 
 def parse_accelerator_arg(s: str,

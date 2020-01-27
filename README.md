@@ -66,6 +66,27 @@ This will allow you to edit the source in your checked-out copy and have it get
 picked up by the global alias.
 
 
+## Pre-Commit Hooks
+
+We use https://github.com/pre-commit/pre-commit to manage pre-commit hooks. To install these, run:
+
+```bash
+pipx install pre-commit
+```
+
+Then install all the hooks with:
+
+```bash
+pre-commit install
+```
+
+To test out the hooks, run:
+
+```bash
+pre-commit run --all-files
+```
+
+
 ## Testing
 
 This is how to configure tests: https://g3doc.corp.google.com/devtools/kokoro/g3doc/userdocs/general/gob_scm.md?cl=head

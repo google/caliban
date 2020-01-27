@@ -50,9 +50,8 @@ class TypesTestSuite(unittest.TestCase):
       # Invalid number for the valid GPU type.
       ct.GPUSpec.parse_arg("15xV100")
 
-    self.assertEqual(
-        ct.GPUSpec(ct.GPU.V100, 7),
-        ct.GPUSpec.parse_arg("7xV100", validate_count=False))
+    self.assertEqual(ct.GPUSpec(ct.GPU.V100, 7),
+                     ct.GPUSpec.parse_arg("7xV100", validate_count=False))
 
     # Valid!
     self.assertEqual(ct.GPUSpec(ct.GPU.V100, 8), ct.GPUSpec.parse_arg("8xV100"))
@@ -74,9 +73,8 @@ class TypesTestSuite(unittest.TestCase):
       # Invalid number for the valid TPU type.
       ct.TPUSpec.parse_arg("15xV3")
 
-    self.assertEqual(
-        ct.TPUSpec(ct.TPU.V3, 7),
-        ct.TPUSpec.parse_arg("7xV3", validate_count=False))
+    self.assertEqual(ct.TPUSpec(ct.TPU.V3, 7),
+                     ct.TPUSpec.parse_arg("7xV3", validate_count=False))
 
     # Valid!
     self.assertEqual(ct.TPUSpec(ct.TPU.V3, 8), ct.TPUSpec.parse_arg("8xV3"))

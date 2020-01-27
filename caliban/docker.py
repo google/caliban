@@ -312,19 +312,19 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
   return ret
 
 
-def _dockerfile_template(
-    job_mode: c.JobMode,
-    workdir: Optional[str] = None,
-    base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
-    package: Optional[u.Package] = None,
-    requirements_path: Optional[str] = None,
-    setup_extras: Optional[List[str]] = None,
-    adc_path: Optional[str] = None,
-    credentials_path: Optional[str] = None,
-    jupyter_version: Optional[str] = None,
-    inject_notebook: bool = False,
-    shell_cmd: Optional[str] = None,
-    extra_dirs: Optional[List[str]] = None) -> str:
+def _dockerfile_template(job_mode: c.JobMode,
+                         workdir: Optional[str] = None,
+                         base_image_fn: Optional[Callable[[c.JobMode],
+                                                          str]] = None,
+                         package: Optional[u.Package] = None,
+                         requirements_path: Optional[str] = None,
+                         setup_extras: Optional[List[str]] = None,
+                         adc_path: Optional[str] = None,
+                         credentials_path: Optional[str] = None,
+                         jupyter_version: Optional[str] = None,
+                         inject_notebook: bool = False,
+                         shell_cmd: Optional[str] = None,
+                         extra_dirs: Optional[List[str]] = None) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
 
