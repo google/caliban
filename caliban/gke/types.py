@@ -29,7 +29,7 @@ OpStatus = Enum(
 
 
 # ----------------------------------------------------------------------------
-# Default credentials from google.auth.default
-class DefaultCredentials(NamedTuple):
+# Credentials data (credentials, project id)
+class CredentialsData(NamedTuple):
   credentials: Optional[Credentials] = None
   project_id: Optional[str] = None
