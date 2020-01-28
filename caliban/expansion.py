@@ -85,7 +85,7 @@ def run_app(args):
   if args.print_flags:
     _print_flags(expanded)
   else:
-    _print_json(expanded)
+    _print_json(expanded, pprint=args.pprint)
 
 
 def main():
