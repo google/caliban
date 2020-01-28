@@ -1,4 +1,4 @@
-# 0.1.13 (NOT YET RELEASED)
+# 0.1.13
 
 - 'caliban run' and 'caliban shell' now take an --image_id argument; if
   provided, these commands will skip their 'docker build' phase and use the
@@ -16,6 +16,9 @@
 
 - `caliban shell` will now default to bash if you're using a shell that's not
   `bash` or `zsh` (fish shell, for example) instead of erroring out.
+
+- `caliban shell` has a new `--shell` argument that you can use to override the
+  container's default shell.
 
 # 0.1.12
 
