@@ -924,22 +924,14 @@ def _project_and_creds(fn):
   """wrapper to supply project and credentials from args"""
 
   def wrapper(args: dict):
-    project_id = args.get('project_id', None)
-    creds_file = args.get('cloud_key', None)
-    default_creds = utils.default_credentials()
+    project_id = args.get('project_id')
+    creds_file = args.get('cloud_key')
 
-    # neither project_id or creds file specified
-    if project_id is None and creds_file is None:
-      creds = default_creds.credentials
-      project_id = default_creds.project_id
-    elif creds_file is None:  # only project id specified
-      creds = utils.credentials_from_file(conf.extract_cloud_key(args))
-    elif project_id is None:  # only creds file specified
-      creds = utils.credentials_from_file(creds_file)
-      project_id = default_creds.project_id
-    else:  # both project id and credentials file specified
-      project_id = conf.extract_project_id(args)
-      creds = utils.credentials_from_file(creds_file)
+    creds_data = utils.credentials(creds_file)
+    creds = creds_data.credentials
+
+    if project_id is None:
+      project_id = creds_data.project_id
 
     return fn(args, project_id, creds)
 
@@ -1453,8 +1445,10 @@ _CLOUD_KEY_FLAG = {
         'type': u.validated_file,
         'help': (f'Path to GCloud service account key. ' +
                  f'If not specified, uses default key from ' +
-                 f'{auth_env.CREDENTIALS} environment variable.'),
-        'default': f'{os.environ.get(auth_env.CREDENTIALS, None)}'
+                 f'{auth_env.CREDENTIALS} environment variable ' +
+                 f'or gcloud default credentials from ' +
+                 f'{utils.get_application_default_credentials_path()}'),
+        'default': None,
     }
 }
 

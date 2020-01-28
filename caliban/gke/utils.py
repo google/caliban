@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from time import sleep
 import re
 import pprint as pp
+import json
 from yaspin import yaspin
 from yaspin.spinners import Spinners
 
@@ -13,14 +14,17 @@ import google
 import googleapiclient
 from googleapiclient import discovery
 from google.auth.credentials import Credentials
+from google.auth._default import (_load_credentials_from_file,
+                                  _AUTHORIZED_USER_TYPE, _SERVICE_ACCOUNT_TYPE)
 from google.oauth2 import service_account
 from google.cloud.container_v1.types import Cluster as GKECluster, NodePool
 from google.cloud.container_v1 import ClusterManagerClient
+from google.auth._cloud_sdk import get_application_default_credentials_path
 
 from kubernetes.client import V1Job
 
 import caliban.gke.constants as k
-from caliban.gke.types import NodeImage, OpStatus, DefaultCredentials
+from caliban.gke.types import NodeImage, OpStatus, CredentialsData
 from caliban.cloud.types import (GPU, GPUSpec, TPU, TPUSpec)
 
 # ----------------------------------------------------------------------------
@@ -490,17 +494,23 @@ def sanitize_job_name(name: str) -> str:
 
 
 # ----------------------------------------------------------------------------
-@trap(DefaultCredentials(), silent=False)
+def application_default_credentials_path() -> str:
+  """gets gcloud default credentials path"""
+  return get_application_default_credentials_path()
+
+
+# ----------------------------------------------------------------------------
+@trap(CredentialsData(), silent=False)
 def default_credentials(
     scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
-) -> DefaultCredentials:
+) -> CredentialsData:
   """gets default cloud credentials
 
   Args:
   scopes: list of scopes for credentials
 
   Returns:
-  DefaultCredentials
+  CredentialsData
 
   both credentials and project id may be None if unable to resolve
   """
@@ -508,15 +518,15 @@ def default_credentials(
   creds, project_id = google.auth.default(scopes=scopes)
   creds.refresh(google.auth.transport.requests.Request())
 
-  return DefaultCredentials(creds, project_id)
+  return CredentialsData(creds, project_id)
 
 
 # ----------------------------------------------------------------------------
-@trap(None, silent=False)
+@trap(CredentialsData(), silent=False)
 def credentials_from_file(
     cred_file: str,
     scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
-) -> Optional[Credentials]:
+) -> CredentialsData:
   """gets cloud credentials from service account file
 
   Args:
@@ -524,15 +534,45 @@ def credentials_from_file(
   scopes: list of scopes for credentials
 
   Returns:
-  credentials on success, None otherwise
+  CredentialsData
   """
 
-  creds = service_account.Credentials.from_service_account_file(cred_file,
-                                                                scopes=scopes)
+  with open(cred_file, 'r') as f:
+    info = json.load(f)
+
+  cred_type = info.get('type')
+
+  # first we try reading as service account file
+  if cred_type == _SERVICE_ACCOUNT_TYPE:
+    creds = service_account.Credentials.from_service_account_file(cred_file,
+                                                                  scopes=scopes)
+    project_id = info.get('project_id')
+  elif cred_type == _AUTHORIZED_USER_TYPE:
+    creds, project_id = _load_credentials_from_file(cred_file)
+  else:
+    logging.error(f'invalid credentials file format: {cred_type}')
+    return CredentialsData()
 
   creds.refresh(google.auth.transport.requests.Request())
 
-  return creds
+  return CredentialsData(credentials=creds, project_id=project_id)
+
+
+# ----------------------------------------------------------------------------
+def credentials(creds_file: Optional[str]) -> CredentialsData:
+  """get credentials data, either from provided file or from system defaults
+
+  Args:
+  creds_file: (optional) path to credentials file
+
+  Returns:
+  CredentialsData
+  """
+
+  if creds_file is None:
+    return default_credentials()
+
+  return credentials_from_file(creds_file)
 
 
 # --------------------------------------------------------------------------
