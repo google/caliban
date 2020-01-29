@@ -62,7 +62,7 @@ class ConfigTestSuite(unittest.TestCase):
   def test_expand_experiment_config(self):
     # An empty config expands to a singleton list. This is important so that
     # single job submission without a spec works.
-    self.assertListEqual([{}], list(c.expand_experiment_config({})))
+    self.assertListEqual([{}], c.expand_experiment_config({}))
 
   def test_compound_key_handling(self):
     tests = [
@@ -115,7 +115,7 @@ class ConfigTestSuite(unittest.TestCase):
             ]
 
     for test in tests:
-      self.assertListEqual(test['after_expansion'], list(c.expand_experiment_config(test['input'])))
+      self.assertListEqual(test['after_expansion'], c.expand_experiment_config(test['input']))
 
 
 if __name__ == '__main__':
