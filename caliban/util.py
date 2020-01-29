@@ -167,7 +167,7 @@ def _tupleize_compound_item(k: Union[Tuple, str], v: Any) -> Dict:
 
 def _tupleize_compound_key(k: str) -> List[str]:
   """ converts a JSON-input compound key into a tuple """
-  assert _is_compound_key(s), f"{k} must be a valid compound key"
+  assert _is_compound_key(k), f"{k} must be a valid compound key"
   return tuple([x.strip() for x in k.strip('][').split(',')])
 
 def _tupleize_compound_value(v: Union[List, bool, str, int, float]) -> Union[List, Tuple]:
