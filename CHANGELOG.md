@@ -1,3 +1,8 @@
+# 0.1.14
+
+- JSON experiment configuration files can now handle arguments which are varied
+  together, by supplying a compound key, of the form e.g. `[arg1,arg2]`.
+
 # 0.1.13
 
 - 'caliban run' and 'caliban shell' now take an --image_id argument; if

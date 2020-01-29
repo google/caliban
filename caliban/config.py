@@ -10,7 +10,7 @@ import os
 import sys
 from enum import Enum
 from typing import Any, Dict, List, Union, Optional
-
+import re
 import commentjson
 import yaml
 
@@ -159,7 +159,72 @@ def expand_experiment_config(items: ExpConf) -> List[Experiment]:
         itertools.chain.from_iterable(
             [expand_experiment_config(m) for m in items]))
 
-  return list(u.dict_product(items))
+  tupleized_items = u.tupleize_dict(items)
+  return map(u.expand_compound_dict, u.dict_product(tupleized_items))
+
+
+def validate_compound_keys(m: ExpConf) -> ExpConf:
+  """Check that:
+
+  - all key are strings, which do not:
+      contain spaces or consecutive commas
+      contain commas unless inside a '[...]' compound key
+      contain '[' unless at the beginning, and matched by a ']' at the end
+      contain ']' unless at the end, and matched by a '[' at the beginning
+      begin with '[' and end with ']' unless also containing a comma
+  - all values are either boolean, strings, numbers or lists
+  """
+
+  def check_k(k):
+    if not isinstance(k, str):
+      raise argparse.ArgumentTypeError(
+          f"Key '{k}' is invalid! Keys must be strings.")
+
+    valid_re_str = "[^\s\,\]\[]+"
+    list_re = re.compile(
+      f'\A({valid_re_str}|\[\s*({valid_re_str})(\s*,\s*{valid_re_str})*\s*\])\Z')
+
+    if list_re.match(k) is None:
+      raise argparse.ArgumentTypeError(f"Key '{k}' is invalid! Not a valid compound key.")
+
+  def check_v(v):
+    types = [list, bool, str, int, float]
+    if not any(map(lambda t: isinstance(v, t), types)):
+      raise argparse.ArgumentTypeError(f"Value '{v}' in the expanded \
+    experiment config '{m}' is invalid! Values must be strings, \
+    lists, ints, floats or bools.")
+
+  def check_kv_compatibility(k,v):
+    """ For already validated k and v, check that
+    if k is a compound key, the number of arguments in each sublist must match the
+    number of arguments in k """
+
+    if k[0] == '[':
+      n_args = len(k.strip('][').split(','))
+      if not(isinstance(v, list)):
+        raise argparse.ArgumentTypeError(
+            f"Key '{k}' and value '{v}' are incompatible: \
+                key is compound, but value is not.")
+      else:
+        if isinstance(v[0], list):
+          for vi in v:
+            if len(vi) != n_args:
+              raise argparse.ArgumentTypeError(f"Key '{k}' and value '{vi}' have \
+                              incompatible arities.")
+        else:
+          if len(v) != n_args:
+            raise argparse.ArgumentTypeError(f"Key '{k}' and value '{v}' have \
+                            incompatible arities.")
+
+  if isinstance(m, list):
+    return [validate_compound_keys(i) for i in m]
+
+  for k, v in m.items():
+    check_k(k)
+    check_v(v)
+    check_kv_compatibility(k,v)
+
+  return m
 
 
 def validate_expansion(m: Expansion) -> Expansion:
@@ -194,13 +259,17 @@ def validate_experiment_config(items: ExpConf) -> ExpConf:
   expansion itself. Returns the list/dict or throws an exception if invalid.
 
   """
-  if isinstance(items, list) or isinstance(items, dict):
-    for item in expand_experiment_config(items):
-      validate_expansion(item)
-    return items
 
-  raise argparse.ArgumentTypeError(f"The experiment config is invalid! \
-The JSON file must contain either a dict or a list.")
+  # Validate the compound keys before expansion
+  if isinstance(items, list) or isinstance(items, dict):
+    validate_compound_keys(items)
+  else:
+    raise argparse.ArgumentTypeError(f"The experiment config is invalid! \
+    The JSON file must contain either a dict or a list.")
+
+  for item in expand_experiment_config(items):
+    validate_expansion(item)
+  return items
 
 
 def load_experiment_config(s):
