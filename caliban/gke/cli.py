@@ -13,7 +13,7 @@ from kubernetes.client import (V1Job, V1ObjectMeta, V1JobSpec, V1Pod)
 
 import caliban.cli as cli
 import caliban.config as conf
-from caliban.cluster import Cluster
+from caliban.gke import Cluster
 import caliban.gke.constants as k
 import caliban.gke.utils as utils
 from caliban.gke.types import NodeImage, CredentialsData
