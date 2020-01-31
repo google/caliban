@@ -10,7 +10,6 @@ from absl import app, logging
 
 import caliban.cli as cli
 import caliban.cloud.core as cloud
-import caliban.cluster as cluster
 import caliban.config as c
 import caliban.docker as docker
 import caliban.util as u
