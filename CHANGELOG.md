@@ -3,6 +3,13 @@
 - JSON experiment configuration files can now handle arguments which are varied
   together, by supplying a compound key, of the form e.g. `[arg1,arg2]`.
 
+- better error messages print when a docker command fails.
+
+- Caliban can now handle pushing containers to "domain scoped projects":
+  https://cloud.google.com/container-registry/docs/overview#domain-scoped_projects
+  The colon in the project name separating domain and project ID is handled
+  properly.
+
 # 0.1.13
 
 - 'caliban run' and 'caliban shell' now take an --image_id argument; if

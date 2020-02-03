@@ -7,16 +7,18 @@ import os
 import sys
 
 from absl import app, logging
+from blessings import Terminal
 
 import caliban.cli as cli
 import caliban.cloud.core as cloud
 import caliban.config as c
 import caliban.docker as docker
-import caliban.util as u
 import caliban.gke as gke
 import caliban.gke.cli
+import caliban.util as u
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
+t = Terminal()
 
 
 def run_app(arg_input):
@@ -120,6 +122,11 @@ def main():
     app.run(run_app, flags_parser=cli.parse_flags)
   except KeyboardInterrupt:
     logging.info('Shutting down.')
+    sys.exit(0)
+  except docker.DockerError as e:
+    # Handle a failed Docker command.
+    logging.error(t.red(e.message))
+    logging.error(t.red(f"Original command: {e.command}"))
     sys.exit(0)
 
 

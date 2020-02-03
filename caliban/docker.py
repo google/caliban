@@ -32,6 +32,20 @@ ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
 
 
+class DockerError(Exception):
+  """Exception that passes info on a failed Docker command."""
+
+  def __init__(self, message, cmd, ret_code):
+    super().__init__(message)
+    self.message = message
+    self.cmd = cmd
+    self.ret_code = ret_code
+
+  @property
+  def command(self):
+    return " ".join(self.cmd)
+
+
 class Shell(Enum):
   """Add new shells here and below, in SHELL_DICT."""
   bash = 'bash'
@@ -481,9 +495,9 @@ def build_image(job_mode: c.JobMode,
   build` via stdin. All output from the `docker build` process prints to
   stdout.
 
-  Returns the image ID of the new docker container; throws on error.
-
-  TODO better error printing if the build fails.
+  Returns the image ID of the new docker container; if the command fails,
+  throws on error with information about the command and any issues that caused
+  the problem.
 
   """
   with u.TempCopy(credentials_path) as creds:
@@ -494,15 +508,33 @@ def build_image(job_mode: c.JobMode,
                                         adc_path=adc,
                                         **kwargs)
 
-      logging.info(f"Running command: {' '.join(cmd)}")
+      joined_cmd = " ".join(cmd)
+      logging.info(f"Running command: {joined_cmd}")
 
       try:
-        output, ret_Code = u.capture_stdout(cmd, input_str=dockerfile)
-        return docker_image_id(output)
+        output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
+        if ret_code == 0:
+          return docker_image_id(output)
+        else:
+          error_msg = f"Docker failed with error code {ret_code}."
+          raise DockerError(error_msg, cmd, ret_code)
 
       except subprocess.CalledProcessError as e:
         logging.error(e.output)
         logging.error(e.stderr)
+
+
+def _image_tag_for_project(project_id: str, image_id: str) -> str:
+  """Generate the GCR Docker image tag for the supplied pair of project_id and
+  image_id.
+
+  This function properly handles "domain scoped projects", where the project ID
+  contains a domain name and project ID separated by :
+  https://cloud.google.com/container-registry/docs/overview#domain-scoped_projects.
+
+  """
+  project_s = project_id.replace(":", "/")
+  return f"gcr.io/{project_s}/{image_id}:latest"
 
 
 def push_uuid_tag(project_id: str, image_id: str) -> str:
@@ -516,7 +548,7 @@ def push_uuid_tag(project_id: str, image_id: str) -> str:
   Potentially use docker-py for this.
 
   """
-  image_tag = f"gcr.io/{project_id}/{image_id}:latest"
+  image_tag = _image_tag_for_project(project_id, image_id)
   subprocess.run(["docker", "tag", image_id, image_tag], check=True)
   subprocess.run(["docker", "push", image_tag], check=True)
   return image_tag
