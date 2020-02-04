@@ -106,14 +106,15 @@ def connected(error_value: Any) -> Any:
 
 
 # ----------------------------------------------------------------------------
-def _create_cluster_spec(cluster_name: str, zone: str,
-                         resource_limits: dict) -> dict:
+def _create_cluster_spec(cluster_name: str, zone: str, resource_limits: dict,
+                         release_channel: ReleaseChannel) -> dict:
   """creates cluster spec dictionary
 
   Args:
   cluster_name: name of cluster
   zone: zone for cluster
   resource_limits: resource limits dictionary
+  release_channel: release channel for cluster
 
   Returns:
   dictionary
@@ -121,15 +122,12 @@ def _create_cluster_spec(cluster_name: str, zone: str,
 
   # see https://cloud.google.com/container-engine/reference/rest/v1/projects.zones.clusters
   cluster_spec = {
-      'name':
-          cluster_name,
-      'zone':
-          zone,
+      'name': cluster_name,
+      'zone': zone,
       'ipAllocationPolicy': {
           'useIpAliases': 'true'
       },
-      'enable_tpu':
-          'true',
+      'enable_tpu': 'true',
       'autoscaling': {
           'enableNodeAutoprovisioning': 'true',
           'autoprovisioningNodePoolDefaults': {
@@ -151,6 +149,9 @@ def _create_cluster_spec(cluster_name: str, zone: str,
               ],
           },
       }],
+      'releaseChannel': {
+          'channel': release_channel.value
+      }
   }
 
   return cluster_spec
@@ -991,8 +992,8 @@ class Cluster(object):
   @staticmethod
   @trap(None, silent=False)
   def create_request(cluster_api: discovery.Resource, creds: Credentials,
-                     cluster_name: str, project_id: str,
-                     zone: str) -> Optional[HttpRequest]:
+                     cluster_name: str, project_id: str, zone: str,
+                     release_channel: ReleaseChannel) -> Optional[HttpRequest]:
     '''generates cluster create request
 
     Args:
@@ -1001,6 +1002,7 @@ class Cluster(object):
     cluster_name: name of cluster to create
     project_id: project id
     zone: zone in which to create cluster
+    release_channel: release channel for cluster
 
     Returns:
     HttpRequest on success, None otherwise
@@ -1027,7 +1029,8 @@ class Cluster(object):
 
     request_body = _cluster_create_request_body(
         project_id, zone,
-        _create_cluster_spec(cluster_name, zone, resource_limits))
+        _create_cluster_spec(cluster_name, zone, resource_limits,
+                             release_channel))
 
     # see https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters/create
     return cluster_api.projects().zones().clusters().create(

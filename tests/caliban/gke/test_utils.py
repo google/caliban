@@ -15,7 +15,7 @@ import caliban.gke
 import caliban.gke.utils as utils
 import caliban.gke.constants as k
 from caliban.gke.utils import trap
-from caliban.gke.types import NodeImage, OpStatus
+from caliban.gke.types import NodeImage, OpStatus, ReleaseChannel
 
 
 # ----------------------------------------------------------------------------
@@ -550,15 +550,13 @@ class UtilsTestSuite(unittest.TestCase):
         self.assertEqual(x, ref[i])
 
   # --------------------------------------------------------------------------
-  @given(
-      st.dictionaries(
-          keys=st.from_regex('\A[a-z]+\Z'),
-          values=everything(),
-      ))
+  @given(st.dictionaries(
+      keys=st.from_regex('\A[a-z]+\Z'),
+      values=everything(),
+  ))
   def test_nonnull_dict(self, input_dict):
     self._validate_nonnull_dict(utils.nonnull_dict(input_dict), input_dict)
     return
-
 
   # --------------------------------------------------------------------------
   @given(st.lists(everything()))

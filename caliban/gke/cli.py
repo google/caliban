@@ -131,12 +131,13 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   cluster_name = args['cluster_name'] or k.DEFAULT_CLUSTER_NAME
   zone = args['zone']
   dashboard_url = utils.dashboard_cluster_url(cluster_name, zone, project_id)
+  release_channel = args['release_channel']
 
   # --------------------------------------------------------------------------
   # see https://buganizer.corp.google.com/issues/148180423 for why we use the
   # discovery api here
   cluster_client = googleapiclient.discovery.build('container',
-                                                   'v1',
+                                                   k.CLUSTER_API_VERSION,
                                                    credentials=creds,
                                                    cache_discovery=False)
 
@@ -145,7 +146,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     return
 
   request = Cluster.create_request(cluster_client, creds, cluster_name,
-                                   project_id, zone)
+                                   project_id, zone, release_channel)
 
   if request is None:
     logging.error('error creating cluster creation request')

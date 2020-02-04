@@ -31,7 +31,8 @@ from kubernetes.client import V1Job
 from kubernetes.client.api_client import ApiClient
 
 import caliban.gke.constants as k
-from caliban.gke.types import NodeImage, OpStatus, CredentialsData
+from caliban.gke.types import (NodeImage, OpStatus, CredentialsData,
+                               ReleaseChannel)
 from caliban.cloud.types import (GPU, GPUSpec, TPU, TPUSpec)
 
 

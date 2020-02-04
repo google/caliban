@@ -33,3 +33,17 @@ OpStatus = Enum(
 class CredentialsData(NamedTuple):
   credentials: Optional[Credentials] = None
   project_id: Optional[str] = None
+
+
+# ----------------------------------------------------------------------------
+# GKE release channel, see:
+# https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels
+# https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters#Cluster.ReleaseChannel
+# https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters#channel
+ReleaseChannel = Enum(
+    'RELEASE_CHANNEL', {
+        'UNSPECIFIED': 'UNSPECIFIED',
+        'RAPID': 'RAPID',
+        'REGULAR': 'REGULAR',
+        'STABLE': 'STABLE'
+    })

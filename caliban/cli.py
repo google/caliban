@@ -16,6 +16,7 @@ import caliban.util as u
 import caliban.gke as gke
 import caliban.gke.constants as gke_k
 import caliban.gke.utils as gke_u
+import caliban.gke.types as gke_t
 
 from caliban import __version__
 
@@ -763,6 +764,7 @@ def cluster_create_cmd(base):
   cluster_name_arg(parser)
   zone_arg(parser)
   dry_run_arg(parser)
+  release_channel_arg(parser)
 
 
 # ----------------------------------------------------------------------------
@@ -779,3 +781,15 @@ def cluster_delete_cmd(base):
   cloud_key_arg(parser)
   cluster_name_arg(parser)
   zone_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def release_channel_arg(parser):
+  parser.add_argument(
+      "--release_channel",
+      metavar=[x.value for x in gke_t.ReleaseChannel],
+      choices=gke_t.ReleaseChannel,
+      type=gke_t.ReleaseChannel,
+      help="cluster release channel, see "
+      "https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels",
+      default=gke.constants.DEFAULT_RELEASE_CHANNEL.value)
