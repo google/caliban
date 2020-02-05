@@ -325,9 +325,7 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   package = args['module']
   job_name = args.get('name') or f"caliban_{u.current_user()}"
   gpu_spec = args.get('gpu_spec')
-
-  # todo: enable this when supported
-  preemptible = False  # not args['nonpreemptible']
+  preemptible = not args['nonpreemptible']
 
   # Arguments to internally build the image required to submit to Cloud.
   docker_m = {'job_mode': job_mode, 'package': package, **docker_args}

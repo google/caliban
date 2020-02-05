@@ -590,7 +590,6 @@ class Cluster(object):
     # see this for discussion
     # https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#pod-backoff-failure-policy
 
-    # break glass in case NAP adds a taint to auto-created preemptible node pools
     tolerations = Cluster.tolerations(preemptible=preemptible)
 
     # backoff count plus 'OnFailure' may be correct here

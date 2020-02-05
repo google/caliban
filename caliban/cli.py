@@ -718,10 +718,13 @@ def nonpreemptible_arg(parser):
   parser.add_argument(
       "--nonpreemptible",
       action="store_true",
-      help=("use non-preemptible instance: "
-            "As of 2020.01.17 this is not supported for autoscaling clusters, "
-            "but is under development. Until this is supported in GKE, this "
-            "will be a no-op"))
+      help=
+      ("use non-preemptible VM instance: "
+       "please note that you may need to upgrade your "
+       "cluster to a recent version/use the rapid release "
+       "channel for preemptible VMs to be supported with node autoprovisioning: "
+       "https://cloud.google.com/kubernetes-engine/docs/release-notes-rapid#december_13_2019"
+      ))
 
 
 # ----------------------------------------------------------------------------
