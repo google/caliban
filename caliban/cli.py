@@ -574,8 +574,8 @@ def cluster_name_arg(parser):
 
 
 # ----------------------------------------------------------------------------
-def zone_arg(parser, default=None):
-  parser.add_argument("--zone", help="zone", type=str, default=default)
+def zone_arg(parser, default=None, help='zone'):
+  parser.add_argument("--zone", help=help, type=str, default=default)
 
 
 # ----------------------------------------------------------------------------
@@ -765,9 +765,17 @@ def cluster_create_cmd(base):
   project_id_arg(parser)
   cloud_key_arg(parser)
   cluster_name_arg(parser)
-  zone_arg(parser)
+  zone_arg(
+      parser,
+      help='for a single-zone cluster, this specifies the zone '
+      'for the cluster control plane and all worker nodes, while for a '
+      'multi-zone cluster this specifies only the zone for the control plane, '
+      'while worker nodes may be created in any zone within the same region as '
+      'the control plane. The single_zone argument specifies whether to create '
+      'a single- or multi- zone cluster.')
   dry_run_arg(parser)
   release_channel_arg(parser)
+  single_zone_arg(parser)
 
 
 # ----------------------------------------------------------------------------
@@ -796,3 +804,14 @@ def release_channel_arg(parser):
       help="cluster release channel, see "
       "https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels",
       default=gke.constants.DEFAULT_RELEASE_CHANNEL.value)
+
+
+# ----------------------------------------------------------------------------
+def single_zone_arg(parser):
+  parser.add_argument(
+      "--single_zone",
+      action="store_true",
+      help=
+      ('create a single-zone cluster if set, otherwise create a multi-zone '
+       'cluster: see https://cloud.google.com/kubernetes-engine/docs/concepts/'
+       'types-of-clusters#cluster_availability_choices'))

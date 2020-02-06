@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 from typing import Dict, List, Optional, Any, Tuple
 import logging
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from time import sleep
 import re
 import os
@@ -300,15 +300,14 @@ def gke_gpu_to_gpu(gpu: str) -> Optional[GPU]:
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def get_zone_gpu_types(
-    project_id: str, zone: str,
-    compute_api: discovery.Resource) -> Optional[List[GPUSpec]]:
+def get_zone_gpu_types(compute_api: discovery.Resource, project_id: str,
+                       zone: str) -> Optional[List[GPUSpec]]:
   """gets list of gpu accelerators available in given zone
 
   Args:
+  compute_api: compute api instance
   project_id: project id
   zone: zone string
-  compute_api: compute api instance
 
   Returns:
   list of GPUSpec on success (count is max count), None otherwise
@@ -330,18 +329,17 @@ def get_zone_gpu_types(
 
 # ----------------------------------------------------------------------------
 @trap(None, silent=False)
-def get_region_quotas(
-    project_id: str, region: str,
-    compute_api: discovery.Resource) -> Optional[List[Dict[str, Any]]]:
+def get_region_quotas(compute_api: discovery.Resource, project_id: str,
+                      region: str) -> Optional[List[Dict[str, Any]]]:
   """gets compute quotas for given region
 
   These quotas include cpu and gpu quotas for the given region.
   (tpu quotas are not included here)
 
   Args:
+  compute_api: compute_api instance
   project_id: project id
   region: region string
-  compute_api: compute_api instance
 
   Returns:
   list of quota dicts, with keys {'limit', 'metric', 'usage'}, None on error
@@ -410,7 +408,7 @@ def generate_resource_limits(compute_api: discovery.Resource, project_id: str,
   resource limits dictionaries on success, None otherwise
   """
 
-  quotas = get_region_quotas(project_id, region, compute_api)
+  quotas = get_region_quotas(compute_api, project_id, region)
   if quotas is None:
     return None
 
@@ -771,3 +769,23 @@ def parse_job_file(job_file: str) -> Optional[dict]:
     return None
 
   return job_spec
+
+
+# ----------------------------------------------------------------------------
+@trap(None)
+def get_zones_in_region(compute_api: discovery.Resource, project_id: str,
+                        region: str) -> Optional[List[str]]:
+  '''get list of zones for given region
+
+  Args:
+  compute_api: compute_api instance
+  project_id: project id
+  region: region
+
+  Returns:
+  list of zone strings on success, None otherwise
+  '''
+
+  rsp = compute_api.regions().get(project=project_id, region=region).execute()
+
+  return [urlparse(x).path.split('/')[-1] for x in rsp['zones']]

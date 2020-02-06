@@ -349,11 +349,11 @@ class UtilsTestSuite(unittest.TestCase):
 
     # exception handling
     api.execute = _raises
-    self.assertIsNone(utils.get_zone_gpu_types('p', 'z', api))
+    self.assertIsNone(utils.get_zone_gpu_types(api, 'p', 'z'))
 
     # invalid response
     api.execute = _invalid_response
-    self.assertIsNone(utils.get_zone_gpu_types('p', 'z', api))
+    self.assertIsNone(utils.get_zone_gpu_types(api, 'p', 'z'))
 
     # normal execution
     api.execute = _response
@@ -361,7 +361,7 @@ class UtilsTestSuite(unittest.TestCase):
         sorted([f'{x["name"]}-{x["maximumCardsPerInstance"]}' for x in gpus]),
         sorted([
             f'nvidia-tesla-{x.gpu.name.lower()}-{x.count}'
-            for x in utils.get_zone_gpu_types('p', 'z', api)
+            for x in utils.get_zone_gpu_types(api, 'p', 'z')
         ]))
 
     return
@@ -401,16 +401,16 @@ class UtilsTestSuite(unittest.TestCase):
 
     # exception handling
     api.execute = _raises
-    self.assertIsNone(utils.get_region_quotas('p', 'r', api))
+    self.assertIsNone(utils.get_region_quotas(api, 'p', 'r'))
 
     # invalid return
     api.execute = _invalid
-    self.assertEqual([], utils.get_region_quotas('p', 'r', api))
+    self.assertEqual([], utils.get_region_quotas(api, 'p', 'r'))
 
     # normal execution
     api.execute = _normal
     self.assertEqual(_normal()['quotas'],
-                     utils.get_region_quotas('p', 'r', api))
+                     utils.get_region_quotas(api, 'p', 'r'))
 
     return
 
@@ -562,4 +562,48 @@ class UtilsTestSuite(unittest.TestCase):
   @given(st.lists(everything()))
   def test_nonnull_list(self, input_list):
     self._validate_nonnull_list(utils.nonnull_list(input_list), input_list)
+    return
+
+  # --------------------------------------------------------------------------
+  @given(
+      st.sampled_from(
+          list(set.union(ct.US_REGIONS, ct.EURO_REGIONS, ct.ASIA_REGIONS))),
+      st.sets(st.from_regex('\A[a-z]\Z')))
+  def test_get_zones_in_region(self, region, zone_ids):
+    '''test get_zones_in_region'''
+
+    class mock_api:
+
+      def regions(self):
+        return self
+
+      def get(self, project, region):
+        return self
+
+    def _raises():
+      raise Exception('exception')
+
+    url = 'https://www.googleapis.com/compute/v1/projects/foo/zones/'
+    zones = [f'{region}-{x}' for x in zone_ids]
+
+    def _normal():
+      return {'zones': [f'{url}{x}' for x in zones]}
+
+    def _invalid():
+      return {'foo': 'bar'}
+
+    api = mock_api()
+
+    # exception handling
+    api.execute = _raises
+    self.assertIsNone(utils.get_zones_in_region(api, 'p', region))
+
+    # invalid return
+    api.execute = _invalid
+    self.assertIsNone(utils.get_zones_in_region(api, 'p', region))
+
+    # normal execution
+    api.execute = _normal
+    self.assertEqual(zones, utils.get_zones_in_region(api, 'p', region))
+
     return

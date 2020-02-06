@@ -132,6 +132,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   zone = args['zone']
   dashboard_url = utils.dashboard_cluster_url(cluster_name, zone, project_id)
   release_channel = args['release_channel']
+  single_zone = args['single_zone']
 
   # --------------------------------------------------------------------------
   # see https://buganizer.corp.google.com/issues/148180423 for why we use the
@@ -146,7 +147,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     return
 
   request = Cluster.create_request(cluster_client, creds, cluster_name,
-                                   project_id, zone, release_channel)
+                                   project_id, zone, release_channel,
+                                   single_zone)
 
   if request is None:
     logging.error('error creating cluster creation request')
