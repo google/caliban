@@ -18,6 +18,8 @@ import caliban.gke.constants as k
 import caliban.gke.utils as utils
 from caliban.gke.types import NodeImage, CredentialsData
 from caliban.cloud.core import generate_image_tag
+import caliban.util as u
+from caliban.cloud.types import parse_machine_type
 
 
 # ----------------------------------------------------------------------------
@@ -325,7 +327,7 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   docker_run_args = args.get('docker_run_args', []) or []
   dry_run = args['dry_run']
   package = args['module']
-  job_name = args.get('name') or f"caliban_{u.current_user()}"
+  job_name = args.get('name') or f"caliban-{u.current_user()}"
   gpu_spec = args.get('gpu_spec')
   preemptible = not args['nonpreemptible']
 
