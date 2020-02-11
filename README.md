@@ -56,10 +56,11 @@ To develop locally, if you have the [Blueshift internal repo](https://team.git.c
 pipx_local caliban
 ```
 
-in the checked-out Caliban repository. Otherwise, run the following:
+in the parent of the checked-out Caliban repository. Otherwise, run the
+following in the parent of the Caliban directory:
 
 ```bash
-pipx install -e --spec . caliban --force
+pipx install -e --force caliban
 ```
 
 This will allow you to edit the source in your checked-out copy and have it get
