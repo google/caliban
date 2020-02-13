@@ -18,6 +18,8 @@ import caliban.gke.constants as k
 import caliban.gke.utils as utils
 from caliban.gke.types import NodeImage, CredentialsData
 from caliban.cloud.core import generate_image_tag
+import caliban.util as u
+from caliban.cloud.types import parse_machine_type
 
 
 # ----------------------------------------------------------------------------
@@ -131,12 +133,14 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   cluster_name = args['cluster_name'] or k.DEFAULT_CLUSTER_NAME
   zone = args['zone']
   dashboard_url = utils.dashboard_cluster_url(cluster_name, zone, project_id)
+  release_channel = args['release_channel']
+  single_zone = args['single_zone']
 
   # --------------------------------------------------------------------------
   # see https://buganizer.corp.google.com/issues/148180423 for why we use the
   # discovery api here
   cluster_client = googleapiclient.discovery.build('container',
-                                                   'v1',
+                                                   k.CLUSTER_API_VERSION,
                                                    credentials=creds,
                                                    cache_discovery=False)
 
@@ -145,7 +149,8 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     return
 
   request = Cluster.create_request(cluster_client, creds, cluster_name,
-                                   project_id, zone)
+                                   project_id, zone, release_channel,
+                                   single_zone)
 
   if request is None:
     logging.error('error creating cluster creation request')
@@ -322,11 +327,9 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   docker_run_args = args.get('docker_run_args', []) or []
   dry_run = args['dry_run']
   package = args['module']
-  job_name = args.get('name') or f"caliban_{u.current_user()}"
+  job_name = args.get('name') or f"caliban-{u.current_user()}"
   gpu_spec = args.get('gpu_spec')
-
-  # todo: enable this when supported
-  preemptible = False  # not args['nonpreemptible']
+  preemptible = not args['nonpreemptible']
 
   # Arguments to internally build the image required to submit to Cloud.
   docker_m = {'job_mode': job_mode, 'package': package, **docker_args}

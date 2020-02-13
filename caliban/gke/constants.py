@@ -4,6 +4,7 @@ import re
 
 from caliban.config import JobMode, DEFAULT_MACHINE_TYPE
 from caliban.cloud.types import GPUSpec, GPU
+from caliban.gke.types import ReleaseChannel
 
 COMPUTE_SCOPE_URL = 'https://www.googleapis.com/auth/compute'
 COMPUTE_READONLY_SCOPE_URL = 'https://www.googleapis.com/auth/compute.readonly'
@@ -27,6 +28,8 @@ DASHBOARD_CLUSTER_URL = 'https://pantheon.corp.google.com/kubernetes/clusters/de
 MAX_GB_PER_CPU = 64
 DEFAULT_CLUSTER_NAME = 'blueshift'
 VALID_JOB_FILE_EXT = ('.yaml', '.json')
+DEFAULT_RELEASE_CHANNEL = ReleaseChannel.RAPID
+CLUSTER_API_VERSION = 'v1beta1'
 
 # ----------------------------------------------------------------------------
 # The following urls specify kubernetes daemonsets that apply the appropriate

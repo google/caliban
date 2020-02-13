@@ -106,14 +106,17 @@ def connected(error_value: Any) -> Any:
 
 
 # ----------------------------------------------------------------------------
-def _create_cluster_spec(cluster_name: str, zone: str,
-                         resource_limits: dict) -> dict:
+def _create_cluster_spec(cluster_name: str, zone: str, node_zones: List[str],
+                         resource_limits: dict,
+                         release_channel: ReleaseChannel) -> dict:
   """creates cluster spec dictionary
 
   Args:
   cluster_name: name of cluster
   zone: zone for cluster
+  node_locations: zones where nodes can be created
   resource_limits: resource limits dictionary
+  release_channel: release channel for cluster
 
   Returns:
   dictionary
@@ -121,15 +124,12 @@ def _create_cluster_spec(cluster_name: str, zone: str,
 
   # see https://cloud.google.com/container-engine/reference/rest/v1/projects.zones.clusters
   cluster_spec = {
-      'name':
-          cluster_name,
-      'zone':
-          zone,
+      'name': cluster_name,
+      'zone': zone,
       'ipAllocationPolicy': {
           'useIpAliases': 'true'
       },
-      'enable_tpu':
-          'true',
+      'enable_tpu': 'true',
       'autoscaling': {
           'enableNodeAutoprovisioning': 'true',
           'autoprovisioningNodePoolDefaults': {
@@ -151,6 +151,10 @@ def _create_cluster_spec(cluster_name: str, zone: str,
               ],
           },
       }],
+      'releaseChannel': {
+          'channel': release_channel.value
+      },
+      'locations': node_zones,
   }
 
   return cluster_spec
@@ -589,7 +593,6 @@ class Cluster(object):
     # see this for discussion
     # https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#pod-backoff-failure-policy
 
-    # break glass in case NAP adds a taint to auto-created preemptible node pools
     tolerations = Cluster.tolerations(preemptible=preemptible)
 
     # backoff count plus 'OnFailure' may be correct here
@@ -864,8 +867,8 @@ class Cluster(object):
                                                   credentials=self.credentials,
                                                   cache_discovery=False)
 
-    zone_gpus = utils.get_zone_gpu_types(self.project_id, self.zone,
-                                         compute_api)
+    zone_gpus = utils.get_zone_gpu_types(compute_api, self.project_id,
+                                         self.zone)
 
     if zone_gpus is None:
       return False
@@ -991,8 +994,9 @@ class Cluster(object):
   @staticmethod
   @trap(None, silent=False)
   def create_request(cluster_api: discovery.Resource, creds: Credentials,
-                     cluster_name: str, project_id: str,
-                     zone: str) -> Optional[HttpRequest]:
+                     cluster_name: str, project_id: str, zone: str,
+                     release_channel: ReleaseChannel,
+                     single_zone: bool) -> Optional[HttpRequest]:
     '''generates cluster create request
 
     Args:
@@ -1001,6 +1005,18 @@ class Cluster(object):
     cluster_name: name of cluster to create
     project_id: project id
     zone: zone in which to create cluster
+          For a single-zone cluster (see below), this zone will contain the
+          cluster control plane and all worker nodes. For a multi-zone cluster
+          this zone will contain the control plane, but worker nodes can be
+          created in any zone in the same region as the control plane.
+    release_channel: release channel for cluster
+    single_zone: create a single-zone cluster if true, multi-zone otherwise.
+                 A single-zone cluster only creates worker nodes in the same
+                 zone as the cluster control-plane (specified in the 'zone'
+                 argument above), whereas a multi-zone cluster can create
+                 worker nodes in every zone in the same region as the
+                 cluster control plane. A multi-zone cluster can help
+                 job response time when a given zone becomes overburdened.
 
     Returns:
     HttpRequest on success, None otherwise
@@ -1025,9 +1041,19 @@ class Cluster(object):
       logging.error('error generating resource limits')
       return
 
+    if single_zone:
+      node_zones = [zone]
+    else:
+      node_zones = utils.get_zones_in_region(compute_api, project_id, region)
+
+    if node_zones is None:
+      logging.error(f'error getting zones for region {region}')
+      return
+
     request_body = _cluster_create_request_body(
         project_id, zone,
-        _create_cluster_spec(cluster_name, zone, resource_limits))
+        _create_cluster_spec(cluster_name, zone, node_zones, resource_limits,
+                             release_channel))
 
     # see https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters/create
     return cluster_api.projects().zones().clusters().create(
