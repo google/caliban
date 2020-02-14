@@ -1,3 +1,8 @@
+# 0.1.15
+
+- `caliban notebook` now attempts to search for the first free port instead of
+  failing due to an already-occupied port.
+
 # 0.1.14
 
 - JSON experiment configuration files can now handle arguments which are varied

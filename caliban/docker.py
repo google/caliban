@@ -846,7 +846,7 @@ def run_notebook(job_mode: c.JobMode,
   """
 
   if port is None:
-    port = 8888
+    port = u.next_free_port(8888)
 
   if lab is None:
     lab = False
