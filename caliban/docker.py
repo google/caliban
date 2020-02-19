@@ -201,13 +201,13 @@ def _dependency_entries(workdir: str,
   if setup_extras is not None:
     ret += f"""
 COPY --chown={user_id}:{user_group} setup.py {workdir}
-RUN /bin/bash -c "pip install {extras_string(setup_extras)}"
+RUN /bin/bash -c "pip install --no-cache-dir {extras_string(setup_extras)}"
 """
 
   if requirements_path is not None:
     ret += f"""
 COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
-RUN /bin/bash -c "pip install -r {requirements_path}"
+RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
 
   return ret
