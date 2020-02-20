@@ -182,10 +182,12 @@ def validate_compound_keys(m: ExpConf) -> ExpConf:
 
     valid_re_str = "[^\s\,\]\[]+"
     list_re = re.compile(
-      f'\A({valid_re_str}|\[\s*({valid_re_str})(\s*,\s*{valid_re_str})*\s*\])\Z')
+        f'\A({valid_re_str}|\[\s*({valid_re_str})(\s*,\s*{valid_re_str})*\s*\])\Z'
+    )
 
     if list_re.match(k) is None:
-      raise argparse.ArgumentTypeError(f"Key '{k}' is invalid! Not a valid compound key.")
+      raise argparse.ArgumentTypeError(
+          f"Key '{k}' is invalid! Not a valid compound key.")
 
   def check_v(v):
     types = [list, bool, str, int, float]
@@ -194,14 +196,14 @@ def validate_compound_keys(m: ExpConf) -> ExpConf:
     experiment config '{m}' is invalid! Values must be strings, \
     lists, ints, floats or bools.")
 
-  def check_kv_compatibility(k,v):
+  def check_kv_compatibility(k, v):
     """ For already validated k and v, check that
     if k is a compound key, the number of arguments in each sublist must match the
     number of arguments in k """
 
     if k[0] == '[':
       n_args = len(k.strip('][').split(','))
-      if not(isinstance(v, list)):
+      if not (isinstance(v, list)):
         raise argparse.ArgumentTypeError(
             f"Key '{k}' and value '{v}' are incompatible: \
                 key is compound, but value is not.")
@@ -209,7 +211,8 @@ def validate_compound_keys(m: ExpConf) -> ExpConf:
         if isinstance(v[0], list):
           for vi in v:
             if len(vi) != n_args:
-              raise argparse.ArgumentTypeError(f"Key '{k}' and value '{vi}' have \
+              raise argparse.ArgumentTypeError(
+                  f"Key '{k}' and value '{vi}' have \
                               incompatible arities.")
         else:
           if len(v) != n_args:
@@ -222,7 +225,7 @@ def validate_compound_keys(m: ExpConf) -> ExpConf:
   for k, v in m.items():
     check_k(k)
     check_v(v)
-    check_kv_compatibility(k,v)
+    check_kv_compatibility(k, v)
 
   return m
 

@@ -6,6 +6,10 @@
 - `pip` is now called with `--no-cache-dir` inside the container; this should
   shrink container sizes with no impact on performance.
 
+- All commands have a new `--no-cache` option; when supplied, Docker will skip
+  using its build cache. This is helpful to use if you want to, say, force new
+  dependencies to get installed without bumping their versions explicitly.
+
 # 0.1.14
 
 - JSON experiment configuration files can now handle arguments which are varied

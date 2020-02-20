@@ -15,9 +15,6 @@ ARG BASE_IMAGE=tensorflow/tensorflow:2.0.0-py3
 
 FROM $BASE_IMAGE
 
-# TODO figure out how to wire this in.... should work now that it's after the
-# FROM. Try wiring it in below.
-ARG NODE_VERSION=13
 ARG GCLOUD_LOC=/usr/local/gcloud
 
 LABEL maintainer="samritchie@google.com"

@@ -490,6 +490,7 @@ def docker_image_id(output: str) -> ImageId:
 def build_image(job_mode: c.JobMode,
                 credentials_path: Optional[str] = None,
                 adc_path: Optional[str] = None,
+                no_cache: bool = False,
                 **kwargs) -> str:
   """Builds a Docker image by generating a Dockerfile and passing it to `docker
   build` via stdin. All output from the `docker build` process prints to
@@ -502,7 +503,9 @@ def build_image(job_mode: c.JobMode,
   """
   with u.TempCopy(credentials_path) as creds:
     with u.TempCopy(adc_path) as adc:
-      cmd = ["docker", "build", "--rm", "-f-", os.getcwd()]
+      cache_args = ["--no-cache"] if no_cache else []
+      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", os.getcwd()]
+
       dockerfile = _dockerfile_template(job_mode,
                                         credentials_path=creds,
                                         adc_path=adc,

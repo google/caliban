@@ -122,6 +122,13 @@ def setup_extras(parser):
                       help="setup.py dependency keys.")
 
 
+def no_cache_arg(parser):
+  parser.add_argument("--no_cache",
+                      help="Disable Docker's caching mechanism and force"
+                      "a rebuild of the container from scratch.",
+                      action="store_true")
+
+
 def docker_run_arg(parser):
   """Adds a command that accepts arguments to pass directly to `docker run`."""
   parser.add_argument("--docker_run_args",
@@ -207,6 +214,7 @@ def base_parser(base):
   no_gpu_flag(base)
   cloud_key_arg(base)
   setup_extras(base)
+  no_cache_arg(base)
 
 
 def building_parser(base):
@@ -530,7 +538,8 @@ def generate_docker_args(job_mode: conf.JobMode,
       "requirements_path": reqs if os.path.exists(reqs) else None,
       "credentials_path": creds_path,
       "adc_path": adc_path,
-      "setup_extras": setup_extras
+      "setup_extras": setup_extras,
+      "no_cache": args.get("no_cache")
   }
 
   return docker_args

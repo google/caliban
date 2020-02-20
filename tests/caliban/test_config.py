@@ -34,24 +34,42 @@ class ConfigTestSuite(unittest.TestCase):
       c.validate_experiment_config(lol_invalid)
 
     # Compound keys which violate syntax rules are caught
-    invalid_compound = [
-                        {"[": 0},
-                        {"eh[": 0},
-                        {"[test,,fail]": 0},
-                        {"[,test,fail]": 0},
-                        {"[I,will,fail,]": 0},
-                        {"[I,,will,fail]": 0},
-                        {"]I,will,fail]": 0}
-                        ]
-    valid_compound = [{"[batch_size,learning_rate]": [0,1]},
-                      {"[batch_size,learning_rate,dataset_size]": [0.01, 0.02, 100]},
-                      {"[batch_size,learning_rate,dataset_size]":[[0.01, 0.02, 100],[0.03, 0.05, 200]]},
-                      {"[batch_size,learning_rate]": [[0., 1.], [2., 3.]]},
-                      {"[batch_size,learning_rate]": [[0., 1.], [2., 3.], [4., 5.]]},
-                      {"[batch_size, learning_rate, dataset_size]": [0.01, 0.02, 100]},
-                      {"[batch_size , learning_rate,dataset_size]":[[0.01, 0.02, 100],[0.03, 0.05, 200]]},
-                      {"[batch_size, learning_rate]": [[0., 1.], [2., 3.]]},
-                      {"[batch_size ,learning_rate]": [[0., 1.], [2., 3.], [4., 5.]]}]
+    invalid_compound = [{
+        "[": 0
+    }, {
+        "eh[": 0
+    }, {
+        "[test,,fail]": 0
+    }, {
+        "[,test,fail]": 0
+    }, {
+        "[I,will,fail,]": 0
+    }, {
+        "[I,,will,fail]": 0
+    }, {
+        "]I,will,fail]": 0
+    }]
+    valid_compound = [{
+        "[batch_size,learning_rate]": [0, 1]
+    }, {
+        "[batch_size,learning_rate,dataset_size]": [0.01, 0.02, 100]
+    }, {
+        "[batch_size,learning_rate,dataset_size]": [[0.01, 0.02, 100],
+                                                    [0.03, 0.05, 200]]
+    }, {
+        "[batch_size,learning_rate]": [[0., 1.], [2., 3.]]
+    }, {
+        "[batch_size,learning_rate]": [[0., 1.], [2., 3.], [4., 5.]]
+    }, {
+        "[batch_size, learning_rate, dataset_size]": [0.01, 0.02, 100]
+    }, {
+        "[batch_size , learning_rate,dataset_size]": [[0.01, 0.02, 100],
+                                                      [0.03, 0.05, 200]]
+    }, {
+        "[batch_size, learning_rate]": [[0., 1.], [2., 3.]]
+    }, {
+        "[batch_size ,learning_rate]": [[0., 1.], [2., 3.], [4., 5.]]
+    }]
 
     for i in invalid_compound:
       with self.assertRaises(Exception):
@@ -65,57 +83,133 @@ class ConfigTestSuite(unittest.TestCase):
     self.assertListEqual([{}], c.expand_experiment_config({}))
 
   def test_compound_key_handling(self):
-    tests = [
-        {
-          'input': {'[a,b]': [['c', 'd'], ['e', 'f']]},
-          'after_tupleization': {('a', 'b'): [('c', 'd'), ('e', 'f')]},
-          'after_dictproduct': [{('a', 'b'): ('c', 'd')},
-                                {('a', 'b'): ('e', 'f')}],
-          'after_expansion': [{'a':'c', 'b':'d'},
-                                      {'a':'e', 'b':'f'}]
+    tests = [{
+        'input': {
+            '[a,b]': [['c', 'd'], ['e', 'f']]
         },
-        {
-          'input': {'[a,b]': ['c', 'd']},
-          'after_tupleization': {('a','b'): ('c','d')},
-          'after_dictproduct': [{('a','b'): ('c','d')}],
-          'after_expansion': [{'a': 'c', 'b': 'd'}]
+        'after_tupleization': {
+            ('a', 'b'): [('c', 'd'), ('e', 'f')]
         },
-        {
-          'input': {'hi': 'there', '[k1,k2]': [['v1a', 'v2a'], ['v1b', 'v2b']]},
-          'after_tupleization': {'hi': 'there', ('k1', 'k2'): [('v1a', 'v2a'), ('v1b', 'v2b')]},
-          'after_dictproduct': [{'hi': 'there', ('k1', 'k2'): ('v1a', 'v2a')},
-                                      {'hi': 'there', ('k1', 'k2'): ('v1b', 'v2b')}],
-          'after_expansion': [{'hi': 'there', 'k1': 'v1a', 'k2': 'v2a'},
-                                      {'hi': 'there', 'k1': 'v1b', 'k2': 'v2b'}]
+        'after_dictproduct': [{
+            ('a', 'b'): ('c', 'd')
+        }, {
+            ('a', 'b'): ('e', 'f')
+        }],
+        'after_expansion': [{
+            'a': 'c',
+            'b': 'd'
+        }, {
+            'a': 'e',
+            'b': 'f'
+        }]
+    }, {
+        'input': {
+            '[a,b]': ['c', 'd']
         },
-        {
-          'input': {'hi': 'there', '[a,b]': ['c', 'd']},
-          'after_tupleization': {'hi': 'there', ('a', 'b'): ('c', 'd')},
-          'after_dictproduct': [{'hi': 'there', ('a', 'b'): ('c', 'd')}],
-          'after_expansion': [{'hi': 'there', 'a': 'c', 'b': 'd'}]
+        'after_tupleization': {
+            ('a', 'b'): ('c', 'd')
         },
-        {
-          'input': {'[a,b]': [0, 1]},
-          'after_tupleization': {('a', 'b'): (0, 1)},
-          'after_dictproduct': [{('a', 'b'): (0, 1)}],
-          'after_expansion': [{'a': 0, 'b': 1}]
+        'after_dictproduct': [{
+            ('a', 'b'): ('c', 'd')
+        }],
+        'after_expansion': [{
+            'a': 'c',
+            'b': 'd'
+        }]
+    }, {
+        'input': {
+            'hi': 'there',
+            '[k1,k2]': [['v1a', 'v2a'], ['v1b', 'v2b']]
         },
-        {
-          'input': {'[a,b]': [[0, 1]]},
-          'after_tupleization': {('a', 'b'): [(0, 1)]},
-          'after_dictproduct': [{('a', 'b'): (0, 1)}],
-          'after_expansion': [{'a': 0, 'b': 1}]
+        'after_tupleization': {
+            'hi': 'there',
+            ('k1', 'k2'): [('v1a', 'v2a'), ('v1b', 'v2b')]
         },
-        {
-          'input': {'hi': 'blueshift', '[a,b]': [[0, 1]]},
-          'after_tupleization': {'hi': 'blueshift', ('a', 'b'): [(0, 1)]},
-          'after_dictproduct': [{'hi': 'blueshift', ('a', 'b'): (0,1)}],
-          'after_expansion': [{'hi': 'blueshift', 'a': 0, 'b': 1}]
-        }
-            ]
+        'after_dictproduct': [{
+            'hi': 'there',
+            ('k1', 'k2'): ('v1a', 'v2a')
+        }, {
+            'hi': 'there',
+            ('k1', 'k2'): ('v1b', 'v2b')
+        }],
+        'after_expansion': [{
+            'hi': 'there',
+            'k1': 'v1a',
+            'k2': 'v2a'
+        }, {
+            'hi': 'there',
+            'k1': 'v1b',
+            'k2': 'v2b'
+        }]
+    }, {
+        'input': {
+            'hi': 'there',
+            '[a,b]': ['c', 'd']
+        },
+        'after_tupleization': {
+            'hi': 'there',
+            ('a', 'b'): ('c', 'd')
+        },
+        'after_dictproduct': [{
+            'hi': 'there',
+            ('a', 'b'): ('c', 'd')
+        }],
+        'after_expansion': [{
+            'hi': 'there',
+            'a': 'c',
+            'b': 'd'
+        }]
+    }, {
+        'input': {
+            '[a,b]': [0, 1]
+        },
+        'after_tupleization': {
+            ('a', 'b'): (0, 1)
+        },
+        'after_dictproduct': [{
+            ('a', 'b'): (0, 1)
+        }],
+        'after_expansion': [{
+            'a': 0,
+            'b': 1
+        }]
+    }, {
+        'input': {
+            '[a,b]': [[0, 1]]
+        },
+        'after_tupleization': {
+            ('a', 'b'): [(0, 1)]
+        },
+        'after_dictproduct': [{
+            ('a', 'b'): (0, 1)
+        }],
+        'after_expansion': [{
+            'a': 0,
+            'b': 1
+        }]
+    }, {
+        'input': {
+            'hi': 'blueshift',
+            '[a,b]': [[0, 1]]
+        },
+        'after_tupleization': {
+            'hi': 'blueshift',
+            ('a', 'b'): [(0, 1)]
+        },
+        'after_dictproduct': [{
+            'hi': 'blueshift',
+            ('a', 'b'): (0, 1)
+        }],
+        'after_expansion': [{
+            'hi': 'blueshift',
+            'a': 0,
+            'b': 1
+        }]
+    }]
 
     for test in tests:
-      self.assertListEqual(test['after_expansion'], c.expand_experiment_config(test['input']))
+      self.assertListEqual(test['after_expansion'],
+                           c.expand_experiment_config(test['input']))
 
 
 if __name__ == '__main__':
