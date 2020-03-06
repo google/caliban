@@ -1,3 +1,12 @@
+# 0.1.16 (IN PROGRESS)
+
+- Caliban now caches the service account key and ADC file; you should see faster
+  builds, BUT you might run into trouble if you try to run multiple Caliban
+  commands in the same directory in different processes, due to a race condition
+  with a temp file dropped in the directory. If you see a failure, try again.
+- Private Cloud Source Repositories are now supported as requirements in the
+  `requirements.txt` and `setup.py` of projects executed using Caliban.
+
 # 0.1.15
 
 - `caliban notebook` now attempts to search for the first free port instead of

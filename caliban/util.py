@@ -342,6 +342,8 @@ class TempCopy(object):
   def __init__(self, original_path=None, tmp_name=None):
     if tmp_name is None:
       self.tmp_path = f".{str(uuid.uuid1())}.json"
+    else:
+      self.tmp_path = tmp_name
 
     self.original_path = None
     if original_path:

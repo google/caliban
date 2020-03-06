@@ -11,7 +11,7 @@
 #
 #  https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/dockerfiles/assembler.py
 
-ARG BASE_IMAGE=tensorflow/tensorflow:2.0.0-py3
+ARG BASE_IMAGE=tensorflow/tensorflow:2.1.0-py3
 
 FROM $BASE_IMAGE
 

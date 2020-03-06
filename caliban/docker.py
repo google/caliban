@@ -263,7 +263,8 @@ def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
 COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
 
 # Use the credentials file to activate gcloud, gsutil inside the container.
-RUN gcloud auth activate-service-account --key-file={container_creds}
+RUN gcloud auth activate-service-account --key-file={container_creds} && \
+  git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
 
 ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
 """
@@ -450,6 +451,11 @@ WORKDIR {workdir}
 
 USER {uid}:{gid}
 """
+  dockerfile += _credentials_entries(uid,
+                                     gid,
+                                     adc_path=adc_path,
+                                     credentials_path=credentials_path)
+
   dockerfile += _dependency_entries(workdir,
                                     uid,
                                     gid,
@@ -458,11 +464,6 @@ USER {uid}:{gid}
 
   if inject_notebook:
     dockerfile += _notebook_entries(version=jupyter_version)
-
-  dockerfile += _credentials_entries(uid,
-                                     gid,
-                                     adc_path=adc_path,
-                                     credentials_path=credentials_path)
 
   if extra_dirs is not None:
     dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
@@ -501,8 +502,9 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
-  with u.TempCopy(credentials_path) as creds:
-    with u.TempCopy(adc_path) as adc:
+  with u.TempCopy(credentials_path,
+                  tmp_name=".caliban_default_creds.json") as creds:
+    with u.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
       cache_args = ["--no-cache"] if no_cache else []
       cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", os.getcwd()]
 
