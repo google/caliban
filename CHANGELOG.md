@@ -6,6 +6,8 @@
   with a temp file dropped in the directory. If you see a failure, try again.
 - Private Cloud Source Repositories are now supported as requirements in the
   `requirements.txt` and `setup.py` of projects executed using Caliban.
+- `caliban notebook` now installs `jupyter` instead of `jupyterlab`. `caliban
+  notebook --lab` of course still uses `jupyterlab`.
 
 # 0.1.15
 

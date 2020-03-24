@@ -274,7 +274,7 @@ def notebook_parser(base):
       help="Port to use for Jupyter, inside container and locally.")
   parser.add_argument("-jv",
                       "--jupyter_version",
-                      help="Jupyterlab version to install via pip.")
+                      help="Jupyter or Jupyterlab version to install via pip.")
   parser.add_argument(
       "--lab",
       action="store_true",

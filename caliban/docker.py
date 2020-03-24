@@ -46,12 +46,22 @@ class DockerError(Exception):
     return " ".join(self.cmd)
 
 
+class NotebookInstall(Enum):
+  """Flag to decide what to do ."""
+  none = 'none'
+  lab = 'lab'
+  jupyter = 'jupyter'
+
+  def __str__(self) -> str:
+    return self.value
+
+
 class Shell(Enum):
   """Add new shells here and below, in SHELL_DICT."""
   bash = 'bash'
   zsh = 'zsh'
 
-  def __str__(self):
+  def __str__(self) -> str:
     return self.value
 
 
@@ -321,8 +331,8 @@ def _credentials_entries(user_id: int,
   return ret
 
 
-def _notebook_entries(version: Optional[str] = None) -> str:
-  """Returns the Dockerfile entries necessary to install Jupyterlab.
+def _notebook_entries(lab: bool = False, version: Optional[str] = None) -> str:
+  """Returns the Dockerfile entries necessary to install Jupyter{lab}.
 
   Optionally takes a version string.
 
@@ -332,8 +342,10 @@ def _notebook_entries(version: Optional[str] = None) -> str:
   if version is not None:
     version_suffix = f"=={version}"
 
+  library = "jupyterlab" if lab else "jupyter"
+
   return f"""
-RUN pip install jupyterlab{version_suffix}
+RUN pip install {library}{version_suffix}
 """
 
 
@@ -386,19 +398,19 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
   return ret
 
 
-def _dockerfile_template(job_mode: c.JobMode,
-                         workdir: Optional[str] = None,
-                         base_image_fn: Optional[Callable[[c.JobMode],
-                                                          str]] = None,
-                         package: Optional[u.Package] = None,
-                         requirements_path: Optional[str] = None,
-                         setup_extras: Optional[List[str]] = None,
-                         adc_path: Optional[str] = None,
-                         credentials_path: Optional[str] = None,
-                         jupyter_version: Optional[str] = None,
-                         inject_notebook: bool = False,
-                         shell: Optional[Shell] = None,
-                         extra_dirs: Optional[List[str]] = None) -> str:
+def _dockerfile_template(
+    job_mode: c.JobMode,
+    workdir: Optional[str] = None,
+    base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
+    package: Optional[u.Package] = None,
+    requirements_path: Optional[str] = None,
+    setup_extras: Optional[List[str]] = None,
+    adc_path: Optional[str] = None,
+    credentials_path: Optional[str] = None,
+    jupyter_version: Optional[str] = None,
+    inject_notebook: NotebookInstall = NotebookInstall.none,
+    shell: Optional[Shell] = None,
+    extra_dirs: Optional[List[str]] = None) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
 
@@ -462,8 +474,9 @@ USER {uid}:{gid}
                                     requirements_path=requirements_path,
                                     setup_extras=setup_extras)
 
-  if inject_notebook:
-    dockerfile += _notebook_entries(version=jupyter_version)
+  if inject_notebook.value != 'none':
+    install_lab = inject_notebook == NotebookInstall.lab
+    dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
   if extra_dirs is not None:
     dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
@@ -859,6 +872,7 @@ def run_notebook(job_mode: c.JobMode,
   if run_args is None:
     run_args = []
 
+  inject_arg = NotebookInstall.lab if lab else NotebookInstall.jupyter
   jupyter_cmd = "lab" if lab else "notebook"
   jupyter_args = [
     "-m", "jupyter", jupyter_cmd, \
@@ -872,6 +886,6 @@ def run_notebook(job_mode: c.JobMode,
                   entrypoint="/opt/venv/bin/python",
                   entrypoint_args=jupyter_args,
                   run_args=docker_args,
-                  inject_notebook=True,
+                  inject_notebook=inject_arg,
                   jupyter_version=version,
                   **run_interactive_kwargs)
