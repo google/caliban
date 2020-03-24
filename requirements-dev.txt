@@ -1,0 +1,7 @@
+# Required for development, not publication.
+hypothesis
+pre-commit
+pytest
+pytest-cov
+sphinx
+twine

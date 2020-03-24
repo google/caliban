@@ -27,37 +27,76 @@ If you want to get started in a more interactive way, head over to
 <https://go/bs-tutorials>.
 
 
-## Contributing
+## Installing Caliban
 
-To start submitting pull requests to caliban,
+The [Installing Caliban](http://go/caliban#getting-caliban) section of Caliban's
+[g3doc documentation](http://go/caliban#getting-caliban) describes at length how
+to install Caliban on your laptop, workstation or a Cloud VM. Head [to those
+docs](http://go/caliban#getting-caliban) for the full story.
 
-First run this:
 
-```sh
+## Developing in Caliban
+
+So you want to add some code to Caliban. Excellent!
+
+### Checkout and pre-commit hooks
+
+First, check out the repo:
+
+```
+git clone sso://team/blueshift/caliban && cd caliban
+```
+
+Then run this command to install a special pre-commit hook that Gerrit needs to
+manage code review properly. You'll only have to run this once.
+
+```bash
 f=`git rev-parse --git-dir`/hooks/commit-msg ; mkdir -p $(dirname $f) ; curl -Lo $f https://gerrit-review.googlesource.com/tools/hooks/commit-msg ; chmod +x $f
 ```
 
-- create a branch
-- work!
-- commit
-- Run the following command:
+We use [pre-commit](https://pre-commit.com/) to manage a series of git
+pre-commit hooks for the project; for example, each time you commit code, the
+hooks will make sure that your python is formatted properly. If your code isn't,
+the hook will format it, so when you try to commit the second time you'll get
+past the hook.
+
+All hooks are defined in `.pre-commit-config.yaml`. To install these hooks,
+install `pre-commit` if you don't yet have it. I prefer using
+[pipx](https://github.com/pipxproject/pipx) so that `pre-commit` stays globally
+available.
 
 ```bash
-git push origin HEAD:refs/for/master
+pipx install pre-commit
 ```
 
-More info to file on the process: https://www.gerritcodereview.com/user-review-ui.html
+Then install the hooks with this command:
 
-And info from internally on how code review works: https://g3doc.corp.google.com/company/teams/gerritcodereview/users/intro-codelab.md?cl=head#create-a-change
+```bash
+pre-commit install
+```
 
-To develop locally, if you have the [Blueshift internal repo](https://team.git.corp.google.com/blueshift/blueshift/) installed, simply run:
+Now they'll run on every commit. If you want to run them manually, you can run either of these commands:
+
+```bash
+pre-commit run --all-files
+
+# or this, if you've previously run `make build`:
+make lint
+```
+
+### Developing Interactively
+
+It's quite nice to develop against a local installation that live-updates
+whenever you modify the checked out code. If you have the [Blueshift internal
+repo](https://team.git.corp.google.com/blueshift/blueshift/) installed, simply
+run:
 
 ```bash
 pipx_local caliban
 ```
 
-in the parent of the checked-out Caliban repository. Otherwise, run the
-following in the parent of the Caliban directory:
+in the parent directory of the checked-out Caliban repository. Otherwise, run
+the following in the parent of the Caliban directory:
 
 ```bash
 pipx install -e --force caliban
@@ -66,50 +105,68 @@ pipx install -e --force caliban
 This will allow you to edit the source in your checked-out copy and have it get
 picked up by the global alias.
 
+### Aliases
 
-## Pre-Commit Hooks
+You might find these aliases helpful when developing in Caliban:
 
-We use https://github.com/pre-commit/pre-commit to manage pre-commit hooks. To install these, run:
-
-```bash
-pipx install pre-commit
+```
+[alias]
+	review = "!f() { git push origin HEAD:refs/for/${1:-master}; }; f"
+	amend  = "!f() { git add . && git commit --amend --no-edit; }; f"
 ```
 
-Then install all the hooks with:
+### New Feature Workflow
+
+To add a new feature, you'll want to do the following:
+
+- create a new branch off of `master` with `git checkout -b my_branch_name`.
+  Don't push this branch yet!
+- run `make build` to set up a virtual environment inside the current directory.
+- periodically run `make pytest` to check that your modifications pass tests.
+- to run a single test file, run the following command:
 
 ```bash
-pre-commit install
+env/bin/pytest tests/path/to/your/test.py
 ```
 
-To test out the hooks, run:
+You can always use `env/bin/python` to start an interpreter with the correct
+dependencies for the project.
+
+When you're ready for review,
+
+- commit your code to the branch (multiple commits are fine)
+- run `git review` in the terminal. (This is equivalent to running `git push
+  origin HEAD:refs/for/master`, but way easier to remember.)
+
+The link to your pull request will show up in the terminal.
+
+If you need to make changes to the pull request, navigate to the review page and
+click the "Download" link at the bottom right:
+
+![](https://screenshot.googleplex.com/4BP8v3TWq4R.png)
+
+Copy the "checkout" code, which will look something like this:
 
 ```bash
-pre-commit run --all-files
+git fetch "sso://team/blueshift/caliban" refs/changes/87/670987/2 && git checkout FETCH_HEAD
 ```
 
+And run that in your terminal. This will get you to a checkout with all of your
+code. Make your changes, then run `git amend && git review` to modify the pull
+request and push it back up. (Remember, these are aliases we declared above.)
 
-## Testing
+## Publishing Caliban
 
-This is how to configure tests: https://g3doc.corp.google.com/devtools/kokoro/g3doc/userdocs/general/gob_scm.md?cl=head
+Caliban is typically installed from Git-on-Borg or its Cloud Source Repository
+mirror, as described in the [Getting Caliban](go/caliban#getting-caliban)
+documentation.
 
-## Releasing
+- First, run `make build` to get your virtual environment set up.
+- Make sure that you're on the master branch!
+- add a new tag, with `git tag 0.2.3` or the equivalent
+- run `make release` to push the latest code and tags to all relevant
+  repositories.
 
-We use [versioneer](https://github.com/warner/python-versioneer) for project
-versioning. You don't need to do anything with versioneer, as it's already
-installed... but for reference, to install it, run:
+## Trouble?
 
-```bash
-pipx install versioneer
-```
-
-This links up versioning with git tags. All you need to do now to create a new
-version is to run the following in the master branch, when it's time to release:
-
-```bash
-git tag 1.0
-git push; git push --tags
-```
-
-# Trouble?
-
-Get in touch with samritchie@google.com.
+Get in touch with [samritchie@x.team](mailto:samritchie@x.team).
