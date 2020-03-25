@@ -10,7 +10,7 @@ PYTEST_ARGS = --doctest-modules -v -s --hypothesis-profile dev
 PYTEST_TARGET = caliban tests
 COVERAGE_ARGS = --cov-config setup.cfg --cov-report term-missing --cov
 COVERAGE_TARGET = caliban
-
+SCR_REPO = https://source.developers.google.com/p/blueshift-research/r/caliban
 
 ##
 # Targets
