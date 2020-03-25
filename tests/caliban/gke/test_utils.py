@@ -127,7 +127,7 @@ class UtilsTestSuite(unittest.TestCase):
     # ibid
     self.assertEqual(valid_return, _no_raise())
 
-    print(f'testing return_val = {return_val}')
+    print('testing return_val = {}'.format(return_val))
 
     @trap(return_val)
     def _test_raises():
@@ -233,7 +233,7 @@ class UtilsTestSuite(unittest.TestCase):
   def test_get_zone_tpu_types(self, tpu_types, invalid_types):
     """tests get_zone_tpu_types"""
 
-    tpus = [f'{x[1].name.lower()}-{x[0]}' for x in tpu_types]
+    tpus = ['{}-{}'.format(x[1].name.lower(), x[0]) for x in tpu_types]
 
     invalid_types = list(invalid_types)
 
@@ -278,7 +278,7 @@ class UtilsTestSuite(unittest.TestCase):
     self.assertEqual(
         sorted(tpus),
         sorted([
-            f'{x.name.lower()}-{x.count}'
+            '{}-{}'.format(x.name.lower(), x.count)
             for x in utils.get_zone_tpu_types(api, 'p', 'z')
         ]))
 
@@ -316,7 +316,7 @@ class UtilsTestSuite(unittest.TestCase):
   def test_get_zone_gpu_types(self, gpu_counts, invalid_types):
     """tests get_zone_gpu_types"""
 
-    gpu_types = [f'nvidia-tesla-{x.name.lower()}' for x in ct.GPU]
+    gpu_types = ['nvidia-tesla-{}'.format(x.name.lower()) for x in ct.GPU]
 
     gpus = [{
         'name': gpu_types[i],
@@ -358,9 +358,12 @@ class UtilsTestSuite(unittest.TestCase):
     # normal execution
     api.execute = _response
     self.assertEqual(
-        sorted([f'{x["name"]}-{x["maximumCardsPerInstance"]}' for x in gpus]),
         sorted([
-            f'nvidia-tesla-{x.gpu.name.lower()}-{x.count}'
+            '{}-{}'.format(x["name"], x["maximumCardsPerInstance"])
+            for x in gpus
+        ]),
+        sorted([
+            'nvidia-tesla-{}-{}'.format(x.gpu.name.lower(), x.count)
             for x in utils.get_zone_gpu_types(api, 'p', 'z')
         ]))
 
@@ -584,10 +587,10 @@ class UtilsTestSuite(unittest.TestCase):
       raise Exception('exception')
 
     url = 'https://www.googleapis.com/compute/v1/projects/foo/zones/'
-    zones = [f'{region}-{x}' for x in zone_ids]
+    zones = ['{}-{}'.format(region, x) for x in zone_ids]
 
     def _normal():
-      return {'zones': [f'{url}{x}' for x in zones]}
+      return {'zones': ['{}{}'.format(url, x) for x in zones]}
 
     def _invalid():
       return {'foo': 'bar'}

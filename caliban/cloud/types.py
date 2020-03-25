@@ -1,7 +1,5 @@
 """Constants and types for GCloud interaction."""
 
-from __future__ import annotations
-
 import argparse
 from enum import Enum
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
@@ -17,14 +15,14 @@ def _vfn(prefix: str) -> Callable[[str], str]:
   """
 
   def inner(name: str) -> str:
-    return f"{prefix}-{name.replace('_', '-')}"
+    return "{}-{}".format(prefix, name.replace('_', '-'))
 
   return inner
 
 
-US_REGIONS: Set[str] = {"west1", "west2", "central1", "east1", "east4"}
-EURO_REGIONS: Set[str] = {"west1", "west4", "north1"}
-ASIA_REGIONS: Set[str] = {"southeast1", "east1", "northeast1"}
+US_REGIONS = {"west1", "west2", "central1", "east1", "east4"}
+EURO_REGIONS = {"west1", "west4", "north1"}
+ASIA_REGIONS = {"southeast1", "east1", "northeast1"}
 
 # Actual enum types.
 US = Enum('US', u.dict_by(US_REGIONS, _vfn("us")))
@@ -52,31 +50,30 @@ def valid_regions(zone: Optional[str] = None) -> List[Region]:
     return list(Asia)
   else:
     raise ValueError(
-        f"invalid zone: {zone}. Must be one of 'americas', 'europe', 'asia'.")
+        "invalid zone: {}. Must be one of 'americas', 'europe', 'asia'.".format(
+            zone))
 
 
 # Machines types in Cloud's standard tier.
-STANDARD_MACHINES: Set[str] = {
+STANDARD_MACHINES = {
     "standard_4", "standard_8", "standard_16", "standard_32", "standard_64",
     "standard_96"
 }
 
 # Machines types in Cloud's high memory tier.
-HIGHMEM_MACHINES: Set[str] = {
+HIGHMEM_MACHINES = {
     "highmem_2", "highmem_4", "highmem_8", "highmem_16", "highmem_32",
     "highmem_64", "highmem_96"
 }
 
 # Machines types in Cloud's high CPU tier.
-HIGHCPU_MACHINES: Set[str] = {
-    "highcpu_16", "highcpu_32", "highcpu_64", "highcpu_96"
-}
+HIGHCPU_MACHINES = {"highcpu_16", "highcpu_32", "highcpu_64", "highcpu_96"}
 
 # Machine types allowed if running in TPU mode.
-TPU_MACHINES: Set[str] = {"cloud_tpu"}
+TPU_MACHINES = {"cloud_tpu"}
 
 # Machine types allowed in CPU or GPU modes.
-NON_TPU_MACHINES: Set[str] = STANDARD_MACHINES.union(HIGHMEM_MACHINES).union(
+NON_TPU_MACHINES = STANDARD_MACHINES.union(HIGHMEM_MACHINES).union(
     HIGHCPU_MACHINES)
 
 # Type of physical machine available -> cloud name.
@@ -113,7 +110,8 @@ Accelerator = Union[GPU, TPU]
 #
 # From this page: https://cloud.google.com/ml-engine/docs/regions
 #
-ACCELERATOR_REGION_SUPPORT: Dict[Accelerator, Region] = {
+# : Dict[Accelerator, Region]
+ACCELERATOR_REGION_SUPPORT = {
     TPU.V2: [US.central1],
     TPU.V3: [US.central1],
     GPU.K80: [US.west1, US.central1, US.east1, Europe.west1, Asia.east1],
@@ -130,7 +128,8 @@ ACCELERATOR_REGION_SUPPORT: Dict[Accelerator, Region] = {
 #
 # and https://cloud.google.com/ml-engine/docs/tensorflow/using-tpus
 #
-COMPATIBILITY_TABLE: Dict[MachineType, Dict[Accelerator, Set[int]]] = {
+# : Dict[MachineType, Dict[Accelerator, Set[int]]]
+COMPATIBILITY_TABLE = {
     MachineType.cloud_tpu: {
         TPU.V2: {8},
         TPU.V3: {8}
@@ -246,12 +245,11 @@ COMPATIBILITY_TABLE: Dict[MachineType, Dict[Accelerator, Set[int]]] = {
     }
 }
 
-_AccelMTCount: Dict[Accelerator,
-                    Dict[MachineType,
-                         Set[int]]] = u.reorderm(COMPATIBILITY_TABLE, (1, 0, 2))
+# : Dict[Accelerator, Dict[MachineType, Set[int]]]
+_AccelMTCount = u.reorderm(COMPATIBILITY_TABLE, (1, 0, 2))
 
-_AccelCountMT: Dict[Accelerator, Dict[int, Set[MachineType]]] = u.reorderm(
-    COMPATIBILITY_TABLE, (1, 2, 0))
+# : Dict[Accelerator, Dict[int, Set[MachineType]]]
+_AccelCountMT = u.reorderm(COMPATIBILITY_TABLE, (1, 2, 0))
 
 
 def accelerator_name(is_gpu: bool) -> str:
@@ -278,10 +276,14 @@ def with_advice_suffix(accel: Union[Accelerator, str], s: str) -> str:
   else:
     url = "https://cloud.google.com/ml-engine/docs/tensorflow/using-tpus"
 
-  return f"""{s}
+  return """{s}
 For more help, consult this page for valid combinations of {ucase} count, {ucase} type and machine type:
 {url}
-"""
+""".format_map({
+      "s": s,
+      "ucase": ucase,
+      "url": url
+  })
 
 
 def accelerator_counts(accel: Accelerator,
@@ -312,8 +314,9 @@ def validate_accelerator_count(accel: Accelerator, count: int) -> int:
   if not _AccelCountMT[accel].get(count):
     raise argparse.ArgumentTypeError(
         with_advice_suffix(
-            accel, f"{count} {ucase}s of type {accel.name} aren't available \
-for any machine type. Try one of the following counts: {valid_counts}\n"))
+            accel, "{} {}s of type {} aren't available \
+for any machine type. Try one of the following counts: {}\n".format(
+                count, ucase, accel.name, valid_counts)))
 
   return count
 
@@ -327,8 +330,8 @@ def parse_machine_type(s: str) -> MachineType:
     return MachineType(s)
   except ValueError:
     valid_values = u.enum_vals(MachineType)
-    raise argparse.ArgumentTypeError(f"'{s}' isn't a valid machine type. \
-Must be one of {valid_values}.")
+    raise argparse.ArgumentTypeError("'{}' isn't a valid machine type. \
+Must be one of {}.".format(s, valid_values))
 
 
 def parse_region(s: str) -> Region:
@@ -340,8 +343,8 @@ def parse_region(s: str) -> Region:
     return u.any_of(s, Region)
   except ValueError:
     valid_values = u.enum_vals(valid_regions())
-    raise argparse.ArgumentTypeError(f"'{s}' isn't a valid region. \
-Must be one of {valid_values}.")
+    raise argparse.ArgumentTypeError("'{}' isn't a valid region. \
+Must be one of {}.".format(s, valid_values))
 
 
 def parse_accelerator_arg(s: str,
@@ -355,8 +358,9 @@ def parse_accelerator_arg(s: str,
 
   if len(items) != 2:
     raise argparse.ArgumentTypeError(
-        with_advice_suffix(mode,
-                           f"{mode} arg '{s}' has no 'x' separator.\n{suffix}"))
+        with_advice_suffix(
+            mode,
+            "{} arg '{}' has no 'x' separator.\n{}".format(mode, s, suffix)))
 
   count_s, type_s = items
 
@@ -368,8 +372,8 @@ def parse_accelerator_arg(s: str,
     count = int(count_s)
   except ValueError:
     raise argparse.ArgumentTypeError(
-        with_advice_suffix(mode,
-                           f"The count '{count_s}' isn't a number!\n{suffix}"))
+        with_advice_suffix(
+            mode, "The count '{}' isn't a number!\n{}".format(count_s, suffix)))
 
   # Validate that we have a valid GPU type.
   try:
@@ -380,9 +384,8 @@ def parse_accelerator_arg(s: str,
     all_types = list(map(lambda s: s.name, accel_dict))
     raise argparse.ArgumentTypeError(
         with_advice_suffix(
-            mode,
-            f"'{type_s}' isn't a valid {mode} type. Must be one of {all_types}.\n"
-        ))
+            mode, "'{}' isn't a valid {} type. Must be one of {}.\n".format(
+                type_s, mode, all_types)))
 
   if validate_count:
     validate_accelerator_count(accelerator_type, count)
@@ -390,17 +393,15 @@ def parse_accelerator_arg(s: str,
   return accelerator_type, count
 
 
-class GPUSpec(NamedTuple):
+class GPUSpec(NamedTuple('GPUSpec', [("gpu", GPU), ("count", int)])):
   """Info to generate a GPU."""
-  gpu: GPU
-  count: int
 
   METAVAR = "NUMxGPU_TYPE"
-  _error_suffix = f"You must supply a string of the format {METAVAR}. \
-8xV100, for example.\n"
+  _error_suffix = "You must supply a string of the format {}. \
+8xV100, for example.\n".format(METAVAR)
 
   @staticmethod
-  def parse_arg(s: str, **kwargs) -> GPUSpec:
+  def parse_arg(s: str, **kwargs) -> "GPUSpec":
     """Parses a CLI string of the form COUNTxGPUType into a proper GPU spec
     instance.
 
@@ -439,17 +440,15 @@ class GPUSpec(NamedTuple):
     return region in self.allowed_regions()
 
 
-class TPUSpec(NamedTuple):
+class TPUSpec(NamedTuple('TPUSpec', [("tpu", TPU), ("count", int)])):
   """Info to generate a TPU."""
-  tpu: TPU
-  count: int
 
   METAVAR = "NUMxTPU_TYPE"
-  _error_suffix = f"You must supply a string of the format {METAVAR}. \
-8xV2, for example."
+  _error_suffix = "You must supply a string of the format {}. \
+8xV2, for example.".format(METAVAR)
 
   @staticmethod
-  def parse_arg(s: str, **kwargs) -> TPUSpec:
+  def parse_arg(s: str, **kwargs) -> "TPUSpec":
     """Parses a CLI string of the form COUNTxGPUType into a proper GPU spec
     instance.
 

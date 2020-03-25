@@ -1,25 +1,25 @@
 """gke cli support"""
 
+import json
+import logging
 import pprint as pp
 import re
-import logging
-import json
+from typing import List, Optional, Tuple
 
-from typing import Optional, List, Tuple
-from google.auth.credentials import Credentials
 import googleapiclient
+from google.auth.credentials import Credentials
 from googleapiclient import discovery
-from kubernetes.client import (V1Job, V1ObjectMeta, V1JobSpec, V1Pod)
+from kubernetes.client import V1Job, V1JobSpec, V1ObjectMeta, V1Pod
 
 import caliban.cli as cli
 import caliban.config as conf
-from caliban.gke import Cluster
 import caliban.gke.constants as k
 import caliban.gke.utils as utils
-from caliban.gke.types import NodeImage, CredentialsData
-from caliban.cloud.core import generate_image_tag
 import caliban.util as u
+from caliban.cloud.core import generate_image_tag
 from caliban.cloud.types import parse_machine_type
+from caliban.gke.cluster import Cluster
+from caliban.gke.types import CredentialsData, NodeImage
 
 
 # ----------------------------------------------------------------------------
@@ -81,10 +81,11 @@ def _check_for_existing_cluster(cluster_name: str, project_id: str,
     return True
 
   if cluster_name in clusters:
-    logging.error(f'cluster {cluster_name} already exists')
+    logging.error('cluster {} already exists'.format(cluster_name))
     return False
 
-  logging.info(f'{len(clusters)} clusters already exist for this project:')
+  logging.info('{} clusters already exist for this project:'.format(
+      len(clusters)))
   for c in clusters:
     logging.info(c)
 
@@ -113,7 +114,7 @@ def _export_jobs(export: str, jobs: List[V1Job]) -> bool:
   else:
     base, ext = os.path.splitext(export)
     for i, j in enumerate(jobs):
-      if not utils.export_job(j, f'{base}_{i}{ext}'):
+      if not utils.export_job(j, '{}_{}{}'.format(base, i, ext)):
         return False
 
   return True
@@ -157,7 +158,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
     return
 
   if dry_run:
-    logging.info(f'request:\n{pp.pformat(json.loads(request.body))}')
+    logging.info('request:\n{}'.format(pp.pformat(json.loads(request.body))))
     return
 
   # --------------------------------------------------------------------------
@@ -166,10 +167,11 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   if not _check_for_existing_cluster(cluster_name, project_id, creds):
     return
 
+  logging.info('creating cluster {} in project {} in {}...'.format(
+      cluster_name, project_id, zone))
+  logging.info('please be patient, this may take several minutes')
   logging.info(
-      f'creating cluster {cluster_name} in project {project_id} in {zone}...')
-  logging.info(f'please be patient, this may take several minutes')
-  logging.info(f'visit {dashboard_url} to monitor cluster creation progress')
+      'visit {} to monitor cluster creation progress'.format(dashboard_url))
 
   # --------------------------------------------------------------------------
   # create the cluster
@@ -192,7 +194,8 @@ def _cluster_delete(args: dict, cluster: Cluster) -> None:
   None
   """
 
-  if utils.user_verify(f'Are you sure you want to delete {cluster.name}?',
+  if utils.user_verify('Are you sure you want to delete {}?'.format(
+      cluster.name),
                        default=False):
     cluster.delete()
 
@@ -218,12 +221,12 @@ def _cluster_ls(args: dict, project_id: str, creds: Credentials) -> None:
 
   if cluster_name is not None:
     if cluster_name not in clusters:
-      logging.error(f'cluster {cluster_name} not found')
+      logging.error('cluster {} not found'.format(cluster_name))
       return
     logging.error(cluster_name)
     return
 
-  logging.info(f'{len(clusters)} clusters found')
+  logging.info('{} clusters found'.format(len(clusters)))
   for c in clusters:
     logging.info(c)
 
@@ -278,7 +281,7 @@ def _pod_ls(args: dict, cluster: Cluster):
   if pods is None:
     return
 
-  logging.info(f'{len(pods)} pods found')
+  logging.info('{} pods found'.format(len(pods)))
   for p in pods:
     logging.info(p.metadata.name)
 
@@ -300,7 +303,7 @@ def _job_ls(args: dict, cluster: Cluster):
   if jobs is None:
     return
 
-  logging.info(f'{len(jobs)} jobs found')
+  logging.info('{} jobs found'.format(len(jobs)))
   for j in jobs:
     logging.info(j.metadata.name)
 
@@ -327,7 +330,7 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   docker_run_args = args.get('docker_run_args', []) or []
   dry_run = args['dry_run']
   package = args['module']
-  job_name = args.get('name') or f"caliban-{u.current_user()}"
+  job_name = args.get('name') or "caliban-{}".format(u.current_user())
   gpu_spec = args.get('gpu_spec')
   preemptible = not args['nonpreemptible']
 
@@ -355,16 +358,16 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
       return
 
     if tpu_spec not in available_tpu:
-      logging.error(f'invalid tpu spec, cluster supports:')
+      logging.error('invalid tpu spec, cluster supports:')
       for t in available_tpu:
-        logging.info(f'{t.count}x{t.tpu.name}')
+        logging.info('{}x{}'.format(t.count, t.tpu.name))
       return
 
     if not cluster.validate_tpu_driver(tpu_driver):
-      logging.error(f'error: unsupported tpu driver {tpu_driver}')
+      logging.error('error: unsupported tpu driver {}'.format(tpu_driver))
       logging.info('supported tpu drivers for this cluster:')
       for d in cluster.get_tpu_drivers():
-        logging.info(f'  {d}')
+        logging.info('  {}'.format(d))
       return
 
   # --------------------------------------------------------------------------
@@ -410,29 +413,29 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   if dry_run:
     logging.info('jobs that would be submitted:')
     for j in job_list:
-      logging.info(f'\n{utils.job_str(j)}')
+      logging.info('\n{}'.format(utils.job_str(j)))
     return
 
   # export jobs to file
   export = args.get('export', None)
   if export is not None:
     if not _export_jobs(export, job_list):
-      print(f'error exporting jobs to {export}')
+      print('error exporting jobs to {}'.format(export))
       return
 
   submitted = []
   for j in job_list:
     sj = cluster.submit_job(j)
     if sj is None:
-      logging.error(f'error submitting job:\n {j}')
+      logging.error('error submitting job:\n {}'.format(j))
     else:
       submitted.append(sj)
       md = sj.metadata
       spec = sj.spec
       container = sj.spec.template.spec.containers[0]
-      logging.info(
-          f'submitted job:\n{md.name}: {" ".join(container.args or [])}\n'
-          f'{cluster.job_dashboard_url(sj)}')
+      logging.info('submitted job:\n{}: {}\n{}'.format(
+          md.name, " ".join(container.args or []),
+          cluster.job_dashboard_url(sj)))
 
   return submitted
 
@@ -447,19 +450,19 @@ def _job_submit_file(args: dict, cluster: Cluster) -> None:
 
   job_spec = utils.parse_job_file(job_file)
   if job_spec is None:
-    logging.error(f'error parsing job file {job_file}')
+    logging.error('error parsing job file {}'.format(job_file))
     return
 
   if args['dry_run']:
-    logging.info(f'job to submit:\n{pp.pformat(job_spec)}')
+    logging.info('job to submit:\n{}'.format(pp.pformat(job_spec)))
     return
 
   job = cluster.submit_job(job=job_spec)
   if job is None:
-    logging.error(f'error submitting job:\n{pp.pformat(job_spec)}')
+    logging.error('error submitting job:\n{}'.format(pp.pformat(job_spec)))
     return
 
-  logging.info(f'submitted job: {cluster.job_dashboard_url(job)}')
+  logging.info('submitted job: {}'.format(cluster.job_dashboard_url(job)))
 
   return
 

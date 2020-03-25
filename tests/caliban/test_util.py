@@ -1,6 +1,7 @@
 import itertools
 import re
 import unittest
+from collections import OrderedDict
 from enum import Enum
 from typing import Union
 
@@ -61,7 +62,9 @@ class UtilTestSuite(unittest.TestCase):
       self.assertEqual(u.any_of(v, union), expected)
 
   def test_dict_product(self):
-    result = list(u.dict_product({"a": [1, 2, 3], "b": [4, 5], "c": "d"}))
+    input_m = OrderedDict([("a", [1, 2, 3]), ("b", [4, 5]), ("c", "d")])
+    result = list(u.dict_product(input_m))
+
     expected = [{
         'a': 1,
         'b': 4,
@@ -87,6 +90,7 @@ class UtilTestSuite(unittest.TestCase):
         'b': 5,
         'c': 'd'
     }]
+
     self.assertListEqual(result, expected)
 
   def test_compound_key_handling(self):
@@ -350,7 +354,7 @@ class UtilTestSuite(unittest.TestCase):
     self.assertSetEqual(set(m.keys()), xs)
 
   def test_expand_args(self):
-    m = {"a": "item", "b": None, "c": "d"}
+    m = OrderedDict([("a", "item"), ("b", None), ("c", "d")])
     expanded = u.expand_args(m)
 
     # None is excluded from the results.
@@ -495,7 +499,7 @@ class UtilTestSuite(unittest.TestCase):
 
     # The ordering might not be the same, but the total number of items is the
     # same if we break down and recombine.
-    self.assertEquals(len(recombined), len(xs))
+    self.assertEqual(len(recombined), len(xs))
 
     # And the items are equal too.
     self.assertSetEqual(set(xs), set(recombined))
@@ -586,6 +590,11 @@ class UtilTestSuite(unittest.TestCase):
             "face": "cake",
             "a": "",
         })
+
+    self.assertScriptArgsToLabels("--face", {"face": ""})
+
+    # single arguments get ignore if they're not boolean flags.
+    self.assertScriptArgsToLabels("face", {})
 
   def test_sanitize_labels_kill_empty(self):
     """Keys that are sanitized to the empty string should NOT make it through."""

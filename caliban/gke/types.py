@@ -1,7 +1,8 @@
 """types relevant to gke"""
 
 from enum import Enum
-from typing import Set, NamedTuple, Optional
+from typing import NamedTuple, Optional
+
 from google.auth.credentials import Credentials
 
 # ----------------------------------------------------------------------------
@@ -27,13 +28,11 @@ OpStatus = Enum(
         'ABORTING': 'ABORTING'
     })
 
-
 # ----------------------------------------------------------------------------
 # Credentials data (credentials, project id)
-class CredentialsData(NamedTuple):
-  credentials: Optional[Credentials] = None
-  project_id: Optional[str] = None
-
+CredentialsData = NamedTuple("CredentialsData",
+                             [("credentials", Optional[Credentials]),
+                              ("project_id", Optional[str])])
 
 # ----------------------------------------------------------------------------
 # GKE release channel, see:

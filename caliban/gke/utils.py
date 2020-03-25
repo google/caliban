@@ -55,7 +55,7 @@ def trap(error_value: Any, silent: bool = True) -> Any:
         response = fn(*args, **kwargs)
       except Exception as e:
         if not silent:
-          logging.exception(f'exception in call {fn}:\n{e}')
+          logging.exception('exception in call {}:\n{}'.format(fn, e))
         return error_value
       return response
 
@@ -82,15 +82,15 @@ def validate_gpu_spec_against_limits(
   """
 
   if gpu_spec.gpu not in gpu_limits:
-    logging.error(
-        f'unsupported gpu type {gpu_spec.gpu.name}. '
-        f'Supported types for {limit_type}: {[g.name for g in gpu_limits]}')
+    logging.error('unsupported gpu type {}. '.format(gpu_spec.gpu.name) +
+                  'Supported types for {}: {}'.format(
+                      limit_type, [g.name for g in gpu_limits]))
     return False
 
   if gpu_spec.count > gpu_limits[gpu_spec.gpu]:
-    logging.error(
-        f'error: requested {gpu_spec.gpu.name} gpu count {gpu_spec.count} unsupported,'
-        f' {limit_type} max = {gpu_limits[gpu_spec.gpu]}')
+    logging.error('error: requested {} gpu count {} unsupported,'.format(
+        gpu_spec.gpu.name, gpu_spec.count) +
+                  ' {} max = {}'.format(limit_type, gpu_limits[gpu_spec.gpu]))
     return False
 
   return True
@@ -129,7 +129,7 @@ def dashboard_cluster_url(cluster_id: str, zone: str, project_id: str):
   """
 
   query = urlencode({'project': project_id})
-  return f'{k.DASHBOARD_CLUSTER_URL}/{zone}/{cluster_id}?{query}'
+  return '{}/{}/{}?{}'.format(k.DASHBOARD_CLUSTER_URL, zone, cluster_id, query)
 
 
 # ----------------------------------------------------------------------------
@@ -147,7 +147,7 @@ def get_tpu_drivers(tpu_api: discovery.Resource, project_id: str,
   list of supported drivers on success, None otherwise
   """
 
-  location = f'projects/{project_id}/locations/{zone}'
+  location = 'projects/{}/locations/{}'.format(project_id, zone)
 
   rsp = tpu_api.projects().locations().tensorflowVersions().list(
       parent=location).execute()
@@ -173,7 +173,7 @@ def user_verify(msg: str, default: bool) -> bool:
   choice_str = '[Yn]' if default else '[yN]'
 
   while True:
-    ok = input(f'\n {msg} {choice_str}: ').lower()
+    ok = input('\n {} {}: '.format(msg, choice_str)).lower()
 
     if len(ok) == 0:
       return default
@@ -267,7 +267,7 @@ def get_zone_tpu_types(tpu_api: discovery.Resource, project_id: str,
   list of supported tpu specs on success, None otherwise
   """
 
-  location = f'projects/{project_id}/locations/{zone}'
+  location = 'projects/{}/locations/{}'.format(project_id, zone)
   rsp = tpu_api.projects().locations().acceleratorTypes().list(
       parent=location).execute()
 
@@ -386,7 +386,7 @@ def resource_limits_from_quotas(
     gpu_type = gd['gpu']
 
     limits.append({
-        'resourceType': f'nvidia-tesla-{gpu_type.lower()}',
+        'resourceType': 'nvidia-tesla-{}'.format(gpu_type.lower()),
         'maximum': str(limit)
     })
 
@@ -520,7 +520,8 @@ def validate_job_filename(s: str) -> str:
 
   if not valid_job_file_ext(ext):
     raise argparse.ArgumentTypeError(
-        f'invalid job file extension: {ext}, must be in {k.VALID_JOB_FILE_EXT}')
+        'invalid job file extension: {}, must be in {}'.format(
+            ext, k.VALID_JOB_FILE_EXT))
   return s
 
 
@@ -543,8 +544,8 @@ def export_job(job: V1Job, filename: str) -> bool:
   _, ext = os.path.splitext(filename)
 
   if not valid_job_file_ext(ext):
-    logging.error(
-        f'invalid job file extension: {ext}, must be in {k.VALID_JOB_FILE_EXT}')
+    logging.error('invalid job file extension: {}, must be in {}'.format(
+        ext, k.VALID_JOB_FILE_EXT))
     return False
 
   with open(filename, 'w') as f:
@@ -615,7 +616,7 @@ def application_default_credentials_path() -> str:
 
 
 # ----------------------------------------------------------------------------
-@trap(CredentialsData(), silent=False)
+@trap(CredentialsData(None, None), silent=False)
 def default_credentials(
     scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
 ) -> CredentialsData:
@@ -637,7 +638,7 @@ def default_credentials(
 
 
 # ----------------------------------------------------------------------------
-@trap(CredentialsData(), silent=False)
+@trap(CredentialsData(None, None), silent=False)
 def credentials_from_file(
     cred_file: str,
     scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
@@ -665,8 +666,8 @@ def credentials_from_file(
   elif cred_type == _AUTHORIZED_USER_TYPE:
     creds, project_id = _load_credentials_from_file(cred_file)
   else:
-    logging.error(f'invalid credentials file format: {cred_type}')
-    return CredentialsData()
+    logging.error('invalid credentials file format: {}'.format(cred_type))
+    return CredentialsData(None, None)
 
   creds.refresh(google.auth.transport.requests.Request())
 
@@ -748,12 +749,12 @@ def parse_job_file(job_file: str) -> Optional[dict]:
   _, ext = os.path.splitext(job_file)
 
   if not valid_job_file_ext(ext):
-    logging.error(f'invalid job file extension: {ext}, '
-                  f'must be in {k.VALID_JOB_FILE_EXT}')
+    logging.error('invalid job file extension: {}, '.format(ext) +
+                  'must be in {}'.format(k.VALID_JOB_FILE_EXT))
     return
 
   if not os.path.exists(job_file):
-    logging.error(f'error: job file {job_file} not found')
+    logging.error('error: job file {} not found'.format(job_file))
     return
 
   try:
@@ -765,7 +766,7 @@ def parse_job_file(job_file: str) -> Optional[dict]:
         job_spec = yaml.load(f, Loader=yaml.FullLoader)
 
   except Exception as e:
-    logging.error(f'error loading job file {job_file}:\n{e}')
+    logging.error('error loading job file {}:\n{}'.format(job_file, e))
     return None
 
   return job_spec

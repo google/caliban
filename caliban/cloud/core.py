@@ -42,7 +42,7 @@ def job_url(project_id: str, job_id: str) -> str:
 
   """
   prefix = "https://pantheon.corp.google.com/ai-platform/jobs"
-  return f"{prefix}/{job_id}?projectId={project_id}"
+  return "{}/{}?projectId={}".format(prefix, job_id, project_id)
 
 
 def _stream_cmd(job_id: str) -> str:
@@ -67,18 +67,19 @@ def logging_callback(spec: JobSpec, project_id: str):
   job_id = spec["jobId"]
 
   def callback(_, exception):
-    logging.debug(f"spec for job {job_id}: {spec}")
-    prefix = f"Request for job '{spec['jobId']}'"
+    logging.debug("spec for job {}: {}".format(job_id, spec))
+    prefix = "Request for job '{}'".format(spec['jobId'])
 
     if exception is None:
       url = job_url(project_id, job_id)
       stream_command = _stream_cmd(job_id)
 
-      logging.info(t.green(f"{prefix} succeeded!"))
-      logging.info(t.green(f"Job URL: {url}"))
-      logging.info(t.green(f"Streaming log CLI command: $ {stream_command}"))
+      logging.info(t.green("{} succeeded!".format(prefix)))
+      logging.info(t.green("Job URL: {}".format(url)))
+      logging.info(
+          t.green("Streaming log CLI command: $ {}".format(stream_command)))
     else:
-      logging.error(t.red(f"{prefix} failed! Details:"))
+      logging.error(t.red("{} failed! Details:".format(prefix)))
       logging.error(t.red(exception._get_reason()))
 
   return callback
@@ -99,20 +100,18 @@ def log_spec(spec: JobSpec, i: int) -> JobSpec:
   args = training_input['args']
 
   def prefixed(s: str, level=logging.INFO):
-    logging.log(level, f"Job {i} - {s}")
+    logging.log(level, "Job {} - {}".format(i, s))
 
-  prefixed(f"Spec: {spec}", logging.DEBUG)
-  prefixed(f"jobId: {t.yellow(job_id)}, image: {image_uri}")
-  prefixed(
-      f"Accelerator: {accelerator}, machine: '{machine_type}', region: '{region}'"
-  )
+  prefixed("Spec: {}".format(spec), logging.DEBUG)
+  prefixed("jobId: {}, image: {}".format(t.yellow(job_id), image_uri))
+  prefixed("Accelerator: {}, machine: '{}', region: '{}'".format(
+      accelerator, machine_type, region))
   if workerConf is not None:
-    prefixed(
-        f"Worker config: {workerConf}, machine: '{training_input['workerType']}'"
-    )
+    prefixed("Worker config: {}, machine: '{}'".format(
+        workerConf, training_input['workerType']))
 
-  prefixed(f"Experiment arguments: {t.yellow(str(args))}")
-  prefixed(f"labels: {spec['labels']}")
+  prefixed("Experiment arguments: {}".format(t.yellow(str(args))))
+  prefixed("labels: {}".format(spec['labels']))
   return spec
 
 
@@ -167,11 +166,10 @@ def logged_batches(specs: Iterable[JobSpec],
   # Go the extra mile.
   plural_batch = "batch" if total_chunks == 1 else "batches"
   plural_job = "job" if total_specs == 1 else "jobs"
-  logging.info(
-      f"Generating {total_chunks} {plural_batch} for {total_specs} {plural_job}."
-  )
+  logging.info("Generating {} {} for {} {}.".format(total_chunks, plural_batch,
+                                                    total_specs, plural_job))
   for i, chunk in enumerate(chunked_seq, 1):
-    logging.info(f"Batch {i} of {total_chunks}:")
+    logging.info("Batch {} of {}:".format(i, total_chunks))
     yield logged_specs(chunk)
 
 
@@ -203,7 +201,7 @@ def create_requests(specs: List[JobSpec],
   http://googleapis.github.io/google-api-python-client/docs/dyn/ml_v1.projects.jobs.html#create
 
   """
-  parent = f"projects/{project_id}"
+  parent = "projects/{}".format(project_id)
 
   # cache_discovery=False prevents an error bubbling up from a missing file
   # cache, which no user of this code is going to be using.
@@ -252,7 +250,7 @@ def execute_requests(requests: Iterable[Tuple[Any, JobSpec, Any]],
                      unit="requests",
                      desc="submitting")
     for req, spec, cb in pbar:
-      pbar.set_description(f"Submitting {spec['jobId']}")
+      pbar.set_description("Submitting {}".format(spec['jobId']))
       execute(req, cb, num_retries=num_retries)
 
 
@@ -298,7 +296,7 @@ def _job_spec(job_name: str, idx: int, training_input: Dict[str, Any],
   submission endpoint.
 
   """
-  job_id = f"{job_name}_{uuid}_{idx}"
+  job_id = "{}_{}_{}".format(job_name, uuid, idx)
   job_args = training_input.get("args")
   return {
       "jobId": job_id,
@@ -347,7 +345,7 @@ def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
   Each job in the batch will have a unique jobId.
 
   """
-  logging.info(f"Building jobs for name: {job_name}")
+  logging.info("Building jobs for name: {}".format(job_name))
 
   uuid = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -401,8 +399,8 @@ def execute_dry_run(specs: List[JobSpec]) -> None:
 
   logging.info('')
   logging.info(
-      t.yellow(f"To build your image and submit these jobs, \
-run your command again without {conf.DRY_RUN_FLAG}."))
+      t.yellow("To build your image and submit these jobs, \
+run your command again without {}.".format(conf.DRY_RUN_FLAG)))
   logging.info('')
   return None
 
@@ -470,7 +468,7 @@ def submit_ml_job(job_mode: conf.JobMode,
     script_args = []
 
   if job_name is None:
-    job_name = f"caliban_{u.current_user()}"
+    job_name = "caliban_{}".format(u.current_user())
 
   if job_mode == conf.JobMode.GPU and gpu_spec is None:
     gpu_spec = ct.GPUSpec(ct.GPU.P100, 1)
@@ -508,6 +506,6 @@ def submit_ml_job(job_mode: conf.JobMode,
   execute_requests(requests, len(experiments), num_retries=request_retries)
   logging.info("")
   logging.info(
-      t.green(
-          f"Visit {job_url(project_id, '')} to see the status of all jobs."))
+      t.green("Visit {} to see the status of all jobs.".format(
+          job_url(project_id, ''))))
   logging.info("")

@@ -82,13 +82,15 @@ def validate_script_args(argv: List[str], items: List[str]) -> List[str]:
   pwas = "was" if len(pre_dashes) == 1 else "were"
   parg = "argument" if len(pre_dashes) == 1 else "arguments"
 
-  u.err(f"\nThe {parg} '{joined}' {pwas} supplied after required arguments "
-        f"but before the '--' separator and {pwas} not properly parsed.\n\n")
-  u.err(f"if you meant to pass these as script_args, try "
-        f"moving them after the --, like this:\n\n")
-  u.err(f"caliban {' '.join(before_pre_dashes)} -- {joined} {expected_s}\n\n")
-  u.err(f"Otherwise, if these are in fact caliban keyword arguments, "
-        f"please move them before the python script/module name argument.\n\n")
+  u.err(
+      """\nThe {} '{}' {} supplied after required arguments but before the '--' separator and {} not properly parsed.\n\n"""
+      .format(parg, joined, pwas, pwas))
+  u.err("if you meant to pass these as script_args, try "
+        "moving them after the --, like this:\n\n")
+  u.err("caliban {} -- {} {}\n\n".format(' '.join(before_pre_dashes), joined,
+                                         expected_s))
+  u.err("Otherwise, if these are in fact caliban keyword arguments, "
+        "please move them before the python script/module name argument.\n\n")
   sys.exit(1)
 
 
@@ -112,8 +114,8 @@ def require_module(parser):
       "module",
       type=u.validated_package,
       help=
-      f"Code to execute, in either trainer.train' or 'trainer/train.py' format. "
-      f"Accepts python scripts, modules or a path to an arbitrary script.")
+      "Code to execute, in either trainer.train' or 'trainer/train.py' format. "
+      "Accepts python scripts, modules or a path to an arbitrary script.")
 
 
 def setup_extras(parser):
@@ -166,22 +168,22 @@ def region_arg(parser):
   parser.add_argument(
       "--region",
       type=ct.parse_region,
-      help=f"Region to use for Cloud job submission and image persistence. "
-      f"Must be one of {regions}. "
-      f"(Defaults to $REGION or '{conf.DEFAULT_REGION.value}'.)")
+      help="Region to use for Cloud job submission and image persistence. " +
+      "Must be one of {}. ".format(regions) +
+      "(Defaults to $REGION or '{}'.)".format(conf.DEFAULT_REGION.value))
 
 
 def cloud_key_arg(parser):
   parser.add_argument("--cloud_key",
                       type=u.validated_file,
-                      help=f"Path to GCloud service account key. "
-                      f"(Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)")
+                      help="Path to GCloud service account key. "
+                      "(Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)")
 
 
 def image_id_arg(parser):
   parser.add_argument(
       "--image_id",
-      help=f"Docker image ID accessible in the local Docker registry. "
+      help="Docker image ID accessible in the local Docker registry. "
       "If supplied, Caliban will skip the 'docker build' step and use this image."
   )
 
@@ -189,8 +191,8 @@ def image_id_arg(parser):
 def image_tag_arg(parser):
   parser.add_argument(
       "--image_tag",
-      help=f"Docker image tag accessible via Container Registry. If supplied, "
-      f"Caliban will skip the build and push steps and use this image tag.")
+      help="Docker image tag accessible via Container Registry. If supplied, "
+      "Caliban will skip the build and push steps and use this image tag.")
 
 
 def machine_type_arg(parser):
@@ -198,12 +200,12 @@ def machine_type_arg(parser):
   cpu_default = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.CPU].value
   gpu_default = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.GPU].value
 
-  parser.add_argument(
-      "--machine_type",
-      type=ct.parse_machine_type,
-      help=f"Cloud machine type to request. Must be one of "
-      f"{machine_types}. Defaults to '{gpu_default}' in GPU mode, or '{cpu_default}' "
-      f"if --nogpu is passed.")
+  parser.add_argument("--machine_type",
+                      type=ct.parse_machine_type,
+                      help="Cloud machine type to request. Must be one of " +
+                      "{}. Defaults to '{}' in GPU mode, or '{}' ".format(
+                          machine_types, gpu_default, cpu_default) +
+                      "if --nogpu is passed.")
 
 
 # Parsers for each command supported by Caliban.
@@ -250,7 +252,7 @@ def shell_parser(base):
       choices=docker.Shell,
       type=docker.Shell,
       help=
-      f"""This argument sets the shell used inside the container to one of Caliban's
+      """This argument sets the shell used inside the container to one of Caliban's
 supported shells. Defaults to the shell specified by the $SHELL environment
 variable, or 'bash' if your shell isn't supported.""")
   parser.add_argument(
@@ -306,9 +308,9 @@ def gpu_spec_arg(parser, validate_count: bool = False):
       "--gpu_spec",
       metavar=ct.GPUSpec.METAVAR,
       type=lambda x: ct.GPUSpec.parse_arg(x, validate_count=validate_count),
-      help=f"Type and number of GPUs to use for each AI Platform/GKE "
-      f"submission.  Defaults to 1x{conf.DEFAULT_GPU.name} in GPU mode "
-      f"or None if --nogpu is passed.")
+      help="Type and number of GPUs to use for each AI Platform/GKE " +
+      "submission.  Defaults to 1x{} in GPU mode ".format(
+          conf.DEFAULT_GPU.name) + "or None if --nogpu is passed.")
 
 
 def tpu_spec_arg(parser, validate_count: bool = True):
@@ -316,8 +318,8 @@ def tpu_spec_arg(parser, validate_count: bool = True):
       "--tpu_spec",
       metavar=ct.TPUSpec.METAVAR,
       type=lambda x: ct.TPUSpec.parse_arg(x, validate_count=validate_count),
-      help=f"Type and number of TPUs to request for each "
-      f"AI Platform/GKE submission. Defaults to None.")
+      help="Type and number of TPUs to request for each "
+      "AI Platform/GKE submission. Defaults to None.")
 
 
 def force_arg(parser):
@@ -379,13 +381,13 @@ def cloud_parser(base):
 def caliban_parser():
   """Creates and returns the argparse instance for the entire Caliban app."""
 
-  parser = argparse_flags.ArgumentParser(description=f"""Docker and AI
+  parser = argparse_flags.ArgumentParser(description="""Docker and AI
   Platform model training and development script. For detailed
   documentation, visit http://go/caliban""",
                                          prog="caliban")
   parser.add_argument('--version',
                       action='version',
-                      version=f"%(prog)s {__version__}")
+                      version="%(prog)s {}".format(__version__))
 
   subparser = parser.add_subparsers(dest="command")
   subparser.required = True
@@ -406,12 +408,11 @@ def caliban_parser():
 def mac_gpu_check(job_mode: conf.JobMode, command: str) -> None:
   """If the command depends on 'docker run' and is running on a Mac, fail fast."""
   if conf.gpu(job_mode) and command in ("shell", "notebook", "run"):
+    u.err("\n'caliban {}' doesn't support GPU usage on Macs! Please pass ".
+          format(command) + "--nogpu to use this command.\n\n")
     u.err(
-        f"\n'caliban {command}' doesn't support GPU usage on Macs! Please pass "
-        f"--nogpu to use this command.\n\n")
-    u.err(
-        f"(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs "
-        f"locally.)\n\n")
+        "(GPU mode is fine for 'caliban cloud' from a Mac; just nothing that runs "
+        "locally.)\n\n")
     sys.exit(1)
 
 
@@ -422,8 +423,8 @@ def _validate_no_gpu_type(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec]):
   """
   gpu_disabled = not use_gpu
   if gpu_disabled and gpu_spec is not None:
-    u.err(f"\n'--nogpu' is incompatible with an explicit --gpu_spec option. "
-          f"Please remove one or the other!\n\n")
+    u.err("\n'--nogpu' is incompatible with an explicit --gpu_spec option. "
+          "Please remove one or the other!\n\n")
     sys.exit(1)
 
 
@@ -439,9 +440,9 @@ def _validate_machine_type(gpu_spec: Optional[ct.GPUSpec],
       # prefixes stick together.
       allowed = u.enum_vals(gpu_spec.allowed_machine_types())
       allowed.sort()
-      u.err(f"\n'{machine_type.value}' isn't a valid machine type "
-            f"for {gpu_spec.count} {gpu_spec.gpu.name} GPUs.\n\n")
-      u.err(ct.with_gpu_advice_suffix(f"Try one of these: {allowed}"))
+      u.err("\n'{}' isn't a valid machine type ".format(machine_type.value) +
+            "for {} {} GPUs.\n\n".format(gpu_spec.count, gpu_spec.gpu.name))
+      u.err(ct.with_gpu_advice_suffix("Try one of these: {}".format(allowed)))
       u.err("\n")
       sys.exit(1)
 
@@ -460,13 +461,12 @@ def _validate_accelerator_region(spec: Optional[Union[ct.GPUSpec, ct.TPUSpec]],
       # prefixes stick together.
       allowed = u.enum_vals(spec.allowed_regions())
       allowed.sort()
-      u.err(f"\n'{region.value}' isn't a valid region "
-            f"for {accel}s of type {spec.name}.\n\n")
-      u.err(f"Try one of these: {allowed}\n\n")
-      u.err(
-          f"See this page for more info about regional "
-          f"support for {accel}s: https://cloud.google.com/ml-engine/docs/regions\n"
-      )
+      u.err("\n'{}' isn't a valid region ".format(region.value) +
+            "for {}s of type {}.\n\n".format(accel, spec.name))
+      u.err("Try one of these: {}\n\n".format(allowed))
+      u.err("See this page for more info about regional " +
+            "support for {}s: https://cloud.google.com/ml-engine/docs/regions\n"
+            .format(accel))
       sys.exit(1)
 
 
@@ -669,10 +669,10 @@ def cluster_job_submit_cmd(base):
 
 # ----------------------------------------------------------------------------
 def job_file_arg(parser):
-  parser.add_argument(
-      'job_file',
-      type=gke_u.validate_job_filename,
-      help=f'kubernetes k8s job file {gke_k.VALID_JOB_FILE_EXT}')
+  parser.add_argument('job_file',
+                      type=gke_u.validate_job_filename,
+                      help='kubernetes k8s job file {}'.format(
+                          gke_k.VALID_JOB_FILE_EXT))
 
 
 # ----------------------------------------------------------------------------
@@ -680,13 +680,13 @@ def job_export_arg(parser):
   parser.add_argument(
       '--export',
       type=gke_u.validate_job_filename,
-      help=(
-          f'Export job spec(s) to file, extension must be one of '
-          f'{gke_k.VALID_JOB_FILE_EXT} (for example: --export my-job-spec.yaml) '
-          f'For multiple jobs (i.e. in an experiment config scenario), '
-          f'multiple files will be generated with an index inserted '
-          f'(for example: --export my-job-spec.yaml would yield '
-          f'my-job-spec_0.yaml, my-job-spec_1.yaml...)'))
+      help=('Export job spec(s) to file, extension must be one of ' +
+            '{} (for example: --export my-job-spec.yaml) '.format(
+                gke_k.VALID_JOB_FILE_EXT) +
+            'For multiple jobs (i.e. in an experiment config scenario), ' +
+            'multiple files will be generated with an index inserted ' +
+            '(for example: --export my-job-spec.yaml would yield ' +
+            'my-job-spec_0.yaml, my-job-spec_1.yaml...)'))
 
 
 # ----------------------------------------------------------------------------

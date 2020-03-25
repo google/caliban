@@ -27,8 +27,8 @@ class TypesTestSuite(unittest.TestCase):
     NOT the name string for the enum.
 
     """
-    self.assertEquals(ct.MachineType.standard_8,
-                      ct.parse_machine_type("n1-standard-8"))
+    self.assertEqual(ct.MachineType.standard_8,
+                     ct.parse_machine_type("n1-standard-8"))
 
     with self.assertRaises(ArgumentTypeError):
       ct.parse_machine_type("random-string")

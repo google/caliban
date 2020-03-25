@@ -40,7 +40,9 @@ DRY_RUN_FLAG = "--dry_run"
 # Defaults for various input values that we can supply given some partial set
 # of info from the CLI.
 DEFAULT_REGION = ct.US.central1
-DEFAULT_MACHINE_TYPE: Dict[JobMode, ct.MachineType] = {
+
+# : Dict[JobMode, ct.MachineType]
+DEFAULT_MACHINE_TYPE = {
     JobMode.CPU: ct.MachineType.highcpu_32,
     JobMode.GPU: ct.MachineType.standard_8
 }
@@ -91,7 +93,8 @@ def valid_json(path: str) -> Dict[str, Any]:
     return load_config(path, mode='json')
   except commentjson.JSONLibraryException:
     raise argparse.ArgumentTypeError(
-        f"""File '{path}' doesn't seem to contain valid JSON. Try again!""")
+        """File '{}' doesn't seem to contain valid JSON. Try again!""".format(
+            path))
 
 
 def extract_script_args(m: Dict[str, Any]) -> List[str]:
@@ -116,7 +119,7 @@ def extract_project_id(m: Dict[str, Any]) -> str:
   if project_id is None:
     print()
     print(
-        f"\nNo project_id found. 'caliban cloud' requires that you either set a \n\
+        "\nNo project_id found. 'caliban cloud' requires that you either set a \n\
 $PROJECT_ID environment variable with the ID of your Cloud project, or pass one \n\
 explicitly via --project_id. Try again, please!")
     print()
@@ -138,7 +141,7 @@ def extract_region(m: Dict[str, Any]) -> ct.Region:
 
 
 def extract_zone(m: Dict[str, Any]) -> str:
-  return f"{extract_region(m)}-a"
+  return "{}-a".format(extract_region(m))
 
 
 def extract_cloud_key(m: Dict[str, Any]) -> Optional[str]:
@@ -178,23 +181,22 @@ def validate_compound_keys(m: ExpConf) -> ExpConf:
   def check_k(k):
     if not isinstance(k, str):
       raise argparse.ArgumentTypeError(
-          f"Key '{k}' is invalid! Keys must be strings.")
+          "Key '{}' is invalid! Keys must be strings.".format(k))
 
     valid_re_str = "[^\s\,\]\[]+"
-    list_re = re.compile(
-        f'\A({valid_re_str}|\[\s*({valid_re_str})(\s*,\s*{valid_re_str})*\s*\])\Z'
-    )
+    list_re = re.compile('\A({}|\[\s*({})(\s*,\s*{})*\s*\])\Z'.format(
+        valid_re_str, valid_re_str, valid_re_str))
 
     if list_re.match(k) is None:
       raise argparse.ArgumentTypeError(
-          f"Key '{k}' is invalid! Not a valid compound key.")
+          "Key '{}' is invalid! Not a valid compound key.".format(k))
 
   def check_v(v):
     types = [list, bool, str, int, float]
     if not any(map(lambda t: isinstance(v, t), types)):
-      raise argparse.ArgumentTypeError(f"Value '{v}' in the expanded \
-    experiment config '{m}' is invalid! Values must be strings, \
-    lists, ints, floats or bools.")
+      raise argparse.ArgumentTypeError("Value '{}' in the expanded \
+    experiment config '{}' is invalid! Values must be strings, \
+    lists, ints, floats or bools.".format(v, m))
 
   def check_kv_compatibility(k, v):
     """ For already validated k and v, check that
@@ -205,19 +207,18 @@ def validate_compound_keys(m: ExpConf) -> ExpConf:
       n_args = len(k.strip('][').split(','))
       if not (isinstance(v, list)):
         raise argparse.ArgumentTypeError(
-            f"Key '{k}' and value '{v}' are incompatible: \
-                key is compound, but value is not.")
+            "Key '{}' and value '{}' are incompatible: \
+                key is compound, but value is not.".format(k, v))
       else:
         if isinstance(v[0], list):
           for vi in v:
             if len(vi) != n_args:
-              raise argparse.ArgumentTypeError(
-                  f"Key '{k}' and value '{vi}' have \
-                              incompatible arities.")
+              raise argparse.ArgumentTypeError("Key '{}' and value '{}' have \
+                              incompatible arities.".format(k, vi))
         else:
           if len(v) != n_args:
-            raise argparse.ArgumentTypeError(f"Key '{k}' and value '{v}' have \
-                            incompatible arities.")
+            raise argparse.ArgumentTypeError("Key '{}' and value '{}' have \
+                            incompatible arities.".format(k, v))
 
   if isinstance(m, list):
     return [validate_compound_keys(i) for i in m]
@@ -247,12 +248,12 @@ def validate_expansion(m: Expansion) -> Expansion:
   for k, v in m.items():
     if not valid_k(k):
       raise argparse.ArgumentTypeError(
-          f"Key '{k}' is invalid! Keys must be strings.")
+          "Key '{}' is invalid! Keys must be strings.".format(k))
 
     if not valid_v(v):
-      raise argparse.ArgumentTypeError(f"Value '{v}' in the expanded \
-experiment config '{m}' is invalid! Values must be strings, \
-lists, ints, floats or bools.")
+      raise argparse.ArgumentTypeError("Value '{}' in the expanded \
+experiment config '{}' is invalid! Values must be strings, \
+lists, ints, floats or bools.".format(v, m))
 
   return m
 
@@ -267,7 +268,7 @@ def validate_experiment_config(items: ExpConf) -> ExpConf:
   if isinstance(items, list) or isinstance(items, dict):
     validate_compound_keys(items)
   else:
-    raise argparse.ArgumentTypeError(f"The experiment config is invalid! \
+    raise argparse.ArgumentTypeError("The experiment config is invalid! \
     The JSON file must contain either a dict or a list.")
 
   for item in expand_experiment_config(items):
@@ -304,13 +305,13 @@ def experiment_to_args(m: Experiment,
   ret = [] + base
 
   for k, v in m.items():
-    opt = f"--{k}"
+    opt = "--{}".format(k)
     if isinstance(v, bool):
       # Append a flag if the boolean flag is true, else do nothing.
       if v:
         ret.append(opt)
     else:
-      ret.append(f"--{k}")
+      ret.append("--{}".format(k))
       ret.append(str(v))
 
   return ret

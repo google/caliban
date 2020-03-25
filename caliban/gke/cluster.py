@@ -1,55 +1,49 @@
 """cluster abstraction for gcloud/gke"""
 
-from __future__ import annotations  # this is for 'forward-decl' type hinting
-
-from typing import Optional, List, Tuple, Dict, Any, Union
-from enum import Enum
+import json
+import logging
 import os
-from argparse import REMAINDER, ArgumentTypeError
+import pprint as pp
 import re
 import sys
-import json
-
-# silence warnings about ssl connection not being verified
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from argparse import REMAINDER, ArgumentTypeError
+from enum import Enum
+from time import sleep
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import google
-from google.cloud.container_v1 import ClusterManagerClient
-from google.cloud.container_v1.types import Cluster as GKECluster, NodePool
+import google.auth.environment_vars as auth_env
+import googleapiclient
+import kubernetes
+import requests
+# silence warnings about ssl connection not being verified
+import urllib3
+import yaml
 from google.auth import compute_engine
 from google.auth.credentials import Credentials
-import google.auth.environment_vars as auth_env
+from google.cloud.container_v1 import ClusterManagerClient
+from google.cloud.container_v1.types import Cluster as GKECluster
+from google.cloud.container_v1.types import NodePool
 from google.oauth2 import service_account
-
-import googleapiclient
 from googleapiclient import discovery
-
-import kubernetes
-from kubernetes.client import (V1Job, V1ObjectMeta, V1JobSpec, V1Pod,
-                               V1Container, V1EnvVar, V1PodTemplateSpec,
-                               V1ResourceRequirements, V1PodSpec, V1Toleration,
-                               V1DaemonSet)
-
-import logging
-import json
+from googleapiclient.http import HttpRequest
+from kubernetes.client import (V1Container, V1DaemonSet, V1EnvVar, V1Job,
+                               V1JobSpec, V1ObjectMeta, V1Pod, V1PodSpec,
+                               V1PodTemplateSpec, V1ResourceRequirements,
+                               V1Toleration)
 
 import caliban
 import caliban.cli as cli
-import caliban.util as u
 import caliban.config as conf
-from caliban.cloud.types import (TPU, GPU, Accelerator, parse_machine_type,
-                                 MachineType, GPUSpec, TPUSpec)
-
-import caliban.gke.utils as utils
-from caliban.gke.utils import trap
 import caliban.gke.constants as k
-from caliban.gke.types import NodeImage, OpStatus
+import caliban.gke.utils as utils
+import caliban.util as u
+from caliban.cloud.types import (GPU, TPU, Accelerator, GPUSpec, MachineType,
+                                 TPUSpec, parse_machine_type)
+from caliban.gke.types import NodeImage, OpStatus, ReleaseChannel
+from caliban.gke.utils import trap
 
-import pprint as pp
-from time import sleep
-import requests
-import yaml
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ----------------------------------------------------------------------------
 # tone down logging from discovery
@@ -176,7 +170,7 @@ def _cluster_create_request_body(project_id: str, zone: str,
 
   return {
       'cluster': cluster_spec,
-      'parent': f'projects/{project_id}/locations/{zone}'
+      'parent': 'projects/{}/locations/{}'.format(project_id, zone)
   }
 
 
@@ -230,7 +224,7 @@ class Cluster(object):
     # ok, now we set up the kubernetes api using our cluster info and
     # credentials
     cfg = kubernetes.client.Configuration()
-    cfg.host = f'https://{self._gke_cluster.endpoint}:443'
+    cfg.host = 'https://{}:443'.format(self._gke_cluster.endpoint)
     cfg.verify_ssl = False  #True #todo: figure out how to do this properly
     #cfg.ssl_ca_cert = c.master_auth.cluster_ca_certificate
     cfg.api_key = {'authorization': 'Bearer ' + self.credentials.token}
@@ -287,7 +281,7 @@ class Cluster(object):
 
     cluster_dict = dict([(c.name, c) for c in cluster_list])
     if self.name not in cluster_dict:
-      logging.error(f'cluster {self.name} not found')
+      logging.error('cluster {} not found'.format(self.name))
       return False
 
     self._gke_cluster = cluster_dict[self.name]
@@ -322,7 +316,7 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @staticmethod
   def get(name: Optional[str], project_id: str, zone: str,
-          creds: Credentials) -> Optional(Cluster):
+          creds: Credentials) -> "Optional[Cluster]":
     """factory method for generating Cluster object
 
     Note that this also calls connect(), so the resulting cluster is
@@ -381,7 +375,8 @@ class Cluster(object):
               count
       }
 
-    logging.error(f'error: invalid accelerator type: {type(accelerator)}')
+    logging.error('error: invalid accelerator type: {}'.format(
+        type(accelerator)))
 
     return None
 
@@ -513,7 +508,7 @@ class Cluster(object):
   @connected(None)
   def submit_job(self,
                  job: V1Job,
-                 namespace: str = k.DEFAULT_NAMESPACE) -> Optional(V1Job):
+                 namespace: str = k.DEFAULT_NAMESPACE) -> Optional[V1Job]:
     """submits kubernetes job to cluster
 
     Args:
@@ -535,8 +530,8 @@ class Cluster(object):
       self,
       name: str,
       image: str,
-      command: Optional(List[str]) = None,
-      args: Optional(List[str]) = None,
+      command: Optional[List[str]] = None,
+      args: Optional[List[str]] = None,
       env: Dict[str, str] = {},
       accelerator: Optional[Accelerator] = None,
       accelerator_count: int = 1,
@@ -545,7 +540,7 @@ class Cluster(object):
       preemptible: bool = True,
       labels: Optional[Dict[str, str]] = None,
       preemptible_tpu: bool = True,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional(V1Job):
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[V1Job]:
     """creates a simple kubernetes job (1 container, 1 pod) for this cluster
 
     Args:
@@ -629,8 +624,8 @@ class Cluster(object):
       self,
       name: str,
       image: str,
-      command: Optional(List[str]) = None,
-      args: Optional(List[str]) = None,
+      command: Optional[List[str]] = None,
+      args: Optional[List[str]] = None,
       env: Dict[str, str] = {},
       accelerator: Optional[Accelerator] = None,
       accelerator_count: int = 1,
@@ -638,7 +633,7 @@ class Cluster(object):
       preemptible: bool = True,
       labels: Optional[Dict[str, str]] = None,
       preemptible_tpu: bool = True,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional(V1Job):
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[V1Job]:
     """submits a simple kubernetes job (1 container, 1 pod) for this cluster
 
     Args:
@@ -684,7 +679,7 @@ class Cluster(object):
       name: str,
       image: str,
       experiments: Iterable[conf.Experiment],
-      command: Optional(List[str]) = None,
+      command: Optional[List[str]] = None,
       args: Optional[List[str]] = None,
       env: Dict[str, str] = {},
       accelerator: Optional[Accelerator] = None,
@@ -785,8 +780,8 @@ class Cluster(object):
 
     md = job.metadata
 
-    url = f'{k.DASHBOARD_JOB_URL}/{self.zone}/{self.name}'
-    url += f'/{md.namespace}/{md.name}'
+    url = '{}/{}/{}'.format(k.DASHBOARD_JOB_URL, self.zone, self.name)
+    url += '/{}/{}'.format(md.namespace, md.name)
 
     return url
 
@@ -816,9 +811,8 @@ class Cluster(object):
     # for some reason, autoprovisioning data is not in the _gke_cluster
     # instance, so we query using the container api here
     rsp = container_api.projects().locations().clusters().get(
-        name=
-        f'projects/{self.project_id}/locations/{self.zone}/clusters/{self.name}'
-    ).execute()
+        name='projects/{}/locations/{}/clusters/{}'.format(
+            self.project_id, self.zone, self.name)).execute()
 
     if rsp is None:
       logging.error('error getting cluster info')
@@ -896,7 +890,7 @@ class Cluster(object):
   def apply_daemonset(
       self,
       daemonset: V1DaemonSet,
-      namespace: str = k.DEFAULT_NAMESPACE) -> Optional(V1DaemonSet):
+      namespace: str = k.DEFAULT_NAMESPACE) -> Optional[V1DaemonSet]:
     """applies daemonset to cluster
 
     Args:
@@ -915,7 +909,7 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @connected(None)
   def apply_daemonset_from_url(
-      self, url: str, parser: Callable[[str], dict]) -> Optional(V1DaemonSet):
+      self, url: str, parser: Callable[[str], dict]) -> Optional[V1DaemonSet]:
     """applies daemonset to cluster from file url
 
     Args:
@@ -928,7 +922,7 @@ class Cluster(object):
 
     response = requests.get(url)
     if response.status_code != requests.codes.ok:
-      print(f'error getting data from {url}')
+      print('error getting data from {}'.format(url))
       return None
 
     body = parser(response.content)
@@ -956,8 +950,8 @@ class Cluster(object):
                                              zone=self.zone,
                                              cluster_id=self.name)
 
-    print(f'deleting cluster {self.name}...')
-    print(f'visit {self.dashboard_url()} to monitor deletion progress')
+    print('deleting cluster {}...'.format(self.name))
+    print('visit {} to monitor deletion progress'.format(self.dashboard_url()))
 
     return
 
@@ -1024,7 +1018,7 @@ class Cluster(object):
 
     rz = _parse_zone(zone)
     if rz is None:
-      logging.error(f'invalid zone specified: {zone}')
+      logging.error('invalid zone specified: {}'.format(zone))
       return
 
     region, _ = rz
@@ -1047,7 +1041,7 @@ class Cluster(object):
       node_zones = utils.get_zones_in_region(compute_api, project_id, region)
 
     if node_zones is None:
-      logging.error(f'error getting zones for region {region}')
+      logging.error('error getting zones for region {}'.format(region))
       return
 
     request_body = _cluster_create_request_body(
@@ -1063,7 +1057,7 @@ class Cluster(object):
   @staticmethod
   @trap(None, silent=False)
   def create(cluster_api: discovery.Resource, creds: Credentials,
-             request: HttpRequest, project_id: str) -> Optional[Cluster]:
+             request: HttpRequest, project_id: str) -> "Optional[Cluster]":
     '''create cluster
 
     Note that this is a blocking call.
@@ -1095,10 +1089,11 @@ class Cluster(object):
     operation_name = rsp['name']
     rsp = utils.wait_for_operation(
         cluster_api,
-        f'projects/{project_id}/locations/{zone}/operations/{operation_name}')
+        'projects/{}/locations/{}/operations/{}'.format(project_id, zone,
+                                                        operation_name))
 
     if rsp['status'] != OpStatus.DONE.value:
-      logging.error(f'error creating cluster {cluster_name}!')
+      logging.error('error creating cluster {}!'.format(cluster_name))
       return
 
     # get our newly-created cluster
@@ -1108,14 +1103,14 @@ class Cluster(object):
                           creds=creds)
 
     if cluster is None:
-      logging.error(f'error: unable to connect to cluster {cluster_name}')
       logging.error(
-          f'nvidia-driver daemonset not applied, to do this manually:')
-      logging.error(f'kubectl apply -f {daemonset_url}')
+          'error: unable to connect to cluster {}'.format(cluster_name))
+      logging.error('nvidia-driver daemonset not applied, to do this manually:')
+      logging.error('kubectl apply -f {}'.format(daemonset_url))
       return
 
-    logging.info(f'created cluster {cluster_name} successfully')
-    logging.info(f'applying nvidia driver daemonset...')
+    logging.info('created cluster {} successfully'.format(cluster_name))
+    logging.info('applying nvidia driver daemonset...')
 
     rsp = cluster.apply_daemonset_from_url(
         daemonset_url, lambda x: yaml.load(x, Loader=yaml.FullLoader))

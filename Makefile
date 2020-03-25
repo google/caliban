@@ -38,7 +38,7 @@ clean-files:
 .PHONY: install
 install:
 	rm -rf $(ENV_NAME)
-	virtualenv -p python3 --no-site-packages $(ENV_NAME)
+	virtualenv -p python3.5 --no-site-packages $(ENV_NAME)
 	$(PIP) install -r requirements-dev.txt && $(PIP) install -e .
 
 .PHONY: test
@@ -61,6 +61,12 @@ lint: pre-commit
 .PHONY: pre-commit
 pre-commit: $(ENV_ACT) pre-commit run --all-files
 
+.PHONY: push
+push:
+	git push origin master
+	git push --tags
+	git push $(SCR_REPO) master
+	git push $(SCR_REPO) --tags
+
 .PHONY: release
-release:
-  # push master, tags, google, google tags
+release: push

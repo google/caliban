@@ -112,7 +112,7 @@ def run_app(arg_input):
                         script_args=script_args,
                         experiment_config=exp_config)
   else:
-    logging.info(f"Unknown command: {command}")
+    logging.info("Unknown command: {}".format(command))
     sys.exit(1)
 
 
@@ -126,7 +126,7 @@ def main():
   except docker.DockerError as e:
     # Handle a failed Docker command.
     logging.error(t.red(e.message))
-    logging.error(t.red(f"Original command: {e.command}"))
+    logging.error(t.red("Original command: {}".format(e.command)))
     sys.exit(0)
 
 

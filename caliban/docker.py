@@ -23,10 +23,10 @@ import caliban.util as u
 
 t = Terminal()
 
-DEV_CONTAINER_ROOT: str = "gcr.io/blueshift-playground/blueshift"
-TF_VERSIONS: Set[str] = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
-DEFAULT_WORKDIR: str = "/usr/app"
-CREDS_DIR: str = "/.creds"
+DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
+TF_VERSIONS = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
+DEFAULT_WORKDIR = "/usr/app"
+CREDS_DIR = "/.creds"
 
 ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
@@ -65,13 +65,10 @@ class Shell(Enum):
     return self.value
 
 
-class ShellData(NamedTuple):
-  """Tuple to track the information required to install and execute some custom
-  shell into a container.
-
-  """
-  executable: str
-  install_cmds: List[str]
+# Tuple to track the information required to install and execute some custom
+# shell into a container.
+ShellData = NamedTuple("ShellData", [("executable", str),
+                                     ("install_cmds", List[str])])
 
 
 def apt_install(*packages: str) -> str:
@@ -80,7 +77,7 @@ def apt_install(*packages: str) -> str:
 
   """
   package_str = ' '.join(packages)
-  return f"apt-get install --yes --no-install-recommends {package_str}"
+  return "apt-get install --yes --no-install-recommends {}".format(package_str)
 
 
 def apt_command(commands: List[str]) -> List[str]:
@@ -95,7 +92,9 @@ def apt_command(commands: List[str]) -> List[str]:
 
 # Dict linking a particular supported shell to the data required to run and
 # install the shell inside a container.
-SHELL_DICT: Dict[Shell, ShellData] = {
+#
+# : Dict[Shell, ShellData]
+SHELL_DICT = {
     Shell.bash: ShellData("/bin/bash", []),
     Shell.zsh: ShellData("/bin/zsh", apt_command([apt_install("zsh")]))
 }
@@ -123,7 +122,8 @@ def adc_location(home_dir: Optional[str] = None) -> str:
   if home_dir is None:
     home_dir = Path.home()
 
-  return f"{home_dir}/.config/gcloud/application_default_credentials.json"
+  return "{}/.config/gcloud/application_default_credentials.json".format(
+      home_dir)
 
 
 def container_home():
@@ -131,7 +131,7 @@ def container_home():
   container.
 
   """
-  return f"/home/{u.current_user()}"
+  return "/home/{}".format(u.current_user())
 
 
 def tf_base_image(job_mode: c.JobMode, tensorflow_version: str) -> str:
@@ -143,11 +143,11 @@ def tf_base_image(job_mode: c.JobMode, tensorflow_version: str) -> str:
 
   """
   if tensorflow_version not in TF_VERSIONS:
-    raise Exception(f"""{tensorflow_version} is not a valid tensorflow version.
-    Try one of: {TF_VERSIONS}""")
+    raise Exception("""{} is not a valid tensorflow version.
+    Try one of: {}""".format(tensorflow_version, TF_VERSIONS))
 
   gpu = "-gpu" if c.gpu(job_mode) else ""
-  return f"tensorflow/tensorflow:{tensorflow_version}{gpu}-py3"
+  return "tensorflow/tensorflow:{}{}-py3".format(tensorflow_version, gpu)
 
 
 def base_image_suffix(job_mode: c.JobMode) -> str:
@@ -157,7 +157,7 @@ def base_image_suffix(job_mode: c.JobMode) -> str:
 def base_image_id(job_mode: c.JobMode) -> str:
   """Returns the default base image for all caliban Dockerfiles."""
   base_suffix = base_image_suffix(job_mode)
-  return f"{DEV_CONTAINER_ROOT}:{base_suffix}"
+  return "{}:{}".format(DEV_CONTAINER_ROOT, base_suffix)
 
 
 def extras_string(extras: List[str]) -> str:
@@ -169,7 +169,7 @@ def extras_string(extras: List[str]) -> str:
   """
   ret = "."
   if len(extras) > 0:
-    ret += f"[{','.join(extras)}]"
+    ret += "[{}]".format(','.join(extras))
   return ret
 
 
@@ -209,16 +209,26 @@ def _dependency_entries(workdir: str,
   ret = ""
 
   if setup_extras is not None:
-    ret += f"""
+    ret += """
 COPY --chown={user_id}:{user_group} setup.py {workdir}
-RUN /bin/bash -c "pip install --no-cache-dir {extras_string(setup_extras)}"
-"""
+RUN /bin/bash -c "pip install --no-cache-dir {extras}"
+""".format_map({
+        "user_id": user_id,
+        "user_group": user_group,
+        "workdir": workdir,
+        "extras": extras_string(setup_extras)
+    })
 
   if requirements_path is not None:
-    ret += f"""
+    ret += """
 COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
-"""
+""".format_map({
+        "user_id": user_id,
+        "user_group": user_group,
+        "workdir": workdir,
+        "requirements_path": requirements_path
+    })
 
   return ret
 
@@ -234,7 +244,7 @@ def _package_entries(workdir: str, user_id: int, user_group: int,
   between files inside a project.
 
   """
-  owner = f"{user_id}:{user_group}"
+  owner = "{}:{}".format(user_id, user_group)
 
   arg = package.main_module or package.script_path
 
@@ -242,13 +252,18 @@ def _package_entries(workdir: str, user_id: int, user_group: int,
   # quotes.
   entrypoint_s = json.dumps(package.executable + [arg])
 
-  return f"""
+  return """
 # Copy project code into the docker container.
-COPY --chown={owner} {package.package_path} {workdir}/{package.package_path}
+COPY --chown={owner} {package_path} {workdir}/{package_path}
 
 # Declare an entrypoint that actually runs the container.
 ENTRYPOINT {entrypoint_s}
-  """
+  """.format_map({
+      "owner": owner,
+      "package_path": package.package_path,
+      "workdir": workdir,
+      "entrypoint_s": entrypoint_s
+  })
 
 
 def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
@@ -268,8 +283,8 @@ def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
   service account is present.
 
   """
-  container_creds = f"{docker_credentials_dir}/credentials.json"
-  ret = f"""
+  container_creds = "{}/credentials.json".format(docker_credentials_dir)
+  ret = """
 COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
 
 # Use the credentials file to activate gcloud, gsutil inside the container.
@@ -277,12 +292,17 @@ RUN gcloud auth activate-service-account --key-file={container_creds} && \
   git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
 
 ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
-"""
+""".format_map({
+      "user_id": user_id,
+      "user_group": user_group,
+      "credentials_path": credentials_path,
+      "container_creds": container_creds
+  })
 
   if write_adc_placeholder:
-    ret += f"""
-RUN echo "placeholder" >> {adc_location(container_home())}
-"""
+    ret += """
+RUN echo "placeholder" >> {}
+""".format(adc_location(container_home()))
 
   return ret
 
@@ -293,9 +313,14 @@ def _adc_entry(user_id: int, user_group: int, adc_path: str):
   directory.
 
   """
-  return f"""
-COPY --chown={user_id}:{user_group} {adc_path} {adc_location(container_home())}
-    """
+  return """
+COPY --chown={user_id}:{user_group} {adc_path} {adc_loc}
+    """.format_map({
+      "user_id": user_id,
+      "user_group": user_group,
+      "adc_path": adc_path,
+      "adc_loc": adc_location(container_home())
+  })
 
 
 def _credentials_entries(user_id: int,
@@ -340,13 +365,13 @@ def _notebook_entries(lab: bool = False, version: Optional[str] = None) -> str:
   version_suffix = ""
 
   if version is not None:
-    version_suffix = f"=={version}"
+    version_suffix = "=={}".format(version)
 
   library = "jupyterlab" if lab else "jupyter"
 
-  return f"""
-RUN pip install {library}{version_suffix}
-"""
+  return """
+RUN pip install {}{}
+""".format(library, version_suffix)
 
 
 def _custom_shell_entries(user_id: int,
@@ -363,13 +388,17 @@ def _custom_shell_entries(user_id: int,
 
   commands = SHELL_DICT[shell].install_cmds
   if len(commands) != 0:
-    ret = f"""
+    ret = """
 USER root
 
-RUN {" && ".join(commands)}
+RUN {commands}
 
 USER {user_id}:{user_group}
-"""
+""".format_map({
+        "commands": " && ".join(commands),
+        "user_id": user_id,
+        "user_group": user_group
+    })
 
   return ret
 
@@ -380,10 +409,14 @@ def _copy_dir_entry(workdir: str, user_id: int, user_group: int,
   from the current directory into a docker container during build.
 
   """
-  owner = f"{user_id}:{user_group}"
-  return f"""# Copy {dirname} into the Docker container.
+  owner = "{}:{}".format(user_id, user_group)
+  return """# Copy {dirname} into the Docker container.
 COPY --chown={owner} {dirname} {workdir}/{dirname}
-"""
+""".format_map({
+      "owner": owner,
+      "workdir": workdir,
+      "dirname": dirname
+  })
 
 
 def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
@@ -394,7 +427,7 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
   """
   ret = ""
   for d in extra_dirs:
-    ret += f"\n{_copy_dir_entry(workdir, user_id, user_group, d)}"
+    ret += "\n{}".format(_copy_dir_entry(workdir, user_id, user_group, d))
   return ret
 
 
@@ -444,7 +477,7 @@ def _dockerfile_template(
 
   base_image = base_image_fn(job_mode)
 
-  dockerfile = f"""
+  dockerfile = """
 FROM {base_image}
 
 # Create the same group we're using on the host machine.
@@ -455,14 +488,22 @@ RUN useradd --no-create-home -u {uid} -g {gid} --shell /bin/bash {username}
 
 # The directory is created by root. This sets permissions so that any user can
 # access the folder.
-RUN mkdir -m 777 {workdir} {CREDS_DIR} {container_home()}
+RUN mkdir -m 777 {workdir} {creds_dir} {c_home}
 
-ENV HOME={container_home()}
+ENV HOME={c_home}
 
 WORKDIR {workdir}
 
 USER {uid}:{gid}
-"""
+""".format_map({
+      "base_image": base_image,
+      "username": username,
+      "uid": uid,
+      "gid": gid,
+      "workdir": workdir,
+      "c_home": container_home(),
+      "creds_dir": CREDS_DIR
+  })
   dockerfile += _credentials_entries(uid,
                                      gid,
                                      adc_path=adc_path,
@@ -527,14 +568,14 @@ def build_image(job_mode: c.JobMode,
                                         **kwargs)
 
       joined_cmd = " ".join(cmd)
-      logging.info(f"Running command: {joined_cmd}")
+      logging.info("Running command: {}".format(joined_cmd))
 
       try:
         output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
         if ret_code == 0:
           return docker_image_id(output)
         else:
-          error_msg = f"Docker failed with error code {ret_code}."
+          error_msg = "Docker failed with error code {}.".format(ret_code)
           raise DockerError(error_msg, cmd, ret_code)
 
       except subprocess.CalledProcessError as e:
@@ -552,7 +593,7 @@ def _image_tag_for_project(project_id: str, image_id: str) -> str:
 
   """
   project_s = project_id.replace(":", "/")
-  return f"gcr.io/{project_s}/{image_id}:latest"
+  return "gcr.io/{}/{}:latest".format(project_s, image_id)
 
 
 def push_uuid_tag(project_id: str, image_id: str) -> str:
@@ -598,7 +639,7 @@ def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
   """
   ret = []
   if enable_home_mount:
-    ret = ["-v", f"{Path.home()}:{container_home()}"]
+    ret = ["-v", "{}:{}".format(Path.home(), container_home())]
   return ret
 
 
@@ -608,8 +649,8 @@ def _interactive_opts(workdir: str) -> List[str]:
   """
   return [
       "-w", workdir, \
-      "-u", f"{os.getuid()}:{os.getgid()}", \
-      "-v", f"{os.getcwd()}:{workdir}" \
+      "-u", "{}:{}".format(os.getuid(), os.getgid()), \
+      "-v", "{}:{}".format(os.getcwd(), workdir) \
   ]
 
 
@@ -619,7 +660,7 @@ def log_arg_instance(args: ArgSeq, i: int) -> ArgSeq:
 
   """
   logging.info("")
-  logging.info(f"Job {i} - Experiment args: {t.yellow(str(args))}")
+  logging.info("Job {} - Experiment args: {}".format(i, t.yellow(str(args))))
   return args
 
 
@@ -645,8 +686,8 @@ def execute_dry_run(experiments: Iterable[c.Experiment],
 
   logging.info('')
   logging.info(
-      t.yellow(f"To build your image and execute these jobs, \
-run your command again without {c.DRY_RUN_FLAG}."))
+      t.yellow("To build your image and execute these jobs, \
+run your command again without {}.".format(c.DRY_RUN_FLAG)))
   logging.info('')
   return None
 
@@ -658,10 +699,12 @@ def local_callback(ret_code: int, job_idx: int, script_args: List[str]) -> None:
 
   """
   if ret_code == 0:
-    logging.info(t.green(f"Job {job_idx} succeeded!"))
+    logging.info(t.green("Job {} succeeded!".format(job_idx)))
   else:
-    logging.error(t.red(f"Job {job_idx} failed with return code {ret_code}."))
-    logging.error(t.red(f"Failing args for job {job_idx}: {script_args}"))
+    logging.error(
+        t.red("Job {} failed with return code {}.".format(job_idx, ret_code)))
+    logging.error(
+        t.red("Failing args for job {}: {}".format(job_idx, script_args)))
 
 
 def execute_experiments(experiments: Iterable[c.Experiment],
@@ -682,7 +725,7 @@ def execute_experiments(experiments: Iterable[c.Experiment],
                      desc="Executing")
     for idx, script_args in enumerate(pbar, 1):
       command = base_cmd + script_args
-      logging.info(f"Running command: {' '.join(command)}")
+      logging.info("Running command: {}".format(' '.join(command)))
       _, ret_code = u.capture_stdout(command, "", u.TqdmFile(sys.stderr))
       local_callback(ret_code, idx, script_args)
 
@@ -772,7 +815,7 @@ def run(job_mode: c.JobMode,
 
   command = base_cmd + [image_id] + script_args
 
-  logging.info(f"Running command: {' '.join(command)}")
+  logging.info("Running command: {}".format(' '.join(command)))
   subprocess.call(command)
   return None
 
@@ -877,10 +920,10 @@ def run_notebook(job_mode: c.JobMode,
   jupyter_args = [
     "-m", "jupyter", jupyter_cmd, \
     "--ip=0.0.0.0", \
-    f"--port={port}", \
+    "--port={}".format(port), \
     "--no-browser"
   ]
-  docker_args = ["-p", f"{port}:{port}"] + run_args
+  docker_args = ["-p", "{}:{}".format(port, port)] + run_args
 
   run_interactive(job_mode,
                   entrypoint="/opt/venv/bin/python",

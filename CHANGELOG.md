@@ -8,6 +8,7 @@
   `requirements.txt` and `setup.py` of projects executed using Caliban.
 - `caliban notebook` now installs `jupyter` instead of `jupyterlab`. `caliban
   notebook --lab` of course still uses `jupyterlab`.
+- Caliban now works with Python 3.5.
 
 # 0.1.15
 

@@ -29,12 +29,9 @@ t = Terminal()
 # key and value for labels can be at most this-many-characters long.
 AI_PLATFORM_MAX_LABEL_LENGTH = 63
 
-
-class Package(NamedTuple):
-  executable: List[str]
-  package_path: str
-  script_path: str
-  main_module: Optional[str]
+Package = NamedTuple("Package", [("executable", List[str]),
+                                 ("package_path", str), ("script_path", str),
+                                 ("main_module", Optional[str])])
 
 
 def module_package(main_module: str) -> Package:
@@ -111,7 +108,7 @@ def any_of(value_s: str, union_type: Union) -> Any:
       break
 
   if ret is None:
-    raise ValueError(f"{value_s} isn't a value of any of {enums}")
+    raise ValueError("{} isn't a value of any of {}".format(value_s, enums))
 
   return ret
 
@@ -172,7 +169,7 @@ def _tupleize_compound_item(k: Union[Tuple, str], v: Any) -> Dict:
 
 def _tupleize_compound_key(k: str) -> List[str]:
   """ converts a JSON-input compound key into a tuple """
-  assert _is_compound_key(k), f"{k} must be a valid compound key"
+  assert _is_compound_key(k), "{} must be a valid compound key".format(k)
   return tuple([x.strip() for x in k.strip('][').split(',')])
 
 
@@ -222,10 +219,8 @@ def dict_product(m: Dict[Any, Any]) -> Iterable[Dict[Any, Any]]:
   def wrap_v(v):
     return v if isinstance(v, list) else [v]
 
-  cleaned = {k: wrap_v(v) for k, v in m.items()}
-
-  ks = cleaned.keys()
-  vs = cleaned.values()
+  ks = m.keys()
+  vs = (wrap_v(v) for v in m.values())
   return (dict(zip(ks, x)) for x in it.product(*vs))
 
 
@@ -341,7 +336,7 @@ class TempCopy(object):
 
   def __init__(self, original_path=None, tmp_name=None):
     if tmp_name is None:
-      self.tmp_path = f".{str(uuid.uuid1())}.json"
+      self.tmp_path = ".{}.json".format(str(uuid.uuid1()))
     else:
       self.tmp_path = tmp_name
 
@@ -469,14 +464,15 @@ def validated_package(path: str) -> Package:
 
   if not os.path.isdir(p.package_path):
     raise argparse.ArgumentTypeError(
-        f"""Directory '{p.package_path}' doesn't exist in directory. Code must be
-nested in a folder that exists in the current directory.""")
+        """Directory '{}' doesn't exist in directory. Code must be
+nested in a folder that exists in the current directory.""".format(
+            p.package_path))
 
   filename = p.script_path
   if not file_exists_in_cwd(filename):
     raise argparse.ArgumentTypeError(
-        f"""File '{filename}' doesn't exist locally as a script or python module; code
-must live inside the current directory.""")
+        """File '{}' doesn't exist locally as a script or python module; code
+must live inside the current directory.""".format(filename))
 
   return p
 
@@ -495,7 +491,7 @@ def parse_kv_pair(s: str) -> Tuple[str, str]:
 
   if len(items) <= 1:
     raise argparse.ArgumentTypeError(
-        f"Couldn't parse label '{s}' into k=v format.")
+        "Couldn't parse label '{}' into k=v format.".format(s))
 
   v = '='.join(items[1:])
   return (k, v)
@@ -591,8 +587,6 @@ def script_args_to_labels(script_args: Optional[List[str]]) -> Dict[str, str]:
 
   """
   ret = {}
-  if script_args is None or len(script_args) == 0:
-    return ret
 
   def process_pair(k, v):
     if _is_key(k):
@@ -600,12 +594,18 @@ def script_args_to_labels(script_args: Optional[List[str]]) -> Dict[str, str]:
       if clean_k != "":
         ret[clean_k] = "" if _is_key(v) else value_label(v)
 
-  for k, v in partition(script_args, 2):
-    process_pair(k, v)
+  if script_args is None or len(script_args) == 0:
+    return ret
+
+  elif len(script_args) == 1:
+    process_pair(script_args[0], None)
 
   # Handle the case where the final argument in the list is a boolean flag.
   # This won't get picked up by partition.
-  if len(script_args) > 1:
+  elif len(script_args) > 1:
+    for k, v in partition(script_args, 2):
+      process_pair(k, v)
+
     process_pair(script_args[-1], None)
 
   return ret
@@ -629,8 +629,8 @@ def validated_directory(path: str) -> str:
   """
   if not os.path.isdir(path):
     raise argparse.ArgumentTypeError(
-        f"""Directory '{path}' doesn't exist in this directory. Check yourself!"""
-    )
+        """Directory '{}' doesn't exist in this directory. Check yourself!""".
+        format(path))
   return path
 
 
@@ -641,7 +641,8 @@ def validated_file(path: str) -> str:
   expanded = os.path.expanduser(path)
   if not os.path.isfile(expanded):
     raise argparse.ArgumentTypeError(
-        f"""File '{path}' isn't a valid file on your system. Try again!""")
+        """File '{}' isn't a valid file on your system. Try again!""".format(
+            path))
   return path
 
 

@@ -23,11 +23,11 @@ def expansion_parser():
 
   parser = argparse_flags.ArgumentParser(
       description=
-      f"Experiment config expander. For documentation, visit http://go/caliban",
+      "Experiment config expander. For documentation, visit http://go/caliban",
       prog="expansion")
   parser.add_argument('--version',
                       action='version',
-                      version=f"%(prog)s {__version__}")
+                      version="%(prog)s {}".format(__version__))
   parser.add_argument("--pprint",
                       action="store_true",
                       help="Pretty-print the config to stdout.")
