@@ -483,3 +483,21 @@ class TPUSpec(NamedTuple('TPUSpec', [("tpu", TPU), ("count", int)])):
 
   def valid_region(self, region: Region) -> bool:
     return region in self.allowed_regions()
+
+
+# ----------------------------------------------------------------------------
+# CAIP job status, see:
+# https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs#Job
+# https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs#State
+class JobStatus(Enum):
+  STATE_UNSPECIFIED = 'STATE_UNSPECIFIED'
+  QUEUED = 'QUEUED'
+  PREPARING = 'PREPARING'
+  RUNNING = 'RUNNING'
+  SUCCEEDED = 'SUCCEEDED'
+  FAILED = 'FAILED'
+  CANCELLING = 'CANCELLING'
+  CANCELLED = 'CANCELLED'
+
+  def is_terminal(self) -> bool:
+    return self.value in ['SUCCEEDED', 'FAILED', 'CANCELLED']
