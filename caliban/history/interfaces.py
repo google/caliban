@@ -88,12 +88,8 @@ class Job(DictSerializable, Timestamped, Id, Named, User):
   '''interface for caliban job data
 
   A job is a single configuration of parameters for a single command.
-  A job is compute-platform *independent*
+  A job is compute-platform *independent*.
   '''
-
-  @abc.abstractmethod
-  def command(self) -> Optional[str]:
-    '''returns job command, or None for default container entrypoint'''
 
   @abc.abstractmethod
   def args(self) -> List[str]:
@@ -102,10 +98,6 @@ class Job(DictSerializable, Timestamped, Id, Named, User):
   @abc.abstractmethod
   def kwargs(self) -> Dict[str, str]:
     '''returns command keyword args'''
-
-  @abc.abstractmethod
-  def env(self) -> Dict[str, str]:
-    '''returns environment variables for job'''
 
   @abc.abstractmethod
   def runs(self) -> Iterable[Run]:
@@ -121,7 +113,7 @@ class Experiment(DictSerializable, Timestamped, Id, Named, User):
   '''interface for caliban experiment
 
   An experiment is a container instance and collection of jobs, and is
-  compute-platform *independent*
+  compute-platform *independent*.
   '''
 
   @abc.abstractmethod
@@ -131,6 +123,10 @@ class Experiment(DictSerializable, Timestamped, Id, Named, User):
   @abc.abstractmethod
   def jobs(self) -> Iterable[Job]:
     '''returns jobs associated with this experiment'''
+
+  @abc.abstractmethod
+  def command(self) -> Optional[str]:
+    '''returns command, or None for default container entrypoint'''
 
 
 # ----------------------------------------------------------------------------
@@ -208,22 +204,37 @@ class Collection(Queryable):
 
 # ----------------------------------------------------------------------------
 class Storage(abc.ABC):
-  '''history storage'''
+  '''history storage
+
+  This interface specifies the methods any storage backend will provide
+  for storing caliban experiments. Any storage backend will need to provide
+  a method for creating an experiment, and a method for accessing collections
+  in the store.
+
+  There are three types stored are Experiments, Jobs, and Runs. Each of these
+  types has more documentation on their use and scope, but the basic concept
+  is that we will store metadata from caliban submissions in such a way that
+  a user can review past submissions, query the status of submitted jobs, and
+  perform queries on past submissions, filtering on useful fields such as
+  arguments and dates.
+  '''
 
   @abc.abstractmethod
   def create_experiment(
       self,
       name: str,
       container: str,
+      command: Optional[str],
       configs: Optional[List[conf.Experiment]] = None,
       args: Optional[List[str]] = None,
-      user: str = None,
+      user: Optional[str] = None,
   ) -> Optional[Experiment]:
     '''creates a new experiment in the store
 
     Args:
     name: experiment name
     container: container id
+    command: command to execute, None = container default
     configs: list of job configurations
     args: list of common arguments for every job
     user: user creating this experiment, if None uses current user
