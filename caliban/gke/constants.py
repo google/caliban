@@ -28,7 +28,7 @@ DASHBOARD_CLUSTER_URL = 'https://pantheon.corp.google.com/kubernetes/clusters/de
 MAX_GB_PER_CPU = 64
 DEFAULT_CLUSTER_NAME = 'blueshift'
 VALID_JOB_FILE_EXT = ('.yaml', '.json')
-DEFAULT_RELEASE_CHANNEL = ReleaseChannel.RAPID
+DEFAULT_RELEASE_CHANNEL = ReleaseChannel.REGULAR
 CLUSTER_API_VERSION = 'v1beta1'
 
 # ----------------------------------------------------------------------------

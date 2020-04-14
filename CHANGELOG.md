@@ -9,6 +9,9 @@
 - `caliban notebook` now installs `jupyter` instead of `jupyterlab`. `caliban
   notebook --lab` of course still uses `jupyterlab`.
 - Caliban now works with Python 3.5.
+- The default release channel for gke clusters in caliban is now 'regular', as
+  node autoprovisioning now works with preemptible instances in the regular
+  channel.
 
 # 0.1.15
 
