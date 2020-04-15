@@ -382,6 +382,24 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
+  def container_requests(min_cpu: int, min_mem: int) -> Dict[str, str]:
+    '''generates container requests
+
+    Args:
+    min_cpu: minimum cpu needed, in milli-cpu
+    min_mem: minimum memory needed, in MB
+
+    Returns:
+    dictionary of requests
+    '''
+
+    return {
+        k.CONTAINER_RESOURCE_REQUEST_CPU: '{}m'.format(min_cpu),
+        k.CONTAINER_RESOURCE_REQUEST_MEM: '{}M'.format(min_mem)
+    }
+
+  # --------------------------------------------------------------------------
+  @staticmethod
   def template_metadata(
       accelerator: Optional[Accelerator] = None,
       tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[V1ObjectMeta]:
@@ -530,6 +548,8 @@ class Cluster(object):
       self,
       name: str,
       image: str,
+      min_cpu: int,
+      min_mem: int,
       command: Optional[List[str]] = None,
       args: Optional[List[str]] = None,
       env: Dict[str, str] = {},
@@ -546,6 +566,8 @@ class Cluster(object):
     Args:
     name: job name
     image: container image url (gcr.io/...)
+    min_cpu: minimum cpu needed, in milli-cpu
+    min_mem: minimum memory needed, in MB
     command: command to execute, None = container entrypoint
     args: args to pass to command
     env: environment vars for container
@@ -567,6 +589,7 @@ class Cluster(object):
 
     # tpu/gpu resources
     container_resources = V1ResourceRequirements(
+        requests=Cluster.container_requests(min_cpu, min_mem),
         limits=Cluster.container_limits(accelerator, accelerator_count,
                                         preemptible_tpu))
 
@@ -579,7 +602,8 @@ class Cluster(object):
                             command=command,
                             args=args,
                             resources=container_resources,
-                            env=container_env)
+                            env=container_env,
+                            image_pull_policy='Always')
 
     # ------------------------------------------------------------------------
     # template
@@ -624,6 +648,8 @@ class Cluster(object):
       self,
       name: str,
       image: str,
+      min_cpu: int,
+      min_mem: int,
       command: Optional[List[str]] = None,
       args: Optional[List[str]] = None,
       env: Dict[str, str] = {},
@@ -639,6 +665,8 @@ class Cluster(object):
     Args:
     name: job name
     image: container image url (gcr.io/...)
+    min_cpu: minimum cpu needed, in milli-cpu
+    min_mem: minimum memory needed, in MB
     command: command to execute, None = container entrypoint
     args: args to pass to command
     env: environment vars for container
@@ -656,6 +684,8 @@ class Cluster(object):
 
     job = self.create_simple_job(name=name,
                                  image=image,
+                                 min_cpu=min_cpu,
+                                 min_mem=min_mem,
                                  command=command,
                                  args=args,
                                  env=env,
@@ -678,6 +708,8 @@ class Cluster(object):
       self,
       name: str,
       image: str,
+      min_cpu: int,
+      min_mem: int,
       experiments: Iterable[conf.Experiment],
       command: Optional[List[str]] = None,
       args: Optional[List[str]] = None,
@@ -697,6 +729,8 @@ class Cluster(object):
     Args:
     name: job name
     image: container image url (gcr.io/...)
+    min_cpu: minimum cpu needed, in milli-cpu
+    min_mem: minimum memory needed, in MB
     experiments: experiment list
     command: command to execute, None = container entrypoint
     args: args to pass to command
@@ -718,6 +752,8 @@ class Cluster(object):
       complete_args = conf.experiment_to_args(exp, args)
       yield self.create_simple_job(name=name,
                                    image=image,
+                                   min_cpu=min_cpu,
+                                   min_mem=min_mem,
                                    command=command,
                                    args=complete_args,
                                    env=env,

@@ -333,6 +333,8 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   job_name = args.get('name') or "caliban-{}".format(u.current_user())
   gpu_spec = args.get('gpu_spec')
   preemptible = not args['nonpreemptible']
+  min_cpu = args.get('min_cpu')
+  min_mem = args.get('min_mem')
 
   # Arguments to internally build the image required to submit to Cloud.
   docker_m = {'job_mode': job_mode, 'package': package, **docker_args}
@@ -374,10 +376,12 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   image_tag = (args.get('image_tag') or generate_image_tag(
       cluster.project_id, docker_args=docker_m, dry_run=dry_run))
 
-  if args.get('machine_type') is None:
-    machine_type = conf.DEFAULT_MACHINE_TYPE[job_mode]
-  else:
-    machine_type = parse_machine_type(args.get('machine_type'))
+  if tpu_spec is None and gpu_spec is None:  # cpu-only job
+    min_cpu = min_cpu or k.DEFAULT_MIN_CPU_CPU
+    min_mem = min_mem or k.DEFAULT_MIN_MEM_CPU
+  else:  # gpu/tpu-accelerated job
+    min_cpu = min_cpu or k.DEFAULT_MIN_CPU_ACCEL
+    min_mem = min_mem or k.DEFAULT_MIN_MEM_ACCEL
 
   experiments = conf.expand_experiment_config(
       args.get('experiment_config') or [{}])
@@ -397,11 +401,12 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   jobs = cluster.create_simple_experiment_jobs(
       name=utils.sanitize_job_name(job_name),
       image=image_tag,
+      min_cpu=min_cpu,
+      min_mem=min_mem,
       experiments=experiments,
       args=script_args,
       accelerator=accel,
       accelerator_count=accel_count,
-      machine_type=machine_type,
       preemptible=preemptible,
       labels=labels,
       preemptible_tpu=preemptible_tpu,

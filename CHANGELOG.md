@@ -16,6 +16,9 @@
   key to submit jobs to AI platform. Previously, Caliban would rely on the
   system's auth method, which made it impossible to point to a different
   project if your current service account key wasn't the owner.
+- Changed gke job submission to accept min cpu and min mem arguments instead
+  of an explicit machine-type. This allows gke to efficiently schedule jobs
+  and prevents issues where jobs can be oversubscribed on compute nodes.
 
 # 0.1.15
 
