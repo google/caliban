@@ -12,6 +12,10 @@
 - The default release channel for gke clusters in caliban is now 'regular', as
   node autoprovisioning now works with preemptible instances in the regular
   channel.
+- If you provide `--cloud_key` Caliban will now properly use the supplied cloud
+  key to submit jobs to AI platform. Previously, Caliban would rely on the
+  system's auth method, which made it impossible to point to a different
+  project if your current service account key wasn't the owner.
 
 # 0.1.15
 

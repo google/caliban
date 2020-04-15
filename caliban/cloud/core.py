@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import tqdm
 from absl import logging
 from blessings import Terminal
+from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 
@@ -184,8 +185,38 @@ def log_batch_parameters(specs: Iterable[JobSpec],
   return [list(batch) for batch in logged_batches(specs, limit=limit)]
 
 
-def create_requests(specs: List[JobSpec],
-                    project_id: str) -> Iterable[Tuple[Any, JobSpec, Any]]:
+def ml_api(credentials_path: Optional[str] = None):
+  """Returns an instance of the API object required to submit jobs to AI
+  Platform.
+
+  If you provide the path to a service account key JSON file, the function will
+  use those credentials to authenticate with the API; otherwise, the default
+  will be
+
+  - the value of $GOOGLE_APPLICATION_CREDENTIALS
+  - the application default credentials registered on your machine
+  - the account you used to log in to gcloud.
+
+  The actual details are a little byzantine.
+
+  """
+  credentials = None
+
+  if credentials_path is not None:
+    credentials = service_account.Credentials.from_service_account_file(
+        credentials_path)
+
+  return discovery.build('ml',
+                         'v1',
+                         cache_discovery=False,
+                         credentials=credentials)
+
+
+def create_requests(
+    specs: List[JobSpec],
+    project_id: str,
+    credentials_path: Optional[str] = None
+) -> Iterable[Tuple[Any, JobSpec, Any]]:
   """Returns an iterator of (HttpRequest, JobSpec, Callback).
 
   HttpRequests look like:
@@ -205,7 +236,8 @@ def create_requests(specs: List[JobSpec],
 
   # cache_discovery=False prevents an error bubbling up from a missing file
   # cache, which no user of this code is going to be using.
-  ml = discovery.build('ml', 'v1', cache_discovery=False)
+  ml = ml_api(credentials_path)
+
   jobs = ml.projects().jobs()
 
   for spec in logged_specs(specs):
@@ -409,6 +441,7 @@ def submit_ml_job(job_mode: conf.JobMode,
                   docker_args: Dict[str, Any],
                   region: ct.Region,
                   project_id: str,
+                  credentials_path: Optional[str] = None,
                   dry_run: bool = False,
                   job_name: Optional[str] = None,
                   machine_type: Optional[ct.MachineType] = None,
@@ -436,6 +469,7 @@ def submit_ml_job(job_mode: conf.JobMode,
   - region: the region to use for AI Platform job submission. Different regions
     support different GPUs.
   - project_id: GCloud project ID for container storage and job submission.
+  - credentials_path: explicit path to a service account JSON file, if it exists.
   - dry_run: if True, no actual jobs will be submitted and docker won't
     actually build; logging side effects will show the user what will happen
     without dry_run=True.
@@ -502,7 +536,9 @@ def submit_ml_job(job_mode: conf.JobMode,
   if dry_run:
     return execute_dry_run(specs)
 
-  requests = create_requests(specs, project_id)
+  requests = create_requests(specs,
+                             project_id=project_id,
+                             credentials_path=credentials_path)
   execute_requests(requests, len(experiments), num_retries=request_retries)
   logging.info("")
   logging.info(
