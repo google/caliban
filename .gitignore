@@ -105,3 +105,6 @@ venv.bak/
 output-dist
 keras_tensorboard
 keras_export
+
+# emacs backup files
+*~

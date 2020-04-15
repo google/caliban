@@ -84,6 +84,7 @@ def run_app(arg_input):
   elif command == "cloud":
     project_id = c.extract_project_id(args)
     region = c.extract_region(args)
+    cloud_key = c.extract_cloud_key(args)
 
     dry_run = args["dry_run"]
     package = args["module"]
@@ -102,6 +103,7 @@ def run_app(arg_input):
                         docker_args=docker_m,
                         region=region,
                         project_id=project_id,
+                        credentials_path=cloud_key,
                         dry_run=dry_run,
                         job_name=job_name,
                         machine_type=machine_type,

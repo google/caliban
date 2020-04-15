@@ -11,7 +11,7 @@ import subprocess
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import (Callable, Dict, Iterable, List, NamedTuple, NewType,
+from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, NewType,
                     Optional, Set)
 
 import tqdm
@@ -68,7 +68,7 @@ class Shell(Enum):
 # Tuple to track the information required to install and execute some custom
 # shell into a container.
 ShellData = NamedTuple("ShellData", [("executable", str),
-                                     ("install_cmds", List[str])])
+                                     ("packages", List[str])])
 
 
 def apt_install(*packages: str) -> str:
@@ -96,7 +96,7 @@ def apt_command(commands: List[str]) -> List[str]:
 # : Dict[Shell, ShellData]
 SHELL_DICT = {
     Shell.bash: ShellData("/bin/bash", []),
-    Shell.zsh: ShellData("/bin/zsh", apt_command([apt_install("zsh")]))
+    Shell.zsh: ShellData("/bin/zsh", ["zsh"])
 }
 
 
@@ -374,20 +374,28 @@ RUN pip install {}{}
 """.format(library, version_suffix)
 
 
-def _custom_shell_entries(user_id: int,
-                          user_group: int,
-                          shell: Optional[Shell] = None) -> str:
-  """Returns the Dockerfile entries necessary to install the dependencies for the
-  supplied shell.
+def _custom_packages(
+    user_id: int,
+    user_group: int,
+    packages: Optional[List[str]] = None,
+    shell: Optional[Shell] = None,
+) -> str:
+  """Returns the Dockerfile entries necessary to install custom dependencies for
+  the supplied shell and sequence of aptitude packages.
 
   """
+  if packages is None:
+    packages = []
+
   if shell is None:
     shell = Shell.bash
 
   ret = ""
 
-  commands = SHELL_DICT[shell].install_cmds
-  if len(commands) != 0:
+  to_install = sorted(packages + SHELL_DICT[shell].packages)
+
+  if len(to_install) != 0:
+    commands = apt_command([apt_install(*to_install)])
     ret = """
 USER root
 
@@ -443,7 +451,8 @@ def _dockerfile_template(
     jupyter_version: Optional[str] = None,
     inject_notebook: NotebookInstall = NotebookInstall.none,
     shell: Optional[Shell] = None,
-    extra_dirs: Optional[List[str]] = None) -> str:
+    extra_dirs: Optional[List[str]] = None,
+    caliban_config: Optional[Dict[str, Any]] = None) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
 
@@ -522,7 +531,11 @@ USER {uid}:{gid}
   if extra_dirs is not None:
     dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
 
-  dockerfile += _custom_shell_entries(uid, gid, shell)
+  dockerfile += _custom_packages(uid,
+                                 gid,
+                                 packages=c.apt_packages(
+                                     caliban_config, job_mode),
+                                 shell=shell)
 
   if package is not None:
     # The actual entrypoint and final copied code.

@@ -37,7 +37,8 @@ REQUIRED_PACKAGES = [
     # This is not a real dependency of ours, but we need it to override the
     # dep that commentjson brings in. Delete once this is merged:
     # https://github.com/vaidik/commentjson/pull/33/files
-    'lark-parser>=0.7.1,<0.8.0'
+    'lark-parser>=0.7.1,<0.8.0',
+    'python-dateutil>=2.8.1'
 ]
 
 setup(name='caliban',

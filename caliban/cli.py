@@ -536,6 +536,7 @@ def generate_docker_args(job_mode: conf.JobMode,
   docker_args = {
       "extra_dirs": args.get("dir"),
       "requirements_path": reqs if os.path.exists(reqs) else None,
+      "caliban_config": conf.caliban_config(),
       "credentials_path": creds_path,
       "adc_path": adc_path,
       "setup_extras": setup_extras,
@@ -650,7 +651,8 @@ def cluster_job_submit_cmd(base):
   extra_dirs(parser)
   image_tag_arg(parser)
   project_id_arg(parser)
-  machine_type_arg(parser)
+  min_cpu_arg(parser)
+  min_mem_arg(parser)
   gpu_spec_arg(parser, validate_count=False)
   tpu_spec_arg(parser, validate_count=False)
   tpu_driver_arg(parser)
@@ -824,3 +826,31 @@ def single_zone_arg(parser):
       ('create a single-zone cluster if set, otherwise create a multi-zone '
        'cluster: see https://cloud.google.com/kubernetes-engine/docs/concepts/'
        'types-of-clusters#cluster_availability_choices'))
+
+
+# ----------------------------------------------------------------------------
+def min_cpu_arg(parser):
+  parser.add_argument(
+      '--min_cpu',
+      type=int,
+      help='Minimum cpu needed by job, in milli-cpus. If not specified, then '
+      'this value defaults to {} for gpu/tpu jobs, and {} for cpu jobs. Please '
+      'note that gke daemon processes utilize a small amount of cpu on each node, '
+      'so if you want to have your job run on a specific machine type, say a 2-cpu '
+      'machine, then if you specify a minimum cpu of 2000, then your job will '
+      'not be schedulable on a 2-cpu machine as the daemon processes will push '
+      'the total cpu needed to more than two full cpus.'.format(
+          gke_k.DEFAULT_MIN_CPU_ACCEL, gke_k.DEFAULT_MIN_CPU_CPU))
+
+
+# ----------------------------------------------------------------------------
+def min_mem_arg(parser):
+  parser.add_argument(
+      '--min_mem',
+      type=int,
+      help='Minimum memory needed by job, in MB. Please note that gke '
+      'daemon processes utilize a small amount of memory on each node, so if '
+      'you want to have your job run on a specific machine type, say a machine '
+      'with 8GB total memory, then if you specify a minimum memory of 8000MB, '
+      'then your job will not be schedulable on a 8GB machine as the daemon '
+      'processes will push the total memory needed to more than 8GB.')

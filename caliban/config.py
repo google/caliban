@@ -35,7 +35,11 @@ Experiment = Dict[str, ExpValue]
 # Mode
 JobMode = Enum("JobMode", ("CPU", "GPU"))
 
+# Special config for Caliban.
+CalibanConfig = Dict[str, Any]
+
 DRY_RUN_FLAG = "--dry_run"
+CALIBAN_CONFIG = ".calibanconfig.json"
 
 # Defaults for various input values that we can supply given some partial set
 # of info from the CLI.
@@ -151,6 +155,39 @@ def extract_cloud_key(m: Dict[str, Any]) -> Optional[str]:
   """
   return m.get("cloud_key") or \
     os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+
+
+def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
+  """Returns the list of aptitude packages that should be installed to satisfy
+  the requests in the config.
+
+  """
+  packages = conf.get("apt_packages") or {}
+
+  if isinstance(packages, dict):
+    k = "gpu" if gpu(mode) else "cpu"
+    return packages.get(k, [])
+
+  elif isinstance(packages, list):
+    return packages
+
+  else:
+    raise argparse.ArgumentTypeError(
+        """{}'s "apt_packages" entry must be a dictionary or list, not '{}'""".
+        format(CALIBAN_CONFIG, packages))
+
+
+def caliban_config() -> CalibanConfig:
+  """Returns a dict that represents a `.calibanconfig.json` file if present,
+  empty dictionary otherwise.
+
+  """
+  if not os.path.isfile(CALIBAN_CONFIG):
+    return {}
+
+  with open(CALIBAN_CONFIG) as f:
+    conf = commentjson.load(f)
+    return conf
 
 
 def expand_experiment_config(items: ExpConf) -> List[Experiment]:

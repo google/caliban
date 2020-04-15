@@ -12,6 +12,38 @@
 - The default release channel for gke clusters in caliban is now 'regular', as
   node autoprovisioning now works with preemptible instances in the regular
   channel.
+- If you provide `--cloud_key` Caliban will now properly use the supplied cloud
+  key to submit jobs to AI platform. Previously, Caliban would rely on the
+  system's auth method, which made it impossible to point to a different
+  project if your current service account key wasn't the owner.
+- Changed gke job submission to accept min cpu and min mem arguments instead
+  of an explicit machine-type. This allows gke to efficiently schedule jobs
+  and prevents issues where jobs can be oversubscribed on compute nodes.
+- added support for `.calibanconfig.json`. You can now add this file with an
+  `"apt_packages"` entry to specify aptitude packages to install inside the
+  container. The value under this key can be either a list, or a dictionary with
+  `"gpu"` and `"cpu"'` keys. For example, any of the following are valid:
+
+```
+# This is a list by itself. Comments are fine, by the way.
+{
+     "apt_packages": ["libsm6", "libxext6", "libxrender-dev"]
+}
+```
+
+This works too:
+
+```
+# You can also include a dictionary with different deps
+# for gpu and cpu modes. It's fine to leave either of these blank,
+# or not include it.
+{
+    "apt_packages": {
+        "gpu": ["libsm6", "libxext6", "libxrender-dev"],
+        "cpu": ["some_other_package"]
+    }
+}
+```
 
 # 0.1.15
 

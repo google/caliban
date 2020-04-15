@@ -1,5 +1,6 @@
 # Required for development, not publication.
 hypothesis
+ipython
 pre-commit
 pytest
 pytest-cov

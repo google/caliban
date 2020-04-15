@@ -17,6 +17,8 @@ NODE_SELECTOR_INSTANCE_TYPE = 'beta.kubernetes.io/instance-type'
 NODE_SELECTOR_PREEMPTIBLE = 'cloud.google.com/gke-preemptible'
 CONTAINER_RESOURCE_LIMIT_TPU = 'cloud-tpus.google.com'
 CONTAINER_RESOURCE_LIMIT_GPU = 'nvidia.com/gpu'
+CONTAINER_RESOURCE_REQUEST_CPU = 'cpu'
+CONTAINER_RESOURCE_REQUEST_MEM = 'memory'
 TEMPLATE_META_ANNOTATION_TPU_DRIVER = 'tf-version.cloud-tpus.google.com'
 DEFAULT_TPU_DRIVER = '1.14'
 ZONE_DEFAULT = '-'  # all zones
@@ -30,6 +32,16 @@ DEFAULT_CLUSTER_NAME = 'blueshift'
 VALID_JOB_FILE_EXT = ('.yaml', '.json')
 DEFAULT_RELEASE_CHANNEL = ReleaseChannel.REGULAR
 CLUSTER_API_VERSION = 'v1beta1'
+
+# default min_cpu for gpu/tpu -accelerated jobs (in milli-cpu)
+DEFAULT_MIN_CPU_ACCEL = 1500
+# default min_cpu for cpu-only jobs (in milli-cpu)
+DEFAULT_MIN_CPU_CPU = 31000
+
+# default min_mem for gpu/tpu jobs (in MB)
+DEFAULT_MIN_MEM_ACCEL = 7000
+#default min_mem for cpu-only jobs (in MB)
+DEFAULT_MIN_MEM_CPU = 25000
 
 # ----------------------------------------------------------------------------
 # The following urls specify kubernetes daemonsets that apply the appropriate
