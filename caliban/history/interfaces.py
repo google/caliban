@@ -138,9 +138,9 @@ HistoryObject = Union[Experiment, Job, Run]
 class QueryOp(Enum):
   '''supported operations for queries'''
   LT = '<'
-  LTE = '<='
+  LE = '<='
   GT = '>'
-  GTE = '>='
+  GE = '>='
   EQ = '=='
   IN = 'in'
 

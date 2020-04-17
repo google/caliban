@@ -16,13 +16,14 @@ from datetime import datetime
 
 from caliban.history.interfaces import (DictSerializable, Timestamped, Id,
                                         Named, User, Storage, Experiment, Job,
-                                        Run, PlatformSpecific)
+                                        Run, PlatformSpecific, QueryOp)
 
 from caliban.history.null_storage import create_null_storage
+from caliban.history.mem_storage import create_mem_storage
 from caliban.types import Ignored, Ignore
 import caliban.config as conf
 
-_STORAGE_BACKENDS = [create_null_storage()]
+_STORAGE_BACKENDS = [create_null_storage(), create_mem_storage()]
 
 
 # ----------------------------------------------------------------------------
@@ -69,7 +70,7 @@ def check_Job(
   check_User(job)
 
   if experiment is not None:
-    assert job.experiment() == experiment
+    assert job.experiment().to_dict() == experiment.to_dict()
 
   if args is not None:
     assert job.args() == args
@@ -118,11 +119,20 @@ def check_Experiment(
       num_jobs = len(configs)
       assert job_count == len(configs)
 
-      for i, j in enumerate(exp.jobs()):
-        check_Job(j,
-                  experiment=exp,
-                  args=args,
-                  kwargs={k: str(v) for k, v in configs[i].items()})
+      if job_count == 1:
+        check_Job(
+            j,
+            experiment=exp,
+            args=args,
+            kwargs={k: v for k, v in configs[0].items()},
+        )
+      else:  # don't check kwargs, as ordering in not necessarily consistent
+        for i, j in enumerate(exp.jobs()):
+          check_Job(
+              j,
+              experiment=exp,
+              args=args,
+          )
     else:
       assert job_count == 1
       check_Job(j, experiment=exp, args=args, kwargs=None)
@@ -139,14 +149,19 @@ def test_create_null_storage():
 @pytest.mark.parametrize('name', ['foo'])
 @pytest.mark.parametrize('command', [None, 'cmd_a'])
 @pytest.mark.parametrize('container', [uuid.uuid1().hex])
-@pytest.mark.parametrize(
-    'configs', [None, [{
+@pytest.mark.parametrize('configs', [
+    None,
+    [{
         'arg0': '0',
         'arg1': 'abc'
     }, {
         'a': 4,
         'b': False
-    }]])
+    }],
+    [{
+        'x': 2
+    }],
+])
 @pytest.mark.parametrize('args', [None, ['--verbose', '42']])
 @pytest.mark.parametrize('user', [None, 'user_foo'])
 def test_create_experiment(
@@ -179,3 +194,96 @@ def test_create_experiment(
                    args=args,
                    user=user)
   return
+
+
+# ----------------------------------------------------------------------------
+@pytest.mark.parametrize('s', [create_mem_storage()])
+def test_query_experiment(s: Storage):
+
+  experiments = [
+      s.create_experiment(name='exp-{}'.format(i),
+                          container='container-{}'.format(i),
+                          command='cmd',
+                          configs=[{
+                              'a': i
+                          }],
+                          args=None,
+                          user='user_a') for i in range(4)
+  ]
+
+  exp_b = s.create_experiment(name='exp-b',
+                              container='container-b',
+                              command='cmd',
+                              user='user_b')
+
+  expcol = s.collection('experiments')
+
+  # get experiments by user
+  user_a_experiments = list(
+      expcol.where('user', QueryOp.EQ, 'user_a').execute())
+
+  assert len(user_a_experiments) == len(experiments)
+
+  # check get/query for experiments
+  for i in range(4):
+    current = experiments[i].to_dict()
+
+    # get by id
+    assert current == expcol.get(experiments[i].id()).to_dict()
+
+    # query by container name
+    matches = list(
+        expcol.where('container', QueryOp.EQ, current['container']).execute())
+
+    assert len(matches) == 1
+    assert current == matches[0].to_dict()
+
+  return
+
+
+# ----------------------------------------------------------------------------
+@pytest.mark.parametrize('s', [create_mem_storage()])
+def test_query_jobs(s: Storage):
+
+  experiments = [
+      s.create_experiment(name='exp-{}'.format(i),
+                          container='container-{}'.format(i),
+                          command='cmd',
+                          configs=[{
+                              'a': i
+                          }],
+                          args=None,
+                          user='user_a') for i in range(4)
+  ]
+
+  jobcol = s.collection('jobs')
+
+  # query jobs by experiment
+  for e in experiments:
+    # note job return ordering may vary, so we only have a single job/exp here
+    assert list(e.jobs())[0].to_dict() == list(
+        jobcol.where('experiment', QueryOp.EQ, e.id()).execute())[0].to_dict()
+
+  # kwarg < query
+  test_jobs = list(jobcol.where('kwargs.a', QueryOp.LT, 3).execute())
+
+  assert len(test_jobs) == 3
+  for j in test_jobs:
+    assert j.kwargs()['a'] < 3
+
+  # kwarg in query
+  test_jobs = list(jobcol.where('kwargs.a', QueryOp.IN, [1, 2]).execute())
+
+  assert len(test_jobs) == 2
+  for j in test_jobs:
+    assert j.kwargs()['a'] in [1, 2]
+
+  # chanined query
+  q = jobcol.where('kwargs.a', QueryOp.LT, 3)
+  q = q.where('kwargs.a', QueryOp.IN, [1, 2, 3])
+
+  test_jobs = list(q.execute())
+  assert len(test_jobs) == 2
+  for j in test_jobs:
+    v = j.kwargs()['a']
+    assert v < 3 and v in [1, 2, 3]

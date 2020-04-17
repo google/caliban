@@ -20,7 +20,7 @@ class _NullJob(JobBase):
 
   def __init__(self, experiment: Experiment, d: Dict[str, Any]):
     super().__init__(d)
-    self._experiment = experiment
+    self._exp = experiment
 
   def runs(self) -> Iterable[Run]:
     '''returns job runs'''
@@ -28,7 +28,7 @@ class _NullJob(JobBase):
 
   def experiment(self) -> Experiment:
     '''returns the parent experiment of this job'''
-    return self._experiment
+    return self._exp
 
 
 # ----------------------------------------------------------------------------
@@ -61,6 +61,7 @@ class _NullExperiment(ExperimentBase):
         user=self.user(),
         configs=configs,
         args=args,
+        experiment=self.id(),
     )
     return [_NullJob(experiment=self, d=d) for d in dicts]
 
