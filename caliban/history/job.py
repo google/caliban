@@ -34,6 +34,7 @@ class JobBase(Job):
     self._timestamp = d['timestamp']
     self._args = d['args']
     self._kwargs = d['kwargs']
+    self._experiment = d['experiment']
 
   def to_dict(self) -> Dict[str, Any]:
     '''serializes object to dictionary'''
@@ -44,6 +45,7 @@ class JobBase(Job):
         timestamp=self._timestamp,
         args=self._args,
         kwargs=self._kwargs,
+        experiment=self._experiment,
     )
 
   def timestamp(self) -> datetime:
@@ -77,15 +79,17 @@ class JobBase(Job):
       name: str,
       user: str,
       timestamp: datetime,
+      experiment: str,
       args: Optional[List[str]],
-      kwargs: Optional[Dict[str, str]],
+      kwargs: Optional[Dict[str, Any]],
   ) -> Dict[str, Any]:
-    '''create a JobBase dictionary'''
+    '''creates a JobBase dictionary'''
     return {
         'id': id,
         'user': user,
         'name': name,
         'timestamp': timestamp,
+        'experiment': experiment,
         'args': args or [],
         'kwargs': kwargs or {}
     }
@@ -95,9 +99,10 @@ class JobBase(Job):
       cls,
       name: str,
       user: str,
+      experiment: str,
       configs: Optional[List[conf.Experiment]] = None,
       args: Optional[List[str]] = None,
-  ) -> Iterable[Dict[str, str]]:
+  ) -> Iterable[Dict[str, Any]]:
     '''create Job dictionaries from configs and args'''
 
     if configs is None or len(configs) == 0:
@@ -109,6 +114,7 @@ class JobBase(Job):
           name=name + '-{}'.format(i),
           user=user,
           timestamp=datetime.now(tz=tzlocal()),
+          experiment=experiment,
           args=args,
-          kwargs={k: str(v) for k, v in configs[i].items()},
+          kwargs={k: v for k, v in configs[i].items()},
       )
