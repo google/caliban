@@ -4,6 +4,7 @@ import uuid
 import operator
 import itertools
 import pprint as pp
+from copy import deepcopy
 
 from typing import (Optional, List, Tuple, Dict, Any, Iterable, Union, TypeVar,
                     Type, Callable, NamedTuple)
@@ -12,48 +13,12 @@ from caliban.history.interfaces import (Storage, Experiment, Job, Run,
                                         Query)
 from caliban.history.experiment import ExperimentBase
 from caliban.history.run import RunBase
-from caliban.history.job import JobBase
+from caliban.history.job import JobBase, StorageJob
+from caliban.history.clause import Clause
 import caliban.config as conf
 
 _MemStorageType = TypeVar('_MemStorageType', bound='_MemStorage')
 _MemCollectionType = TypeVar('_MemCollectionType', bound='_MemCollection')
-
-
-# ----------------------------------------------------------------------------
-class _Clause(object):
-  _OP = {
-      QueryOp.LT: operator.lt,
-      QueryOp.LE: operator.le,
-      QueryOp.GT: operator.gt,
-      QueryOp.GE: operator.ge,
-      QueryOp.EQ: operator.eq,
-      QueryOp.IN: lambda a, b: operator.contains(b, a)
-  }
-
-  def __init__(self, field: str, op: QueryOp, value: Any):
-    self.field = field
-    self.op = op
-    self.value = value
-
-  def _get_field(self, d: Dict[str, Any]) -> Optional[Any]:
-    for k in self.field.split('.'):
-      d = d.get(k)
-      if d is None:
-        return
-    return d
-
-  def __call__(self, d: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    try:
-      f = self._get_field(d)
-      if f is None:
-        return None
-      return d if self._OP[self.op](f, self.value) else None
-    except Exception as e:
-      print(e)
-      return None
-
-  def __str__(self) -> str:
-    return '{} {} {}'.format(self.field, self.op.value, self.value)
 
 
 # ----------------------------------------------------------------------------
@@ -71,24 +36,30 @@ class _MemQuery(Query):
     self._order_by = None
     self._order_by_dir = Query.Direction.ASCENDING
     self._limit = None
-    self._clauses = [_Clause(field, op, value)]
+    self._clauses = [Clause(field, op, value)]
+
+  def copy(self) -> "_MemQuery":
+    return deepcopy(self)
 
   def execute(self) -> Optional[Iterable[HistoryObject]]:
     return self._collection._execute_query(self)
 
   def order_by(self, field: str, direction: Query.Direction) -> Query:
-    self._order_by = field
-    self._order_by_dir = direction
+    q = self.copy()
+    q._order_by = field
+    q._order_by_dir = direction
     assert False, 'not implemented yet'
-    return self
+    return q
 
   def limit(self, count: int) -> Query:
-    self._limit = count
-    return self
+    q = self.copy()
+    q._limit = count
+    return q
 
   def where(self, field: str, op: QueryOp, value: Any) -> Query:
-    self._clauses.append(_Clause(field, op, value))
-    return self
+    q = self.copy()
+    q._clauses.append(Clause(field, op, value))
+    return q
 
   def __str__(self):
     return ' AND '.join(map(lambda c: str(c),
@@ -100,33 +71,14 @@ class _MemRun(RunBase):
   '''memory-store run'''
 
   def __init__(
-      storage: Type[_MemStorageType],
       self,
+      storage: _MemStorageType,
       d: Dict[str, Any],
       create=False,
   ):
     super().__init__(d)
-    self._storage = stoarge
-
-
-# ----------------------------------------------------------------------------
-class _MemJob(JobBase):
-  '''memory-store job'''
-
-  def __init__(
-      self,
-      storage: Type[_MemStorageType],
-      d: Dict[str, Any],
-      create: bool = False,
-  ):
-    super().__init__(d)
     self._storage = storage
-
-  def runs(self) -> Iterable[Run]:
-    return self._storage.collection('runs').where('job', QueryOp.EQ, self.id())
-
-  def experiment(self) -> Experiment:
-    return self._storage.collection('experiments').get(self._experiment)
+    # todo: implement fully
 
 
 # ----------------------------------------------------------------------------
@@ -135,7 +87,7 @@ class _MemExperiment(ExperimentBase):
 
   def __init__(
       self,
-      storage: Type[_MemStorageType],
+      storage: _MemStorageType,
       d: Dict[str, Any],
       configs: Optional[List[conf.Experiment]] = None,
       args: Optional[List[str]] = None,
@@ -169,7 +121,7 @@ class _MemExperiment(ExperimentBase):
         configs=configs,
         args=args,
     )
-    return [_MemJob(storage=self._storage, d=d, create=True) for d in dicts]
+    return [StorageJob(storage=self._storage, d=d, create=True) for d in dicts]
 
 
 # ----------------------------------------------------------------------------
@@ -209,8 +161,8 @@ class _MemStorage(Storage):
             _MemCollection(constructor=lambda d: _MemExperiment(
                 storage=self, d=d, create=False)),
         'jobs':
-            _MemCollection(
-                constructor=lambda d: _MemJob(storage=self, d=d, create=False)),
+            _MemCollection(constructor=lambda d: StorageJob(
+                storage=self, d=d, create=False)),
         'runs':
             _MemCollection(
                 constructor=lambda d: _MemRun(storage=self, d=d, create=False)),

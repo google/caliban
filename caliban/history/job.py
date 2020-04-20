@@ -118,3 +118,23 @@ class JobBase(Job):
           args=args,
           kwargs={k: v for k, v in configs[i].items()},
       )
+
+
+# ----------------------------------------------------------------------------
+class StorageJob(JobBase):
+  '''storage-backed job'''
+
+  def __init__(
+      self,
+      storage: Storage,
+      d: Dict[str, Any],
+      create: bool = False,
+  ):
+    super().__init__(d)
+    self._storage = storage
+
+  def runs(self) -> Iterable[Run]:
+    return self._storage.collection('runs').where('job', QueryOp.EQ, self.id())
+
+  def experiment(self) -> Experiment:
+    return self._storage.collection('experiments').get(self._experiment)

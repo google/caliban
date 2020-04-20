@@ -165,7 +165,16 @@ class Queryable(abc.ABC):
 
 # ----------------------------------------------------------------------------
 class Query(Queryable):
-  '''query interface'''
+  '''query interface
+
+  This implements a basic query syntax consisting of only:
+    - where() clauses
+    - an order_by() directive
+    - a limit() directive
+
+  The where() clauses are AND-ed and support the operations in the QueryOp
+  enumeration.
+  '''
 
   class Direction(Enum):
     '''ascending/descending'''

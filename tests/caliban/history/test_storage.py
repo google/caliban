@@ -5,6 +5,7 @@ import pytest  # type: ignore
 
 import random
 import uuid
+import os
 
 import hypothesis.strategies as st
 from hypothesis import given, settings
@@ -20,10 +21,22 @@ from caliban.history.interfaces import (DictSerializable, Timestamped, Id,
 
 from caliban.history.null_storage import create_null_storage
 from caliban.history.mem_storage import create_mem_storage
+from caliban.history.firestore import create_firestore_storage
 from caliban.types import Ignored, Ignore
 import caliban.config as conf
+from caliban.gke.utils import default_credentials
 
-_STORAGE_BACKENDS = [create_null_storage(), create_mem_storage()]
+# define this environment variable to test against project firestore db
+# note that this will create documents in the store
+_FIRESTORE_PROJECT = os.environ.get('CALIBAN_TEST_FIRESTORE_PROJECT')
+
+
+def get_firestore_storage() -> Optional[Storage]:
+  if _FIRESTORE_PROJECT is None:
+    return None
+
+  return create_firestore_storage(_FIRESTORE_PROJECT,
+                                  default_credentials().credentials)
 
 
 # ----------------------------------------------------------------------------
@@ -145,7 +158,11 @@ def test_create_null_storage():
 
 
 # ----------------------------------------------------------------------------
-@pytest.mark.parametrize('s', _STORAGE_BACKENDS)
+@pytest.mark.parametrize('s', [
+    create_null_storage(),
+    create_mem_storage(),
+    get_firestore_storage(),
+])
 @pytest.mark.parametrize('name', ['foo'])
 @pytest.mark.parametrize('command', [None, 'cmd_a'])
 @pytest.mark.parametrize('container', [uuid.uuid1().hex])
@@ -175,6 +192,9 @@ def test_create_experiment(
 ):
   '''test creating an experiment for storage backends'''
 
+  if s is None:
+    return
+
   exp = s.create_experiment(
       name=name,
       container=container,
@@ -197,8 +217,17 @@ def test_create_experiment(
 
 
 # ----------------------------------------------------------------------------
-@pytest.mark.parametrize('s', [create_mem_storage()])
+@pytest.mark.parametrize('s', [
+    create_mem_storage(),
+    get_firestore_storage(),
+])
 def test_query_experiment(s: Storage):
+  '''test experiment queries
+
+  note that this does not work against a null-store'''
+
+  if s is None:
+    return
 
   experiments = [
       s.create_experiment(name='exp-{}'.format(i),
@@ -217,15 +246,21 @@ def test_query_experiment(s: Storage):
                               user='user_b')
 
   expcol = s.collection('experiments')
+  all_exp = expcol.where('id', QueryOp.IN,
+                         [e.id() for e in experiments] + [exp_b.id()])
+
+  assert len(list(all_exp.execute())) == 5
 
   # get experiments by user
   user_a_experiments = list(
-      expcol.where('user', QueryOp.EQ, 'user_a').execute())
+      all_exp.where('user', QueryOp.EQ, 'user_a').execute())
 
   assert len(user_a_experiments) == len(experiments)
 
   # check get/query for experiments
   for i in range(4):
+    assert len(list(all_exp.execute())) == 5
+
     current = experiments[i].to_dict()
 
     # get by id
@@ -233,7 +268,7 @@ def test_query_experiment(s: Storage):
 
     # query by container name
     matches = list(
-        expcol.where('container', QueryOp.EQ, current['container']).execute())
+        all_exp.where('container', QueryOp.EQ, current['container']).execute())
 
     assert len(matches) == 1
     assert current == matches[0].to_dict()
@@ -242,8 +277,17 @@ def test_query_experiment(s: Storage):
 
 
 # ----------------------------------------------------------------------------
-@pytest.mark.parametrize('s', [create_mem_storage()])
+@pytest.mark.parametrize('s', [
+    create_mem_storage(),
+    get_firestore_storage(),
+])
 def test_query_jobs(s: Storage):
+  '''test job queries
+
+  note that this does not work against a null-store'''
+
+  if s is None:
+    return
 
   experiments = [
       s.create_experiment(name='exp-{}'.format(i),
@@ -257,6 +301,8 @@ def test_query_jobs(s: Storage):
   ]
 
   jobcol = s.collection('jobs')
+  expjobs = jobcol.where('experiment', QueryOp.IN,
+                         [e.id() for e in experiments])
 
   # query jobs by experiment
   for e in experiments:
@@ -265,21 +311,21 @@ def test_query_jobs(s: Storage):
         jobcol.where('experiment', QueryOp.EQ, e.id()).execute())[0].to_dict()
 
   # kwarg < query
-  test_jobs = list(jobcol.where('kwargs.a', QueryOp.LT, 3).execute())
+  test_jobs = list(expjobs.where('kwargs.a', QueryOp.LT, 3).execute())
 
   assert len(test_jobs) == 3
   for j in test_jobs:
     assert j.kwargs()['a'] < 3
 
   # kwarg in query
-  test_jobs = list(jobcol.where('kwargs.a', QueryOp.IN, [1, 2]).execute())
+  test_jobs = list(expjobs.where('kwargs.a', QueryOp.IN, [1, 2]).execute())
 
   assert len(test_jobs) == 2
   for j in test_jobs:
     assert j.kwargs()['a'] in [1, 2]
 
   # chanined query
-  q = jobcol.where('kwargs.a', QueryOp.LT, 3)
+  q = expjobs.where('kwargs.a', QueryOp.LT, 3)
   q = q.where('kwargs.a', QueryOp.IN, [1, 2, 3])
 
   test_jobs = list(q.execute())
