@@ -2,11 +2,11 @@
 
 import uuid
 
-from dateutil.tz import tzlocal
 from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any, Iterable, Union
 from caliban.history.types import Platform, JobStatus
-from caliban.history.interfaces import Experiment, Job, Run, Storage, ComputePlatform
+from caliban.history.interfaces import (Experiment, Job, Run, Storage,
+                                        ComputePlatform, QueryOp)
 import caliban.config as conf
 
 import sys
@@ -113,7 +113,7 @@ class JobBase(Job):
           id=uuid.uuid1().hex,
           name=name + '-{}'.format(i),
           user=user,
-          timestamp=datetime.now(tz=tzlocal()),
+          timestamp=datetime.now().astimezone(),
           experiment=experiment,
           args=args,
           kwargs={k: v for k, v in configs[i].items()},
@@ -134,7 +134,8 @@ class StorageJob(JobBase):
     self._storage = storage
 
   def runs(self) -> Iterable[Run]:
-    return self._storage.collection('runs').where('job', QueryOp.EQ, self.id())
+    return self._storage.collection('runs').where('job', QueryOp.EQ,
+                                                  self.id()).execute()
 
   def experiment(self) -> Experiment:
     return self._storage.collection('experiments').get(self._experiment)

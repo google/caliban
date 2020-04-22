@@ -1,7 +1,6 @@
 '''experiment base'''
 
 import uuid
-from dateutil.tz import tzlocal
 from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any, Iterable, Union
 from caliban.history.types import Platform, JobStatus
@@ -82,5 +81,5 @@ class ExperimentBase(Experiment):
         'name': name,
         'container': container,
         'command': command,
-        'timestamp': datetime.now(tz=tzlocal())
+        'timestamp': datetime.now().astimezone()
     }

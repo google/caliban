@@ -1,12 +1,15 @@
 '''caliban history interfaces'''
 
 import abc
-from typing import Optional, List, Tuple, Dict, Any, Iterable, Union
+from typing import Optional, List, Tuple, Dict, Any, Iterable, Union, TypeVar
 from enum import Enum
 from datetime import datetime
 
-from caliban.history.types import Platform, JobStatus
+from caliban.history.types import Platform, JobStatus, SubmissionStatus
 import caliban.config as conf
+
+# ----------------------------------------------------------------------------
+ComputePlatformType = TypeVar('ComputePlatformType', bound='ComputePlatform')
 
 
 # ----------------------------------------------------------------------------
@@ -64,7 +67,7 @@ class User(abc.ABC):
 
 
 # ----------------------------------------------------------------------------
-class Run(DictSerializable, Timestamped, Id, PlatformSpecific, Named, User):
+class Run(DictSerializable, Timestamped, Id, PlatformSpecific, User):
   '''interface for caliban job run data
 
   A run is a single execution of a job on a specific compute platform.
@@ -75,12 +78,20 @@ class Run(DictSerializable, Timestamped, Id, PlatformSpecific, Named, User):
     '''returns the run status'''
 
   @abc.abstractmethod
-  def request(self) -> str:
-    '''returns a string representing the run request'''
+  def spec(self) -> Dict[str, Any]:
+    '''returns a dictionary representing the run spec'''
 
   @abc.abstractmethod
   def job(self) -> "Job":
     '''returns job for this run'''
+
+  @abc.abstractmethod
+  def clone(self) -> "Optional[Run]":
+    '''clones this run
+
+    This method will replicate the run using the same backend and all settings,
+    using the same job spec.
+    '''
 
 
 # ----------------------------------------------------------------------------
@@ -106,6 +117,10 @@ class Job(DictSerializable, Timestamped, Id, Named, User):
   @abc.abstractmethod
   def experiment(self) -> "Experiment":
     '''returns the parent experiment of this job'''
+
+  @abc.abstractmethod
+  def submit(self, compute: ComputePlatformType) -> Optional[Run]:
+    '''submits this job to the given compute platform'''
 
 
 # ----------------------------------------------------------------------------
@@ -262,12 +277,12 @@ class ComputePlatform(Named, PlatformSpecific):
   '''compute platform'''
 
   @abc.abstractmethod
-  def submit(self, job: Job) -> Optional[Run]:
+  def submit(self, job: Job) -> Optional[SubmissionStatus]:
     '''submits a job to the compute platform
 
     Args:
     job: job to submit
 
     Returns:
-    run on success, None otherwise
+    SubmissionStatus on sucess, None otherwise
     '''

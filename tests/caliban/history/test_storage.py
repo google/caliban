@@ -15,13 +15,26 @@ import random
 import pprint as pp
 from datetime import datetime
 
-from caliban.history.interfaces import (DictSerializable, Timestamped, Id,
-                                        Named, User, Storage, Experiment, Job,
-                                        Run, PlatformSpecific, QueryOp)
+from caliban.history.interfaces import (
+    DictSerializable,
+    Timestamped,
+    Id,
+    Named,
+    User,
+    Storage,
+    Experiment,
+    Job,
+    Run,
+    PlatformSpecific,
+    QueryOp,
+    ComputePlatform,
+)
 
 from caliban.history.null_storage import create_null_storage
 from caliban.history.mem_storage import create_mem_storage
 from caliban.history.firestore import create_firestore_storage
+from caliban.history.null_compute import create_null_compute
+from caliban.history.types import Platform, JobStatus
 from caliban.types import Ignored, Ignore
 import caliban.config as conf
 from caliban.gke.utils import default_credentials
@@ -68,13 +81,19 @@ def check_User(u: User, user: Optional[str] = None):
     assert u.user() == user
 
 
+def check_PlatformSpecific(p: PlatformSpecific, platform: Optional[Platform]):
+  assert isinstance(p.platform(), Platform)
+  if platform is not None:
+    assert p.platform() == platform
+
+
 # ----------------------------------------------------------------------------
 def check_Job(
     job: Job,
     experiment: Experiment = None,
     name: Optional[str] = None,
     args: Union[Optional[List[str]], Ignored] = Ignore,
-    kwargs: Union[Optional[Dict[str, str]], Ignored] = Ignore,
+    kwargs: Union[Optional[Dict[str, Any]], Ignored] = Ignore,
 ):
   check_DictSerializable(job)
   check_Timestamped(job)
@@ -149,6 +168,27 @@ def check_Experiment(
     else:
       assert job_count == 1
       check_Job(j, experiment=exp, args=args, kwargs=None)
+
+
+# ----------------------------------------------------------------------------
+def check_Run(r: Run,
+              user: Optional[str] = None,
+              platform: Optional[Platform] = None,
+              job: Optional[Job] = None):
+  assert r is not None
+
+  check_DictSerializable(r)
+  check_Timestamped(r)
+  check_Id(r)
+  check_User(r, user)
+  check_PlatformSpecific(r, platform)
+
+  assert r.status() is not None
+
+  if job is not None:
+    assert job.to_dict() == r.job().to_dict()
+
+  return
 
 
 # ----------------------------------------------------------------------------
@@ -244,8 +284,11 @@ def test_query_experiment(s: Storage):
                               container='container-b',
                               command='cmd',
                               user='user_b')
+  assert exp_b is not None
 
   expcol = s.collection('experiments')
+  assert expcol is not None
+
   all_exp = expcol.where('id', QueryOp.IN,
                          [e.id() for e in experiments] + [exp_b.id()])
 
@@ -333,3 +376,76 @@ def test_query_jobs(s: Storage):
   for j in test_jobs:
     v = j.kwargs()['a']
     assert v < 3 and v in [1, 2, 3]
+
+
+# ----------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    's', [create_null_storage(),
+          create_mem_storage(),
+          get_firestore_storage()])
+@pytest.mark.parametrize('c', [create_null_compute()])
+def test_submit_jobs(s: Storage, c: ComputePlatform):
+
+  if s is None:  # skip if backend is not being tested
+    return
+
+  num_jobs = 4
+
+  exp = s.create_experiment(name='test-submit-exp',
+                            container='test-submit-container',
+                            command='cmd',
+                            configs=[{
+                                'a': i
+                            } for i in range(num_jobs)],
+                            args=None)
+
+  assert exp is not None
+
+  test_jobs = list(exp.jobs())
+  test_runs = [j.submit(c) for j in test_jobs]
+
+  assert len(test_runs) == num_jobs
+
+  # check run validity
+  for i in range(num_jobs):
+    check_Run(test_runs[i], platform=c.platform(), job=test_jobs[i])
+
+  # test cloning runs
+  for i, r in enumerate(test_runs):
+    j = test_jobs[i]
+    cloned = r.clone()
+    assert cloned is not None
+    check_Run(cloned, platform=c.platform(), job=j)
+    assert len(list(j.runs())) == 2
+
+
+# ----------------------------------------------------------------------------
+@pytest.mark.parametrize('s', [create_mem_storage()])
+@pytest.mark.parametrize('c', [create_null_compute()])
+def test_query_runs(s: Storage, c: ComputePlatform):
+
+  if s is None:  # skip if backend is not being tested
+    return
+
+  num_jobs = 2
+  exp = s.create_experiment(name='test-query-runs',
+                            container='test-submit-container',
+                            command='cmd',
+                            configs=[{
+                                'a': i
+                            } for i in range(num_jobs)],
+                            args=None)
+
+  assert exp is not None
+
+  test_jobs = list(exp.jobs())
+  test_runs = [j.submit(c) for j in test_jobs]
+
+  assert len(test_runs) == num_jobs
+
+  for i, j in enumerate(test_jobs):
+    query_runs = list(
+        s.collection('runs').where('job', QueryOp.EQ, j.id()).execute())
+    assert len(query_runs) == 1
+    r = query_runs[0]
+    check_Run(r, platform=c.platform(), job=j, user=test_runs[i].user())

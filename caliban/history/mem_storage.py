@@ -10,15 +10,18 @@ from typing import (Optional, List, Tuple, Dict, Any, Iterable, Union, TypeVar,
                     Type, Callable, NamedTuple)
 from caliban.history.interfaces import (Storage, Experiment, Job, Run,
                                         Collection, QueryOp, HistoryObject,
-                                        Query)
+                                        Query, ComputePlatform)
+from caliban.history.types import JobStatus
 from caliban.history.experiment import ExperimentBase
 from caliban.history.run import RunBase
 from caliban.history.job import JobBase, StorageJob
 from caliban.history.clause import Clause
+from caliban.history.clone import clone_run
 import caliban.config as conf
 
 _MemStorageType = TypeVar('_MemStorageType', bound='_MemStorage')
 _MemCollectionType = TypeVar('_MemCollectionType', bound='_MemCollection')
+_MemQueryType = TypeVar('_MemQueryType', bound='_MemQuery')
 
 
 # ----------------------------------------------------------------------------
@@ -38,7 +41,7 @@ class _MemQuery(Query):
     self._limit = None
     self._clauses = [Clause(field, op, value)]
 
-  def copy(self) -> "_MemQuery":
+  def copy(self) -> _MemQueryType:
     return deepcopy(self)
 
   def execute(self) -> Optional[Iterable[HistoryObject]]:
@@ -78,7 +81,45 @@ class _MemRun(RunBase):
   ):
     super().__init__(d)
     self._storage = storage
-    # todo: implement fully
+
+    if create:
+      self._storage._store['runs']._add(self)
+
+  def clone(self) -> Optional[Run]:
+    sub = clone_run(self)
+    if sub is None:
+      return None
+    d = RunBase.create_dict(job=self._job,
+                            platform=self.platform(),
+                            status=sub.status,
+                            spec=sub.spec)
+    return _MemRun(storage=self._storage, d=d, create=True)
+
+  def job(self) -> Job:
+    return self._storage.collection('jobs').get(id=self._job)
+
+
+# ----------------------------------------------------------------------------
+class _MemJob(StorageJob):
+  '''mem-store job'''
+
+  def __init__(self,
+               storage: _MemStorageType,
+               d: Dict[str, Any],
+               create: bool = False):
+    super().__init__(storage=storage, d=d, create=create)
+
+  def submit(self, compute: ComputePlatform) -> Optional[Run]:
+    sub = compute.submit(self)
+    if sub is None:
+      return None
+
+    d = RunBase.create_dict(job=self.id(),
+                            platform=compute.platform(),
+                            status=sub.status,
+                            spec=sub.spec)
+
+    return _MemRun(self._storage, d=d, create=True)
 
 
 # ----------------------------------------------------------------------------
@@ -121,7 +162,7 @@ class _MemExperiment(ExperimentBase):
         configs=configs,
         args=args,
     )
-    return [StorageJob(storage=self._storage, d=d, create=True) for d in dicts]
+    return [_MemJob(storage=self._storage, d=d, create=True) for d in dicts]
 
 
 # ----------------------------------------------------------------------------
@@ -161,8 +202,8 @@ class _MemStorage(Storage):
             _MemCollection(constructor=lambda d: _MemExperiment(
                 storage=self, d=d, create=False)),
         'jobs':
-            _MemCollection(constructor=lambda d: StorageJob(
-                storage=self, d=d, create=False)),
+            _MemCollection(
+                constructor=lambda d: _MemJob(storage=self, d=d, create=False)),
         'runs':
             _MemCollection(
                 constructor=lambda d: _MemRun(storage=self, d=d, create=False)),

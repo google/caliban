@@ -21,6 +21,7 @@ from caliban.history.experiment import ExperimentBase
 from caliban.history.run import RunBase
 from caliban.history.job import JobBase, StorageJob
 from caliban.history.clause import Clause
+from caliban.history.clone import clone_run
 
 import caliban.config as conf
 
@@ -51,6 +52,12 @@ class _FirestoreQuery(Query):
 
   This implementation keeps a reference to its firestore-backed collection
   for execution.
+
+  Args:
+  collection: collection that this query executes against
+  field: field path for the initial clause of this query
+  op: operation for initial clause of this query
+  value: value for comparison in clause
   '''
 
   def __init__(
@@ -104,8 +111,10 @@ class _FirestoreRun(RunBase):
   Please see caliban.history.Run for additional documentation on this
   type.
 
-  This is incomplete at the moment, but is needed for testing the rest
-  of the interface types.
+  Args:
+  storage: storage instance
+  d: dictionary data for run
+  create: creates and persists in backend if true
   '''
 
   def __init__(
@@ -116,7 +125,53 @@ class _FirestoreRun(RunBase):
   ):
     super().__init__(d)
     self._storage = storage
-    # todo: implement fully
+
+    if create:
+      self._storage._store['runs']._add(self)
+
+  def clone(self) -> Optional[Run]:
+    sub = clone_run(self)
+    if sub is None:
+      return None
+    d = RunBase.create_dict(job=self._job,
+                            platform=self.platform(),
+                            status=sub.status,
+                            spec=sub.spec)
+    return _FirestoreRun(storage=self._storage, d=d, create=True)
+
+  def job(self) -> Job:
+    return self._storage.collection('jobs').get(id=self._job)
+
+
+# ----------------------------------------------------------------------------
+class _FirestoreJob(StorageJob):
+  '''A firestore-backed caliban.history.Job implementation.
+
+  Please see the interface definition for additional documentation on this type.
+
+  Args:
+  storage: storage backend for this job
+  d: dictionary representation for this job
+  create: creates and persists in backing store if true
+  '''
+
+  def __init__(self,
+               storage: _FirestoreStorageType,
+               d: Dict[str, Any],
+               create: bool = False):
+    super().__init__(storage=storage, d=d, create=create)
+
+  def submit(self, compute: ComputePlatform) -> Optional[Run]:
+    sub = compute.submit(self)
+    if sub is None:
+      return None
+
+    d = RunBase.create_dict(job=self.id(),
+                            platform=compute.platform(),
+                            status=sub.status,
+                            spec=sub.spec)
+
+    return _FirestoreRun(self._storage, d=d, create=True)
 
 
 # ----------------------------------------------------------------------------
@@ -177,7 +232,9 @@ class _FirestoreExperiment(ExperimentBase):
         args=args,
     )
 
-    return [StorageJob(storage=self._storage, d=d, create=True) for d in dicts]
+    return [
+        _FirestoreJob(storage=self._storage, d=d, create=True) for d in dicts
+    ]
 
 
 # ----------------------------------------------------------------------------
@@ -317,7 +374,7 @@ class _FirestoreStorage(Storage):
         'jobs':
             _FirestoreCollection(name='jobs',
                                  storage=self,
-                                 constructor=lambda d: StorageJob(
+                                 constructor=lambda d: _FirestoreJob(
                                      storage=self, d=d, create=False)),
         'runs':
             _FirestoreCollection(name='runs',

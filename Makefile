@@ -38,7 +38,7 @@ clean-files:
 .PHONY: install
 install:
 	rm -rf $(ENV_NAME)
-	virtualenv -p python3.5 $(ENV_NAME)
+	virtualenv -p python3.7 $(ENV_NAME)
 	$(PIP) install -r requirements-dev.txt && $(PIP) install -e .
 
 .PHONY: test

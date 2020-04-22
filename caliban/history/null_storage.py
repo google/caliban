@@ -3,15 +3,36 @@
 import uuid
 
 from typing import Optional, List, Tuple, Dict, Any, Iterable, Union
-from caliban.history.interfaces import Storage, Experiment, Job, Run, Collection
+from caliban.history.interfaces import (Storage, Experiment, Job, Run,
+                                        Collection, ComputePlatform)
+
 from caliban.history.experiment import ExperimentBase
 from caliban.history.job import JobBase
+from caliban.history.run import RunBase
 import caliban.config as conf
+from copy import deepcopy
 
 
 # ----------------------------------------------------------------------------
 def create_null_storage() -> Storage:
   return _NullStorage()
+
+
+# ----------------------------------------------------------------------------
+class _NullRun(RunBase):
+  '''null-storage run'''
+
+  def __init__(self, job: Job, d: Dict[str, Any]):
+    super().__init__(d)
+    self._null_job = job
+
+  def job(self) -> Job:
+    return self._null_job
+
+  def clone(self) -> Optional[Run]:
+    new_run = deepcopy(self)
+    self._null_job._runs.append(new_run)
+    return new_run
 
 
 # ----------------------------------------------------------------------------
@@ -21,14 +42,28 @@ class _NullJob(JobBase):
   def __init__(self, experiment: Experiment, d: Dict[str, Any]):
     super().__init__(d)
     self._exp = experiment
+    self._runs = []
 
   def runs(self) -> Iterable[Run]:
     '''returns job runs'''
-    return []
+    return self._runs
 
   def experiment(self) -> Experiment:
     '''returns the parent experiment of this job'''
     return self._exp
+
+  def submit(self, compute: ComputePlatform) -> Optional[Run]:
+    sub = compute.submit(self)
+    if sub is None:
+      return None
+
+    d = RunBase.create_dict(job=self.id(),
+                            platform=compute.platform(),
+                            status=sub.status,
+                            spec=sub.spec)
+    self._runs.append(_NullRun(job=self, d=d))
+
+    return self._runs[-1]
 
 
 # ----------------------------------------------------------------------------
