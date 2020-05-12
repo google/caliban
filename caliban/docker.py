@@ -12,7 +12,7 @@ import sys
 from enum import Enum
 from pathlib import Path
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, NewType,
-                    Optional, Set)
+                    Optional, Set, Union)
 
 import tqdm
 from absl import logging
@@ -20,7 +20,10 @@ from blessings import Terminal
 
 import caliban.config as c
 import caliban.util as u
-
+from caliban.history.utils import get_sql_engine, get_mem_engine, session_scope
+from caliban.history.types import (ExperimentGroup, Experiment, ContainerSpec,
+                                   JobSpec, Job, Platform, JobSpec, Job,
+                                   JobStatus)
 t = Terminal()
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
@@ -443,7 +446,7 @@ def _dockerfile_template(
     job_mode: c.JobMode,
     workdir: Optional[str] = None,
     base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
-    package: Optional[u.Package] = None,
+    package: Optional[Union[List, u.Package]] = None,
     requirements_path: Optional[str] = None,
     setup_extras: Optional[List[str]] = None,
     adc_path: Optional[str] = None,
@@ -477,6 +480,9 @@ def _dockerfile_template(
   uid = os.getuid()
   gid = os.getgid()
   username = u.current_user()
+
+  if isinstance(package, list):
+    package = u.Package(*package)
 
   if workdir is None:
     workdir = DEFAULT_WORKDIR
@@ -556,6 +562,7 @@ def docker_image_id(output: str) -> ImageId:
 
 
 def build_image(job_mode: c.JobMode,
+                build_path: str,
                 credentials_path: Optional[str] = None,
                 adc_path: Optional[str] = None,
                 no_cache: bool = False,
@@ -573,7 +580,7 @@ def build_image(job_mode: c.JobMode,
                   tmp_name=".caliban_default_creds.json") as creds:
     with u.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
       cache_args = ["--no-cache"] if no_cache else []
-      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", os.getcwd()]
+      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
       dockerfile = _dockerfile_template(job_mode,
                                         credentials_path=creds,
@@ -667,35 +674,34 @@ def _interactive_opts(workdir: str) -> List[str]:
   ]
 
 
-def log_arg_instance(args: ArgSeq, i: int) -> ArgSeq:
-  """Prints logging as a side effect for the supplied sequence of arguments
-  generated from an experiment definition; returns the input args.
+def log_job_spec_instance(job_spec: JobSpec, i: int) -> JobSpec:
+  """Prints logging as a side effect for the supplied sequence of job specs
+  generated from an experiment definition; returns the input job spec.
 
   """
+  args = c.experiment_to_args(job_spec.experiment.kwargs,
+                              job_spec.experiment.args)
   logging.info("")
   logging.info("Job {} - Experiment args: {}".format(i, t.yellow(str(args))))
-  return args
+  return job_spec
 
 
-def logged_args(experiments: Iterable[c.Experiment],
-                base_args: ArgSeq) -> Iterable[ArgSeq]:
-  """Generates an iterable of arguments that should be passed to `docker run` to
+def logged_job_specs(job_specs: Iterable[JobSpec]) -> Iterable[JobSpec]:
+  """Generates an iterable of job specs that should be passed to `docker run` to
   execute the experiments defined by the supplied iterable.
 
   """
-  for i, m in enumerate(experiments, 1):
-    args = c.experiment_to_args(m, base_args)
-    yield log_arg_instance(args, i)
+  for i, s in enumerate(job_specs, 1):
+    yield log_job_spec_instance(s, i)
 
 
-def execute_dry_run(experiments: Iterable[c.Experiment],
-                    base_args: ArgSeq) -> None:
+def execute_dry_run(job_specs: Iterable[JobSpec]) -> None:
   """Expands the supplied sequence of experiments into sequences of args and logs
   the jobs that WOULD have been executed, had the dry run flag not been
   applied.
 
   """
-  list(logged_args(experiments, base_args))
+  list(logged_job_specs(job_specs))
 
   logging.info('')
   logging.info(
@@ -705,42 +711,71 @@ run your command again without {}.".format(c.DRY_RUN_FLAG)))
   return None
 
 
-def local_callback(ret_code: int, job_idx: int, script_args: List[str]) -> None:
+def local_callback(idx: int, job: Job) -> None:
   """Provides logging feedback for jobs run locally. If the return code is 0,
   logs success; else, logs the failure as an error and logs the script args
   that provided the failure.
 
   """
-  if ret_code == 0:
-    logging.info(t.green("Job {} succeeded!".format(job_idx)))
+  if job.status == JobStatus.SUCCEEDED:
+    logging.info(t.green(f'Job {idx} succeeded!'))
   else:
     logging.error(
-        t.red("Job {} failed with return code {}.".format(job_idx, ret_code)))
-    logging.error(
-        t.red("Failing args for job {}: {}".format(job_idx, script_args)))
+        t.red(f'Job {idx} failed with return code {job.details["ret_code"]}.'))
+    args = c.experiment_to_args(job.spec.experiment.kwargs,
+                                job.spec.experiment.args)
+    logging.error(t.red(f'Failing args for job {idx}: {args}'))
 
 
-def execute_experiments(experiments: Iterable[c.Experiment],
-                        base_args: List[str], job_mode: c.JobMode,
-                        run_args: List[str], image_id: str) -> None:
-  """Execute all batches in the supplied generator of batch requests. Results
-  aren't returned directly; the callbacks passed to each request when it was
-  generated handle any response or exception.
-
-  """
+# ----------------------------------------------------------------------------
+def _create_job_spec_dict(
+    experiment: Experiment,
+    job_mode: c.JobMode,
+    image_id: str,
+    run_args: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+  '''creates a job spec dictionary for a local job'''
   base_cmd = _run_cmd(job_mode, run_args) + [image_id]
+  command = base_cmd + c.experiment_to_args(experiment.kwargs, experiment.args)
+  return {'command': command, 'container': image_id}
+
+
+# ----------------------------------------------------------------------------
+def execute_jobs(
+    job_specs: Iterable[JobSpec],
+    dry_run: bool = False,
+):
+  '''executes a sequence of jobs based on job specs
+
+  Arg:
+  job_specs: specifications for jobs to be executed
+  dry_run: if True, only print what would be done
+  '''
 
   with u.tqdm_logging() as orig_stream:
-    pbar = tqdm.tqdm(logged_args(experiments, base_args),
+    pbar = tqdm.tqdm(logged_job_specs(job_specs),
                      file=orig_stream,
-                     total=len(experiments),
+                     total=len(job_specs),
+                     ascii=True,
                      unit="experiment",
                      desc="Executing")
-    for idx, script_args in enumerate(pbar, 1):
-      command = base_cmd + script_args
-      logging.info("Running command: {}".format(' '.join(command)))
-      _, ret_code = u.capture_stdout(command, "", u.TqdmFile(sys.stderr))
-      local_callback(ret_code, idx, script_args)
+    for idx, job_spec in enumerate(pbar, 1):
+      command = job_spec.spec['command']
+      logging.info(f'Running command: {" ".join(command)}')
+      if not dry_run:
+        _, ret_code = u.capture_stdout(command, "", u.TqdmFile(sys.stderr))
+      else:
+        ret_code = 0
+      j = Job(spec=job_spec,
+              container=job_spec.spec['container'],
+              details={'ret_code': ret_code},
+              status=JobStatus.SUCCEEDED if ret_code == 0 else JobStatus.FAILED)
+      local_callback(idx=idx, job=j)
+
+  if dry_run:
+    logging.info(
+        t.yellow(f'\nTo build your image and execute these jobs, '
+                 f'run your command again without {c.DRY_RUN_FLAG}\n'))
 
   return None
 
@@ -751,6 +786,7 @@ def run_experiments(job_mode: c.JobMode,
                     image_id: Optional[str] = None,
                     dry_run: bool = False,
                     experiment_config: Optional[c.ExpConf] = None,
+                    xgroup: Optional[str] = None,
                     **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker
   run` on the resulting image using sensible defaults.
@@ -783,20 +819,60 @@ def run_experiments(job_mode: c.JobMode,
   if experiment_config is None:
     experiment_config = {}
 
-  if image_id is None:
-    if dry_run:
-      logging.info("Dry run - skipping actual 'docker build'.")
-      image_id = "dry_run_tag"
-    else:
-      image_id = build_image(job_mode, **build_image_kwargs)
+  engine = get_mem_engine() if dry_run else get_sql_engine()
 
-  experiments = c.expand_experiment_config(experiment_config)
+  with session_scope(engine) as session:
+    if image_id is None:
+      # create a ContainerSpec that describes how to build this
+      # container
+      spec = {k: v for k, v in build_image_kwargs.items()}
+      spec['job_mode'] = job_mode
+      cs = ContainerSpec.get_or_create(
+          session=session,
+          spec=spec,
+      )
 
-  if dry_run:
-    return execute_dry_run(experiments, script_args)
+      if dry_run:
+        logging.info("Dry run - skipping actual 'docker build'.")
+        image_id = "dry_run_tag"
+      else:
+        image_id = build_image(job_mode, **build_image_kwargs)
+    else:  # image_id is supplied, so that suffices for ContainerSpec
+      cs = ContainerSpec.get_or_create(
+          session=session,
+          spec={'image_id': image_id},
+      )
 
-  return execute_experiments(experiments, script_args, job_mode, run_args,
-                             image_id)
+    xg = ExperimentGroup.get_or_create(session=session, name=xgroup)
+    session.add(xg)  # this ensures that any new objects get persisted
+
+    experiments = [
+        Experiment.get_or_create(
+            xgroup=xg,
+            container_spec=cs,
+            args=script_args,
+            kwargs=kwargs,
+        ) for kwargs in c.expand_experiment_config(experiment_config)
+    ]
+
+    job_specs = [
+        JobSpec.get_or_create(
+            experiment=x,
+            spec=_create_job_spec_dict(
+                experiment=x,
+                job_mode=job_mode,
+                run_args=run_args,
+                image_id=image_id,
+            ),
+            platform=Platform.LOCAL,
+        ) for x in experiments
+    ]
+
+    try:
+      execute_jobs(job_specs=job_specs, dry_run=dry_run)
+    except Exception as e:
+      logging.error(f'exception: {e}')
+      session.commit()  # commit here, otherwise will be rolled back
 
 
 def run(job_mode: c.JobMode,

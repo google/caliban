@@ -32,8 +32,12 @@ ExpConf = Union[Expansion, List[Expansion]]
 # A final experiment can only contain valid ExpValues, no expandable entries.
 Experiment = Dict[str, ExpValue]
 
+
 # Mode
-JobMode = Enum("JobMode", ("CPU", "GPU"))
+class JobMode(str, Enum):
+  CPU = 'CPU'
+  GPU = 'GPU'
+
 
 # Special config for Caliban.
 CalibanConfig = Dict[str, Any]
