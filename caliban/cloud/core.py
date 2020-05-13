@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 import datetime
 from pprint import pformat
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from copy import deepcopy
 
 import tqdm
 from absl import logging
@@ -12,16 +13,17 @@ from blessings import Terminal
 from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
+from sqlalchemy.orm import Session
 
 import caliban.cloud.types as ct
 import caliban.config as conf
 import caliban.docker as d
 import caliban.util as u
 
-t = Terminal()
+from caliban.history.utils import get_sql_engine, get_mem_engine, session_scope
+import caliban.history.types as ht
 
-# Marker type to make things more readable below.
-JobSpec = Dict[str, Any]
+t = Terminal()
 
 
 def get_accelerator_config(gpu_spec: Optional[ct.GPUSpec]) -> Dict[str, Any]:
@@ -55,7 +57,7 @@ def _stream_cmd(job_id: str) -> str:
   return " ".join(items)
 
 
-def logging_callback(spec: JobSpec, project_id: str):
+def logging_callback(spec: Dict[str, Any], project_id: str):
   """Returns a callback of the format required by the GCloud REST api's job
   creation endpoint. The returned function accepts:
 
@@ -86,12 +88,50 @@ def logging_callback(spec: JobSpec, project_id: str):
   return callback
 
 
-def log_spec(spec: JobSpec, i: int) -> JobSpec:
+def job_callback(spec: ht.JobSpec, project_id: str, body: Dict[str, Any]):
+  '''callback for job submission
+
+  This returns a function that accepts a response object from a caip
+  job submission request and an optional exception argument, and logs
+  some status output and then creates a Job instance that will be
+  persisted.
+
+  Args:
+  JobSpec: job spec describing job to be submitted
+  project_id: project for caip submission
+  body: dictionary forming body of job submission request
+
+  Returns:
+  callable taking response and optional exception
+  '''
+  logging_cb = logging_callback(spec=body, project_id=project_id)
+
+  def callback(resp, exception):
+    logging_cb(resp, exception)
+    if exception is not None:
+      status = ht.JobStatus.FAILED
+    else:
+      status = ht.JobStatus.SUBMITTED
+    # create and persist Job
+    _ = ht.Job(
+        spec=spec,
+        container=spec.spec['trainingInput']['masterConfig']['imageUri'],
+        details={
+            'jobId': body['jobId'],
+            'project_id': project_id
+        },
+        status=status,
+    )
+
+  return callback
+
+
+def log_spec(spec: ht.JobSpec, i: int) -> ht.JobSpec:
   """Returns the input spec after triggering logging side-effects.
 
   """
-  job_id = spec['jobId']
-  training_input = spec['trainingInput']
+  job_id = spec.spec['jobId']
+  training_input = spec.spec['trainingInput']
   machine_type = training_input['masterType']
   region = training_input['region']
   masterConf = training_input['masterConfig']
@@ -112,11 +152,11 @@ def log_spec(spec: JobSpec, i: int) -> JobSpec:
         workerConf, training_input['workerType']))
 
   prefixed("Experiment arguments: {}".format(t.yellow(str(args))))
-  prefixed("labels: {}".format(spec['labels']))
+  prefixed(f'labels: {spec.spec["labels"]}\n')
   return spec
 
 
-def logged_specs(specs: Iterable[JobSpec]) -> Iterable[JobSpec]:
+def logged_specs(specs: Iterable[ht.JobSpec]) -> Iterable[ht.JobSpec]:
   """Returns a generator that produces the same values as the supplied iterable;
   wrapping the iterable in `logged_specs` will trigger a logging side-effect
   for each JobSpec instance before it's produced.
@@ -126,7 +166,7 @@ def logged_specs(specs: Iterable[JobSpec]) -> Iterable[JobSpec]:
     yield log_spec(spec, i)
 
 
-def log_specs(specs: Iterable[JobSpec]) -> List[JobSpec]:
+def log_specs(specs: Iterable[ht.JobSpec]) -> List[ht.JobSpec]:
   """Equivalent to logged_specs, except all logging side effects are forced to
   occur immediately before return.
 
@@ -136,8 +176,8 @@ def log_specs(specs: Iterable[JobSpec]) -> List[JobSpec]:
   return list(logged_specs(specs))
 
 
-def logged_batches(specs: Iterable[JobSpec],
-                   limit: int) -> Iterable[Iterable[JobSpec]]:
+def logged_batches(specs: Iterable[ht.JobSpec],
+                   limit: int) -> Iterable[Iterable[ht.JobSpec]]:
   """Accepts an iterable of specs and a 'chunk limit'; returns an iterable of
   iterable of JobSpec, each of which is guaranteed to contain at most 'chunk
   limit' items.
@@ -174,8 +214,8 @@ def logged_batches(specs: Iterable[JobSpec],
     yield logged_specs(chunk)
 
 
-def log_batch_parameters(specs: Iterable[JobSpec],
-                         limit: int) -> List[List[JobSpec]]:
+def log_batch_parameters(specs: Iterable[ht.JobSpec],
+                         limit: int) -> List[List[ht.JobSpec]]:
   """Equivalent to logged_batches, except all logging side effects are forced to
   occur immediately before return.
 
@@ -212,12 +252,11 @@ def ml_api(credentials_path: Optional[str] = None):
                          credentials=credentials)
 
 
-def create_requests(
-    specs: List[JobSpec],
-    project_id: str,
-    credentials_path: Optional[str] = None
-) -> Iterable[Tuple[Any, JobSpec, Any]]:
-  """Returns an iterator of (HttpRequest, JobSpec, Callback).
+def create_requests(specs: List[ht.JobSpec],
+                    project_id: str,
+                    credentials_path: Optional[str] = None
+                   ) -> Iterable[Tuple[Any, ht.JobSpec, Any]]:
+  """Returns an iterator of (HttpRequest, ht.JobSpec, Callback).
 
   HttpRequests look like:
   https://googleapis.github.io/google-api-python-client/docs/epy/googleapiclient.http.HttpRequest-class.html
@@ -240,9 +279,15 @@ def create_requests(
 
   jobs = ml.projects().jobs()
 
-  for spec in logged_specs(specs):
-    cb = logging_callback(spec, project_id)
-    yield jobs.create(body=spec, parent=parent), spec, cb
+  for job_spec in logged_specs(specs):
+    # replace the jobId field with a uid-appended id upon request creation
+    spec = deepcopy(job_spec.spec)
+    uid = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    index = spec['jobId'].split('_')[-1]
+    job_name = '_'.join(spec['jobId'].split('_')[:-1])
+    spec['jobId'] = f'{job_name}_{uid}_{index}'
+    cb = job_callback(spec=job_spec, project_id=project_id, body=spec)
+    yield jobs.create(body=spec, parent=parent), job_spec, cb
 
 
 def execute(req, callback, num_retries: Optional[int] = None):
@@ -267,22 +312,27 @@ def execute(req, callback, num_retries: Optional[int] = None):
     callback(None, e)
 
 
-def execute_requests(requests: Iterable[Tuple[Any, JobSpec, Any]],
-                     count: Optional[int] = None,
-                     num_retries: Optional[int] = None) -> None:
+def execute_requests(
+    requests: Iterable[Tuple[Any, ht.JobSpec, Any]],
+    count: Optional[int] = None,
+    num_retries: Optional[int] = None,
+) -> None:
   """Execute all batches in the supplied generator of batch requests. Results
   aren't returned directly; the callbacks passed to each request when it was
   generated handle any response or exception.
 
   """
   with u.tqdm_logging() as orig_stream:
-    pbar = tqdm.tqdm(requests,
-                     file=orig_stream,
-                     total=count,
-                     unit="requests",
-                     desc="submitting")
+    pbar = tqdm.tqdm(
+        requests,
+        file=orig_stream,
+        total=count,
+        unit="requests",
+        desc="submitting",
+        ascii=True,
+    )
     for req, spec, cb in pbar:
-      pbar.set_description("Submitting {}".format(spec['jobId']))
+      pbar.set_description(f'Submitting {spec.spec["jobId"]}')
       execute(req, cb, num_retries=num_retries)
 
 
@@ -322,27 +372,39 @@ def tpu_fields(tpu_spec: Optional[ct.TPUSpec]) -> Dict[str, str]:
   }
 
 
-def _job_spec(job_name: str, idx: int, training_input: Dict[str, Any],
-              labels: Dict[str, str], uuid: str) -> JobSpec:
+def _job_spec(
+    job_name: str,
+    idx: int,
+    training_input: Dict[str, Any],
+    labels: Dict[str, str],
+    experiment: ht.Experiment,
+) -> ht.JobSpec:
   """Returns the final object required by the Google AI Platform training job
   submission endpoint.
 
   """
-  job_id = "{}_{}_{}".format(job_name, uuid, idx)
+  job_id = f'{job_name}_{idx}'
   job_args = training_input.get("args")
-  return {
-      "jobId": job_id,
-      "trainingInput": training_input,
-      "labels": {
-          **u.sanitize_labels(labels),
-          **u.script_args_to_labels(job_args)
-      }
-  }
+  return ht.JobSpec.get_or_create(
+      experiment=experiment,
+      spec={
+          "jobId": job_id,
+          "trainingInput": training_input,
+          "labels": {
+              **u.sanitize_labels(labels),
+              **u.script_args_to_labels(job_args)
+          }
+      },
+      platform=ht.Platform.CAIP,
+  )
 
 
-def _job_specs(job_name: str, training_input: Dict[str, Any],
-               base_args: List[str], labels: Dict[str, str], uuid: str,
-               experiments: Iterable[conf.Experiment]) -> Iterable[JobSpec]:
+def _job_specs(
+    job_name: str,
+    training_input: Dict[str, Any],
+    labels: Dict[str, str],
+    experiments: Iterable[ht.Experiment],
+) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
 
@@ -353,21 +415,26 @@ def _job_specs(job_name: str, training_input: Dict[str, Any],
 
   """
   for idx, m in enumerate(experiments, 1):
-    args = conf.experiment_to_args(m, base_args)
+    args = conf.experiment_to_args(m.kwargs, m.args)
     yield _job_spec(job_name=job_name,
                     idx=idx,
                     training_input={
                         **training_input, "args": args
                     },
                     labels=labels,
-                    uuid=uuid)
+                    experiment=m)
 
 
-def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
-                    machine_type: ct.MachineType, script_args: List[str],
-                    experiments: Iterable[conf.Experiment],
-                    user_labels: Dict[str, str], gpu_spec: Optional[ct.GPUSpec],
-                    tpu_spec: Optional[ct.TPUSpec]) -> Iterable[JobSpec]:
+def build_job_specs(
+    job_name: str,
+    image_tag: str,
+    region: ct.Region,
+    machine_type: ct.MachineType,
+    experiments: Iterable[ht.Experiment],
+    user_labels: Dict[str, str],
+    gpu_spec: Optional[ct.GPUSpec],
+    tpu_spec: Optional[ct.TPUSpec],
+) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
 
@@ -377,9 +444,7 @@ def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
   Each job in the batch will have a unique jobId.
 
   """
-  logging.info("Building jobs for name: {}".format(job_name))
-
-  uuid = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+  logging.info(f'Building jobs for name: {job_name}')
 
   accelerator_conf = get_accelerator_config(gpu_spec)
   training_input = base_training_input(image_tag, region, machine_type,
@@ -399,10 +464,8 @@ def build_job_specs(job_name: str, image_tag: str, region: ct.Region,
 
   return _job_specs(job_name,
                     training_input=training_input,
-                    base_args=script_args,
                     labels=base_labels,
-                    experiments=experiments,
-                    uuid=uuid)
+                    experiments=experiments)
 
 
 def generate_image_tag(project_id, docker_args, dry_run: bool = False):
@@ -426,7 +489,7 @@ def generate_image_tag(project_id, docker_args, dry_run: bool = False):
   return image_tag
 
 
-def execute_dry_run(specs: List[JobSpec]) -> None:
+def execute_dry_run(specs: List[ht.JobSpec]) -> None:
   log_specs(specs)
 
   logging.info('')
@@ -435,6 +498,91 @@ def execute_dry_run(specs: List[JobSpec]) -> None:
 run your command again without {}.".format(conf.DRY_RUN_FLAG)))
   logging.info('')
   return None
+
+
+def submit_job_specs(
+    specs: Iterable[ht.JobSpec],
+    project_id: str,
+    credentials_path: Optional[str] = None,
+    num_specs: Optional[int] = None,
+    request_retries: Optional[int] = 10,
+) -> None:
+  '''submit job specs to CAIP
+
+  Args:
+  specs: iterable of job specs
+  project_id: project id for submission
+  credentials_path: path to credentials
+  num_specs: used for progress bar if supplied
+  request_retries: number of times to retry submission request
+  '''
+
+  requests = create_requests(
+      specs,
+      project_id=project_id,
+      credentials_path=credentials_path,
+  )
+
+  execute_requests(requests, num_specs, num_retries=request_retries)
+
+
+def generate_container_spec(
+    session: Session,
+    docker_args: Dict[str, Any],
+    image_tag: Optional[str] = None,
+) -> ht.ContainerSpec:
+  '''generates a container spec
+
+  Args:
+  session: sqlalchemy session
+  docker_args: args for building docker container
+  image_tag: if not None, then an existing docker image is used
+
+  Returns:
+  (image_tag, ContainerSpec)
+  '''
+
+  if image_tag is None:
+    spec = docker_args
+  else:
+    spec = {'image_id': image_tag}
+
+  return ht.ContainerSpec.get_or_create(session=session, spec=spec)
+
+
+def create_experiments(
+    session: Session,
+    container_spec: ht.ContainerSpec,
+    script_args: List[str],
+    experiment_config: conf.ExpConf,
+    xgroup: Optional[str] = None,
+) -> List[ht.Experiment]:
+  '''create experiment instances
+
+  Args:
+  session: sqlalchemy session
+  container_spec: container spec for the generated experiments
+  script_args: these are extra arguments that will be passed to every job
+    executed, in addition to the arguments created by expanding out the
+    experiment config.
+  experiment_config: dict of string to list, boolean, string or int. Any
+    lists will trigger a cartesian product out with the rest of the config. A
+    job will be submitted for every combination of parameters in the experiment
+    config.
+  xgroup: experiment group name for the generated experiments
+  '''
+
+  xg = ht.ExperimentGroup.get_or_create(session=session, name=xgroup)
+  session.add(xg)  # this ensures that any new objects get persisted
+
+  return [
+      ht.Experiment.get_or_create(
+          xgroup=xg,
+          container_spec=container_spec,
+          args=script_args,
+          kwargs=kwargs,
+      ) for kwargs in conf.expand_experiment_config(experiment_config)
+  ]
 
 
 def submit_ml_job(job_mode: conf.JobMode,
@@ -451,7 +599,8 @@ def submit_ml_job(job_mode: conf.JobMode,
                   labels: Optional[Dict[str, str]] = None,
                   experiment_config: Optional[conf.ExpConf] = None,
                   script_args: Optional[List[str]] = None,
-                  request_retries: Optional[int] = None) -> None:
+                  request_retries: Optional[int] = None,
+                  xgroup: Optional[str] = None) -> None:
   """Top level function in the module. This function:
 
   - builds an image using the supplied docker_args, in either CPU or GPU mode
@@ -496,7 +645,8 @@ def submit_ml_job(job_mode: conf.JobMode,
     experiment config.
   - request_retries: the number of times to retry each request if it fails for
     a timeout or a rate limiting request.
-
+  - xgroup: experiment group for this submission, if None a new group will
+    be created
   """
   if script_args is None:
     script_args = []
@@ -519,29 +669,50 @@ def submit_ml_job(job_mode: conf.JobMode,
   if request_retries is None:
     request_retries = 10
 
-  if image_tag is None:
-    image_tag = generate_image_tag(project_id, docker_args, dry_run=dry_run)
+  engine = get_mem_engine() if dry_run else get_sql_engine()
 
-  experiments = conf.expand_experiment_config(experiment_config)
-  specs = build_job_specs(job_name=job_name,
-                          image_tag=image_tag,
-                          region=region,
-                          machine_type=machine_type,
-                          script_args=script_args,
-                          experiments=experiments,
-                          user_labels=labels,
-                          gpu_spec=gpu_spec,
-                          tpu_spec=tpu_spec)
+  with session_scope(engine) as session:
+    container_spec = generate_container_spec(session, docker_args, image_tag)
 
-  if dry_run:
-    return execute_dry_run(specs)
+    if image_tag is None:
+      image_tag = generate_image_tag(project_id, docker_args, dry_run=dry_run)
 
-  requests = create_requests(specs,
-                             project_id=project_id,
-                             credentials_path=credentials_path)
-  execute_requests(requests, len(experiments), num_retries=request_retries)
-  logging.info("")
-  logging.info(
-      t.green("Visit {} to see the status of all jobs.".format(
-          job_url(project_id, ''))))
-  logging.info("")
+    experiments = create_experiments(
+        session=session,
+        container_spec=container_spec,
+        script_args=script_args,
+        experiment_config=experiment_config,
+        xgroup=xgroup,
+    )
+
+    specs = build_job_specs(
+        job_name=job_name,
+        image_tag=image_tag,
+        region=region,
+        machine_type=machine_type,
+        experiments=experiments,
+        user_labels=labels,
+        gpu_spec=gpu_spec,
+        tpu_spec=tpu_spec,
+    )
+
+    if dry_run:
+      return execute_dry_run(specs)
+
+    try:
+      submit_job_specs(
+          specs=specs,
+          project_id=project_id,
+          credentials_path=credentials_path,
+          num_specs=len(experiments),
+          request_retries=request_retries,
+      )
+    except Exception as e:
+      logging.error(f'exception: {e}')
+      session.commit()  # commit here, otherwise will be rolled back
+
+    logging.info("")
+    logging.info(
+        t.green("Visit {} to see the status of all jobs.".format(
+            job_url(project_id, ''))))
+    logging.info("")
