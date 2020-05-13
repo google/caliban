@@ -1,11 +1,11 @@
 # This builds the base images that we can use for development at Blueshift.
-# Tensorflow 2.0 by default, but we can override the image when we call docker.
+# Tensorflow 2.1 by default, but we can override the image when we call docker.
 #
 # docker build -t gcr.io/blueshift-playground/blueshift:cpu -f- . <Dockerfile
 #
 # docker push gcr.io/blueshift-playground/blueshift:cpu
 #
-# docker build --build-arg BASE_IMAGE=tensorflow/tensorflow:2.0.0-gpu-py3 -t gcr.io/blueshift-playground/blueshift:gpu -f- . <Dockerfile
+# docker build --build-arg BASE_IMAGE=tensorflow/tensorflow:2.1.0-gpu-py3 -t gcr.io/blueshift-playground/blueshift:gpu -f- . <Dockerfile
 #
 # docker push gcr.io/blueshift-playground/blueshift:gpu
 #
