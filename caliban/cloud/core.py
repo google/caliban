@@ -20,7 +20,9 @@ import caliban.config as conf
 import caliban.docker as d
 import caliban.util as u
 
-from caliban.history.utils import get_sql_engine, get_mem_engine, session_scope
+from caliban.history.utils import (get_sql_engine, get_mem_engine,
+                                   session_scope, generate_container_spec,
+                                   create_experiments)
 import caliban.history.types as ht
 
 t = Terminal()
@@ -252,10 +254,11 @@ def ml_api(credentials_path: Optional[str] = None):
                          credentials=credentials)
 
 
-def create_requests(specs: List[ht.JobSpec],
-                    project_id: str,
-                    credentials_path: Optional[str] = None
-                   ) -> Iterable[Tuple[Any, ht.JobSpec, Any]]:
+def create_requests(
+    specs: List[ht.JobSpec],
+    project_id: str,
+    credentials_path: Optional[str] = None
+) -> Iterable[Tuple[Any, ht.JobSpec, Any]]:
   """Returns an iterator of (HttpRequest, ht.JobSpec, Callback).
 
   HttpRequests look like:
@@ -524,65 +527,6 @@ def submit_job_specs(
   )
 
   execute_requests(requests, num_specs, num_retries=request_retries)
-
-
-def generate_container_spec(
-    session: Session,
-    docker_args: Dict[str, Any],
-    image_tag: Optional[str] = None,
-) -> ht.ContainerSpec:
-  '''generates a container spec
-
-  Args:
-  session: sqlalchemy session
-  docker_args: args for building docker container
-  image_tag: if not None, then an existing docker image is used
-
-  Returns:
-  (image_tag, ContainerSpec)
-  '''
-
-  if image_tag is None:
-    spec = docker_args
-  else:
-    spec = {'image_id': image_tag}
-
-  return ht.ContainerSpec.get_or_create(session=session, spec=spec)
-
-
-def create_experiments(
-    session: Session,
-    container_spec: ht.ContainerSpec,
-    script_args: List[str],
-    experiment_config: conf.ExpConf,
-    xgroup: Optional[str] = None,
-) -> List[ht.Experiment]:
-  '''create experiment instances
-
-  Args:
-  session: sqlalchemy session
-  container_spec: container spec for the generated experiments
-  script_args: these are extra arguments that will be passed to every job
-    executed, in addition to the arguments created by expanding out the
-    experiment config.
-  experiment_config: dict of string to list, boolean, string or int. Any
-    lists will trigger a cartesian product out with the rest of the config. A
-    job will be submitted for every combination of parameters in the experiment
-    config.
-  xgroup: experiment group name for the generated experiments
-  '''
-
-  xg = ht.ExperimentGroup.get_or_create(session=session, name=xgroup)
-  session.add(xg)  # this ensures that any new objects get persisted
-
-  return [
-      ht.Experiment.get_or_create(
-          xgroup=xg,
-          container_spec=container_spec,
-          args=script_args,
-          kwargs=kwargs,
-      ) for kwargs in conf.expand_experiment_config(experiment_config)
-  ]
 
 
 def submit_ml_job(job_mode: conf.JobMode,

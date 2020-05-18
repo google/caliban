@@ -1,7 +1,7 @@
 import os
 import sys
 from contextlib import contextmanager
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 from absl import logging
 from blessings import Terminal
@@ -10,7 +10,10 @@ from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-from caliban.history.types import init_db
+from caliban.history.types import (init_db, ContainerSpec, Experiment,
+                                   ExperimentGroup)
+
+import caliban.config as conf
 
 DB_URL_ENV = 'CALIBAN_DB_URL'
 MEMORY_DB_URL = 'sqlite:///:memory:'
@@ -149,3 +152,62 @@ def session_scope(engine: Engine) -> Session:
     raise
   finally:
     session.close()
+
+
+def generate_container_spec(
+    session: Session,
+    docker_args: Dict[str, Any],
+    image_tag: Optional[str] = None,
+) -> ContainerSpec:
+  '''generates a container spec
+
+  Args:
+  session: sqlalchemy session
+  docker_args: args for building docker container
+  image_tag: if not None, then an existing docker image is used
+
+  Returns:
+  ContainerSpec instance
+  '''
+
+  if image_tag is None:
+    spec = docker_args
+  else:
+    spec = {'image_id': image_tag}
+
+  return ContainerSpec.get_or_create(session=session, spec=spec)
+
+
+def create_experiments(
+    session: Session,
+    container_spec: ContainerSpec,
+    script_args: List[str],
+    experiment_config: conf.ExpConf,
+    xgroup: Optional[str] = None,
+) -> List[Experiment]:
+  '''create experiment instances
+
+  Args:
+  session: sqlalchemy session
+  container_spec: container spec for the generated experiments
+  script_args: these are extra arguments that will be passed to every job
+    executed, in addition to the arguments created by expanding out the
+    experiment config.
+  experiment_config: dict of string to list, boolean, string or int. Any
+    lists will trigger a cartesian product out with the rest of the config. A
+    job will be submitted for every combination of parameters in the experiment
+    config.
+  xgroup: experiment group name for the generated experiments
+  '''
+
+  xg = ExperimentGroup.get_or_create(session=session, name=xgroup)
+  session.add(xg)  # this ensures that any new objects get persisted
+
+  return [
+      Experiment.get_or_create(
+          xgroup=xg,
+          container_spec=container_spec,
+          args=script_args,
+          kwargs=kwargs,
+      ) for kwargs in conf.expand_experiment_config(experiment_config)
+  ]

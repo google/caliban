@@ -540,7 +540,7 @@ def generate_docker_args(job_mode: conf.JobMode,
       "credentials_path": creds_path,
       "adc_path": adc_path,
       "setup_extras": setup_extras,
-      "no_cache": args.get("no_cache"),
+      "no_cache": args.get("no_cache", False),
       'build_path': os.getcwd(),
   }
 

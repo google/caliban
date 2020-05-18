@@ -20,7 +20,9 @@ from blessings import Terminal
 
 import caliban.config as c
 import caliban.util as u
-from caliban.history.utils import get_sql_engine, get_mem_engine, session_scope
+from caliban.history.utils import (get_sql_engine, get_mem_engine,
+                                   session_scope, generate_container_spec,
+                                   create_experiments)
 from caliban.history.types import (ExperimentGroup, Experiment, ContainerSpec,
                                    JobSpec, Job, Platform, JobSpec, Job,
                                    JobStatus)
@@ -819,41 +821,28 @@ def run_experiments(job_mode: c.JobMode,
   if experiment_config is None:
     experiment_config = {}
 
+  docker_args = {k: v for k, v in build_image_kwargs.items()}
+  docker_args['job_mode'] = job_mode
+
   engine = get_mem_engine() if dry_run else get_sql_engine()
 
   with session_scope(engine) as session:
-    if image_id is None:
-      # create a ContainerSpec that describes how to build this
-      # container
-      spec = {k: v for k, v in build_image_kwargs.items()}
-      spec['job_mode'] = job_mode
-      cs = ContainerSpec.get_or_create(
-          session=session,
-          spec=spec,
-      )
+    container_spec = generate_container_spec(session, docker_args, image_id)
 
+    if image_id is None:
       if dry_run:
         logging.info("Dry run - skipping actual 'docker build'.")
-        image_id = "dry_run_tag"
+        image_id = 'dry_run_tag'
       else:
-        image_id = build_image(job_mode, **build_image_kwargs)
-    else:  # image_id is supplied, so that suffices for ContainerSpec
-      cs = ContainerSpec.get_or_create(
-          session=session,
-          spec={'image_id': image_id},
-      )
+        image_id = build_image(**docker_args)
 
-    xg = ExperimentGroup.get_or_create(session=session, name=xgroup)
-    session.add(xg)  # this ensures that any new objects get persisted
-
-    experiments = [
-        Experiment.get_or_create(
-            xgroup=xg,
-            container_spec=cs,
-            args=script_args,
-            kwargs=kwargs,
-        ) for kwargs in c.expand_experiment_config(experiment_config)
-    ]
+    experiments = create_experiments(
+        session=session,
+        container_spec=container_spec,
+        script_args=script_args,
+        experiment_config=experiment_config,
+        xgroup=xgroup,
+    )
 
     job_specs = [
         JobSpec.get_or_create(

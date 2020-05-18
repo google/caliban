@@ -4,12 +4,14 @@ import json
 import logging
 import pprint as pp
 import re
-from typing import List, Optional, Tuple
+import os
+from typing import List, Optional, Tuple, Iterable, Dict, Any
 
 import googleapiclient
 from google.auth.credentials import Credentials
 from googleapiclient import discovery
 from kubernetes.client import V1Job, V1JobSpec, V1ObjectMeta, V1Pod
+from datetime import datetime
 
 import caliban.cli as cli
 import caliban.config as conf
@@ -20,6 +22,11 @@ from caliban.cloud.core import generate_image_tag
 from caliban.cloud.types import parse_machine_type
 from caliban.gke.cluster import Cluster
 from caliban.gke.types import CredentialsData, NodeImage
+
+from caliban.history.utils import (get_sql_engine, get_mem_engine,
+                                   session_scope, generate_container_spec,
+                                   create_experiments)
+import caliban.history.types as ht
 
 
 # ----------------------------------------------------------------------------
@@ -114,7 +121,7 @@ def _export_jobs(export: str, jobs: List[V1Job]) -> bool:
   else:
     base, ext = os.path.splitext(export)
     for i, j in enumerate(jobs):
-      if not utils.export_job(j, '{}_{}{}'.format(base, i, ext)):
+      if not utils.export_job(j, f'{base}_{i}{ext}'):
         return False
 
   return True
@@ -311,17 +318,23 @@ def _job_ls(args: dict, cluster: Cluster):
 
 
 # ----------------------------------------------------------------------------
+def _generate_job_name(name: Optional[str]) -> str:
+  '''simple utility to generate a job name automatically if none is provided'''
+  if name is None:
+    dt = datetime.now().astimezone()
+    name = f'caliban-{u.current_user()}-{dt.strftime("%Y%m%d-%H%M%S")}'
+  return name
+
+
+# ----------------------------------------------------------------------------
 @_project_and_creds
 @_with_cluster
-def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
+def _job_submit(args: dict, cluster: Cluster) -> None:
   """submits job(s) to cluster
 
   Args:
   args: argument dictionary
   cluster: cluster instance
-
-  Returns:
-  list of V1Jobs submitted on success, None otherwise
   """
 
   script_args = conf.extract_script_args(args)
@@ -330,11 +343,19 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
   docker_run_args = args.get('docker_run_args', []) or []
   dry_run = args['dry_run']
   package = args['module']
-  job_name = args.get('name') or "caliban-{}".format(u.current_user())
+  job_name = _generate_job_name(args.get('name'))
   gpu_spec = args.get('gpu_spec')
   preemptible = not args['nonpreemptible']
   min_cpu = args.get('min_cpu')
   min_mem = args.get('min_mem')
+  experiment_config = args.get('experiment_config') or [{}]
+  xgroup = args.get('xgroup')
+  image_tag = args.get('image_tag')
+  export = args.get('export', None)
+
+  labels = args.get('label')
+  if labels is not None:
+    labels = dict(u.sanitize_labels(args.get('label')))
 
   # Arguments to internally build the image required to submit to Cloud.
   docker_m = {'job_mode': job_mode, 'package': package, **docker_args}
@@ -372,23 +393,12 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
         logging.info('  {}'.format(d))
       return
 
-  # --------------------------------------------------------------------------
-  image_tag = (args.get('image_tag') or generate_image_tag(
-      cluster.project_id, docker_args=docker_m, dry_run=dry_run))
-
   if tpu_spec is None and gpu_spec is None:  # cpu-only job
     min_cpu = min_cpu or k.DEFAULT_MIN_CPU_CPU
     min_mem = min_mem or k.DEFAULT_MIN_MEM_CPU
   else:  # gpu/tpu-accelerated job
     min_cpu = min_cpu or k.DEFAULT_MIN_CPU_ACCEL
     min_mem = min_mem or k.DEFAULT_MIN_MEM_ACCEL
-
-  experiments = conf.expand_experiment_config(
-      args.get('experiment_config') or [{}])
-
-  labels = args.get('label')
-  if labels is not None:
-    labels = dict(u.sanitize_labels(args.get('label')))
 
   # convert accelerator spec
   accel_spec = Cluster.convert_accel_spec(gpu_spec, tpu_spec)
@@ -397,52 +407,65 @@ def _job_submit(args: dict, cluster: Cluster) -> Optional[List[V1Job]]:
 
   accel, accel_count = accel_spec
 
-  # create V1 jobs
-  jobs = cluster.create_simple_experiment_jobs(
-      name=utils.sanitize_job_name(job_name),
-      image=image_tag,
-      min_cpu=min_cpu,
-      min_mem=min_mem,
-      experiments=experiments,
-      args=script_args,
-      accelerator=accel,
-      accelerator_count=accel_count,
-      preemptible=preemptible,
-      labels=labels,
-      preemptible_tpu=preemptible_tpu,
-      tpu_driver=tpu_driver)
+  # --------------------------------------------------------------------------
+  engine = get_mem_engine() if dry_run else get_sql_engine()
 
-  job_list = [j for j in jobs]
+  with session_scope(engine) as session:
+    container_spec = generate_container_spec(session, docker_m, image_tag)
 
-  # just a dry run
-  if dry_run:
-    logging.info('jobs that would be submitted:')
-    for j in job_list:
-      logging.info('\n{}'.format(utils.job_str(j)))
-    return
+    if image_tag is None:
+      image_tag = generate_image_tag(cluster.project_id, docker_m, dry_run)
 
-  # export jobs to file
-  export = args.get('export', None)
-  if export is not None:
-    if not _export_jobs(export, job_list):
-      print('error exporting jobs to {}'.format(export))
+    experiments = create_experiments(
+        session=session,
+        container_spec=container_spec,
+        script_args=script_args,
+        experiment_config=experiment_config,
+        xgroup=xgroup,
+    )
+
+    specs = list(
+        cluster.create_simple_experiment_job_specs(
+            name=utils.sanitize_job_name(job_name),
+            image=image_tag,
+            min_cpu=min_cpu,
+            min_mem=min_mem,
+            experiments=experiments,
+            args=script_args,
+            accelerator=accel,
+            accelerator_count=accel_count,
+            preemptible=preemptible,
+            preemptible_tpu=preemptible_tpu,
+            tpu_driver=tpu_driver))
+
+    # just a dry run
+    if dry_run:
+      logging.info('jobs that would be submitted:')
+      for s in specs:
+        logging.info(f'\n{json.dumps(s.spec, indent=2)}')
       return
 
-  submitted = []
-  for j in job_list:
-    sj = cluster.submit_job(j)
-    if sj is None:
-      logging.error('error submitting job:\n {}'.format(j))
-    else:
-      submitted.append(sj)
-      md = sj.metadata
-      spec = sj.spec
-      container = sj.spec.template.spec.containers[0]
-      logging.info('submitted job:\n{}: {}\n{}'.format(
-          md.name, " ".join(container.args or []),
-          cluster.job_dashboard_url(sj)))
+    # export jobs to file
+    if export is not None:
+      if not _export_jobs(
+          export,
+          cluster.create_v1jobs(specs, job_name, labels),
+      ):
+        print('error exporting jobs to {}'.format(export))
+      return
 
-  return submitted
+    for s in specs:
+      try:
+        cluster.submit_job(job_spec=s, name=job_name, labels=labels)
+      except Exception as e:
+        logging.error(f'exception: {e}')
+        session.commit()  # commit here, otherwise will be rolled back
+        return
+
+  # --------------------------------------------------------------------------
+  logging.info(f'jobs submitted, visit {cluster.dashboard_url()} to monitor')
+
+  return
 
 
 # ----------------------------------------------------------------------------
@@ -462,7 +485,7 @@ def _job_submit_file(args: dict, cluster: Cluster) -> None:
     logging.info('job to submit:\n{}'.format(pp.pformat(job_spec)))
     return
 
-  job = cluster.submit_job(job=job_spec)
+  job = cluster.submit_v1job(job=job_spec)
   if job is None:
     logging.error('error submitting job:\n{}'.format(pp.pformat(job_spec)))
     return
@@ -513,3 +536,23 @@ def _node_pool_commands(args) -> None:
   NODE_POOL_CMDS = {'ls': _node_pool_ls}
   NODE_POOL_CMDS[args['node_pool_cmd']](args)
   return
+
+
+# ----------------------------------------------------------------------------
+@_project_and_creds
+@_with_cluster
+def submit_job_specs(
+    args: Dict[str, Any],
+    cluster: Cluster,
+) -> None:
+  """submits jobs to cluster
+
+  Args:
+  args: dictionary of args
+  cluster: cluster instance
+  """
+  job_specs = args.get('specs')
+
+  for s in job_specs:
+    name = s.spec['template']['spec']['containers'][0]['name']
+    cluster.submit_job(job_spec=s, name=name)

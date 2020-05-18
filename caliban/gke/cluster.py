@@ -9,6 +9,7 @@ import sys
 from argparse import REMAINDER, ArgumentTypeError
 from enum import Enum
 from time import sleep
+from copy import deepcopy
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import google
@@ -32,6 +33,8 @@ from kubernetes.client import (V1Container, V1DaemonSet, V1EnvVar, V1Job,
                                V1PodTemplateSpec, V1ResourceRequirements,
                                V1Toleration)
 
+from kubernetes.client.api_client import ApiClient
+
 import caliban
 import caliban.config as conf
 import caliban.gke.constants as k
@@ -41,6 +44,8 @@ from caliban.cloud.types import (GPU, TPU, Accelerator, GPUSpec, MachineType,
                                  TPUSpec, parse_machine_type)
 from caliban.gke.types import NodeImage, OpStatus, ReleaseChannel
 from caliban.gke.utils import trap
+from caliban.history.types import (JobSpec, Job, Experiment, Platform,
+                                   JobStatus)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -509,6 +514,52 @@ class Cluster(object):
     return self._batch_api.list_job_for_all_namespaces(watch=False).items
 
   # --------------------------------------------------------------------------
+  @trap(None)
+  @connected(None)
+  def get_job(self, job_name: str) -> Optional[V1Job]:
+    '''gets a v1job from the cluster from the given job name'''
+    jobs = self._batch_api.list_job_for_all_namespaces(
+        watch=False, field_selector=f'metadata.name={job_name}').items
+    if len(jobs) != 1:
+      return None
+    return jobs[0]
+
+  # --------------------------------------------------------------------------
+  @connected(None)
+  def delete_job(
+      self,
+      job_name: str,
+      namespace: str = k.DEFAULT_NAMESPACE,
+  ) -> bool:
+    '''deletes a job from the cluster
+    see:
+    github.com/kubernetes-client/python/blob/master/kubernetes/docs/BatchV1Api.md#delete_namespaced_job
+    github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Status.md
+
+    Args:
+    job_name: name of job to delete
+
+    Returns:
+    True on success, False otherwise
+    '''
+    try:
+      # The propagation_policy arg here is important, as the default is
+      # 'Orphan', which deletes the job, but keeps any running pods.
+      # By setting this to 'Foreground', then all child pods, etc. get
+      # deleted in a cascade, which is what we want here.
+      rsp = self._batch_api.delete_namespaced_job(
+          name=job_name,
+          namespace=namespace,
+          propagation_policy='Foreground',
+      )
+    except Exception as e:
+      logging.error(
+          f'error deleting job {job_name} from cluster {self.name}: {e}')
+      return False
+
+    return True
+
+  # --------------------------------------------------------------------------
   @connected(None)
   def node_pools(self) -> Optional[List[NodePool]]:
     """gets a list of node pools for this cluster
@@ -523,9 +574,11 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @trap(None, silent=False)
   @connected(None)
-  def submit_job(self,
-                 job: V1Job,
-                 namespace: str = k.DEFAULT_NAMESPACE) -> Optional[V1Job]:
+  def submit_v1job(
+      self,
+      job: V1Job,
+      namespace: str = k.DEFAULT_NAMESPACE,
+  ) -> Optional[V1Job]:
     """submits kubernetes job to cluster
 
     Args:
@@ -542,25 +595,87 @@ class Cluster(object):
                                                  pretty=True)
 
   # --------------------------------------------------------------------------
+  @classmethod
+  def create_v1job(
+      cls,
+      job_spec: JobSpec,
+      name: str,
+      labels: Optional[Dict[str, str]] = None,
+  ) -> V1Job:
+    '''creates a V1Job from a JobSpec, a job name, and an optional set of labels'''
+
+    job_metadata = V1ObjectMeta(generate_name=name + '-', labels=labels)
+
+    return V1Job(api_version=k.BATCH_V1_VERSION,
+                 kind='Job',
+                 metadata=job_metadata,
+                 spec=job_spec.spec)
+
+  # --------------------------------------------------------------------------
+  @classmethod
+  def create_v1jobs(
+      cls,
+      job_specs: Iterable[JobSpec],
+      name: str,
+      labels: Optional[Dict[str, str]] = None,
+  ) -> List[V1Job]:
+    '''create a list of V1Jobs from a list of JobSpecs'''
+    return [
+        cls.create_v1job(job_spec=s, name=name, labels=labels)
+        for s in job_specs
+    ]
+
+  # --------------------------------------------------------------------------
+  @trap(None, silent=False)
   @connected(None)
-  def create_simple_job(
+  def submit_job(
       self,
+      job_spec: JobSpec,
+      name: str,
+      labels: Optional[Dict[str, str]] = None,
+  ) -> Optional[Job]:
+    '''submits a job to the cluster based on the given job spec'''
+
+    v1job = self.create_v1job(job_spec=job_spec, name=name, labels=labels)
+    submitted = self.submit_v1job(v1job)
+    container = job_spec.spec['template']['spec']['containers'][0]['image']
+
+    if submitted is not None:
+      details = {
+          'cluster_name': self.name,
+          'project_id': self.project_id,
+          'cluster_zone': self.zone,
+          'job': ApiClient().sanitize_for_serialization(submitted),
+      }
+
+      return Job(
+          spec=job_spec,
+          container=container,
+          details=details,
+          status=JobStatus.SUBMITTED,
+      )
+
+    return None
+
+  # --------------------------------------------------------------------------
+  @connected(None)
+  def create_simple_job_spec(
+      self,
+      experiment: Experiment,
       name: str,
       image: str,
       min_cpu: int,
       min_mem: int,
       command: Optional[List[str]] = None,
-      args: Optional[List[str]] = None,
       env: Dict[str, str] = {},
       accelerator: Optional[Accelerator] = None,
       accelerator_count: int = 1,
       namespace: str = k.DEFAULT_NAMESPACE,
       machine_type: Optional[MachineType] = None,
       preemptible: bool = True,
-      labels: Optional[Dict[str, str]] = None,
       preemptible_tpu: bool = True,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[V1Job]:
-    """creates a simple kubernetes job (1 container, 1 pod) for this cluster
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[JobSpec]:
+    """creates a simple kubernetes job (1 container, 1 pod) JobSpec for this cluster
 
     Args:
     name: job name
@@ -575,13 +690,14 @@ class Cluster(object):
     namespace: kubernetes namespace
     machine_type: machine type, None=default for mode (cpu/gpu)
     preemptible: use preemptible instance
-    labels: labels to add to job metadata
     preemptible_tpu: use preemptible tpus
     tpu_driver: tpu driver to use
 
     Returns:
-    V1Job on success, None otherwise
+    JobSpec on success, None otherwise
     """
+
+    args = conf.experiment_to_args(experiment.kwargs, experiment.args)
 
     # ------------------------------------------------------------------------
     # container
@@ -589,20 +705,26 @@ class Cluster(object):
     # tpu/gpu resources
     container_resources = V1ResourceRequirements(
         requests=Cluster.container_requests(min_cpu, min_mem),
-        limits=Cluster.container_limits(accelerator, accelerator_count,
-                                        preemptible_tpu))
+        limits=Cluster.container_limits(
+            accelerator,
+            accelerator_count,
+            preemptible_tpu,
+        ),
+    )
 
     container_env = [V1EnvVar(name=k, value=v) for k, v in env.items()]
 
     # this is a simple 1-container, 1-pod job, so we just name the
     # container the same thing (minus the generated suffix) as the job itself
-    container = V1Container(name=name,
-                            image=image,
-                            command=command,
-                            args=args,
-                            resources=container_resources,
-                            env=container_env,
-                            image_pull_policy='Always')
+    container = V1Container(
+        name=name,
+        image=image,
+        command=command,
+        args=args,
+        resources=container_resources,
+        env=container_env,
+        image_pull_policy='Always',
+    )
 
     # ------------------------------------------------------------------------
     # template
@@ -614,102 +736,45 @@ class Cluster(object):
     tolerations = Cluster.tolerations(preemptible=preemptible)
 
     # backoff count plus 'OnFailure' may be correct here
-    template_spec = V1PodSpec(restart_policy='Never',
-                              containers=[container],
-                              tolerations=tolerations,
-                              node_selector=Cluster.node_selector(
-                                  preemptible=preemptible,
-                                  machine_type=machine_type,
-                                  accelerator=accelerator),
-                              host_ipc=True)
+    template_spec = V1PodSpec(
+        restart_policy='Never',
+        containers=[container],
+        tolerations=tolerations,
+        node_selector=Cluster.node_selector(
+            preemptible=preemptible,
+            machine_type=machine_type,
+            accelerator=accelerator,
+        ),
+        host_ipc=True,
+    )
 
-    template = V1PodTemplateSpec(metadata=Cluster.template_metadata(
-        accelerator=accelerator, tpu_driver=tpu_driver),
-                                 spec=template_spec)
+    template = V1PodTemplateSpec(
+        metadata=Cluster.template_metadata(
+            accelerator=accelerator,
+            tpu_driver=tpu_driver,
+        ),
+        spec=template_spec,
+    )
 
     # ------------------------------------------------------------------------
     # job
     job_spec = V1JobSpec(template=template, backoff_limit=4)
 
-    # always use generate_name here...todo: is this the best thing to do?
-    job_metadata = V1ObjectMeta(generate_name=name + '-', labels=labels)
-
-    job = V1Job(api_version=k.BATCH_V1_VERSION,
-                kind='Job',
-                metadata=job_metadata,
-                spec=job_spec)
-
-    return job
+    return JobSpec.get_or_create(
+        experiment=experiment,
+        spec=ApiClient().sanitize_for_serialization(job_spec),
+        platform=Platform.GKE,
+    )
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def submit_simple_job(
+  def create_simple_experiment_job_specs(
       self,
       name: str,
       image: str,
       min_cpu: int,
       min_mem: int,
-      command: Optional[List[str]] = None,
-      args: Optional[List[str]] = None,
-      env: Dict[str, str] = {},
-      accelerator: Optional[Accelerator] = None,
-      accelerator_count: int = 1,
-      namespace: str = k.DEFAULT_NAMESPACE,
-      preemptible: bool = True,
-      labels: Optional[Dict[str, str]] = None,
-      preemptible_tpu: bool = True,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[V1Job]:
-    """submits a simple kubernetes job (1 container, 1 pod) for this cluster
-
-    Args:
-    name: job name
-    image: container image url (gcr.io/...)
-    min_cpu: minimum cpu needed, in milli-cpu
-    min_mem: minimum memory needed, in MB
-    command: command to execute, None = container entrypoint
-    args: args to pass to command
-    env: environment vars for container
-    accelerator: accelerator type, None=cpu only
-    accelerator_count: accelerator count
-    namespace: kubernetes namespace
-    preemptible: use preemptible instance
-    labels: labels to add to job metadata
-    preemptible_tpu: use preemptible tpus
-    tpu_driver: tpu driver
-
-    Returns:
-    V1Job on success, None otherwise
-    """
-
-    job = self.create_simple_job(name=name,
-                                 image=image,
-                                 min_cpu=min_cpu,
-                                 min_mem=min_mem,
-                                 command=command,
-                                 args=args,
-                                 env=env,
-                                 accelerator=accelerator,
-                                 accelerator_count=accelerator_count,
-                                 namespace=namespace,
-                                 preemptible=preemptible,
-                                 labels=labels,
-                                 preemptible_tpu=preemptible_tpu,
-                                 tpu_driver=tpu_driver)
-
-    if job is None:
-      return None
-
-    return self.submit_job(job)
-
-  # --------------------------------------------------------------------------
-  @connected(None)
-  def create_simple_experiment_jobs(
-      self,
-      name: str,
-      image: str,
-      min_cpu: int,
-      min_mem: int,
-      experiments: Iterable[conf.Experiment],
+      experiments: Iterable[Experiment],
       command: Optional[List[str]] = None,
       args: Optional[List[str]] = None,
       env: Dict[str, str] = {},
@@ -718,11 +783,9 @@ class Cluster(object):
       namespace: str = k.DEFAULT_NAMESPACE,
       machine_type: Optional[MachineType] = None,
       preemptible: bool = True,
-      labels: Optional[Dict[str, str]] = None,
       preemptible_tpu: bool = True,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Iterable[V1Job]:
-    """creates an iterable of V1Job instances for a set of experiments for
-
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Iterable[JobSpec]:
+    """creates an iterable of JobSpec instances for a set of experiments for
     this cluster
 
     Args:
@@ -739,31 +802,30 @@ class Cluster(object):
     namespace: kubernetes namespace
     machine_type: machine type, None=default for mode (cpu/gpu)
     preemptible: use preemptible instances
-    labels: labels to add to job metadata
     preemptible_tpu: use preemptible tpus
     tpu_driver: tpu driver to use
 
     Returns:
-    V1Job iterable on success, None otherwise
+    JobSpec iterable on success, None otherwise
     """
 
-    for i, exp in enumerate(experiments, 1):
-      complete_args = conf.experiment_to_args(exp, args)
-      yield self.create_simple_job(name=name,
-                                   image=image,
-                                   min_cpu=min_cpu,
-                                   min_mem=min_mem,
-                                   command=command,
-                                   args=complete_args,
-                                   env=env,
-                                   accelerator=accelerator,
-                                   accelerator_count=accelerator_count,
-                                   namespace=namespace,
-                                   machine_type=machine_type,
-                                   preemptible=preemptible,
-                                   labels=labels,
-                                   preemptible_tpu=preemptible_tpu,
-                                   tpu_driver=tpu_driver)
+    for exp in experiments:
+      yield self.create_simple_job_spec(
+          experiment=exp,
+          name=name,
+          image=image,
+          min_cpu=min_cpu,
+          min_mem=min_mem,
+          command=command,
+          env=env,
+          accelerator=accelerator,
+          accelerator_count=accelerator_count,
+          namespace=namespace,
+          machine_type=machine_type,
+          preemptible=preemptible,
+          preemptible_tpu=preemptible_tpu,
+          tpu_driver=tpu_driver,
+      )
 
   # --------------------------------------------------------------------------
   @staticmethod
