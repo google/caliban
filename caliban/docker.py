@@ -496,7 +496,7 @@ def _dockerfile_template(
 FROM {base_image}
 
 # Create the same group we're using on the host machine.
-RUN groupadd --gid {gid} {gid}
+RUN [ $(getent group {gid}) ] || groupadd --gid {gid} {gid}
 
 # Create the user by name.
 RUN useradd --no-create-home -u {uid} -g {gid} --shell /bin/bash {username}
