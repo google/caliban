@@ -11,7 +11,6 @@ PYTEST_TARGET = caliban tests
 COVERAGE_ARGS = --cov-config setup.cfg --cov-report term-missing --cov
 COVERAGE_TARGET = caliban
 SCR_REPO = https://source.developers.google.com/p/blueshift-research/r/caliban
-GITHUB_REPO = git@github.com:sritchie/caliban.git
 
 ##
 # Targets
@@ -68,8 +67,8 @@ push:
 	git push --tags
 	git push $(SCR_REPO) master
 	git push $(SCR_REPO) --tags
-  git push $(GITHUB_REPO) master
-	git push $(GITHUB_REPO) --tags
+	git push github master
+	git push github --tags
 
 .PHONY: release
 release: push
