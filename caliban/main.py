@@ -16,6 +16,7 @@ import caliban.docker as docker
 import caliban.gke as gke
 import caliban.gke.cli
 import caliban.util as u
+import caliban.history.cli
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 t = Terminal()
@@ -66,11 +67,15 @@ def run_app(arg_input):
     package = args["module"]
     docker.build_image(job_mode, package=package, **docker_args)
 
+  elif command == 'status':
+    caliban.history.cli.get_status(args)
+
   elif command == "run":
     dry_run = args["dry_run"]
     package = args["module"]
     image_id = args.get("image_id")
     exp_config = args.get("experiment_config")
+    xgroup = args.get('xgroup')
 
     docker.run_experiments(job_mode,
                            run_args=docker_run_args,
@@ -79,6 +84,7 @@ def run_app(arg_input):
                            experiment_config=exp_config,
                            dry_run=dry_run,
                            package=package,
+                           xgroup=xgroup,
                            **docker_args)
 
   elif command == "cloud":
@@ -95,24 +101,28 @@ def run_app(arg_input):
     machine_type = args.get("machine_type")
     exp_config = args.get("experiment_config")
     labels = u.sanitize_labels(args.get("label") or [])
+    xgroup = args.get('xgroup')
 
     # Arguments to internally build the image required to submit to Cloud.
     docker_m = {"job_mode": job_mode, "package": package, **docker_args}
 
-    cloud.submit_ml_job(job_mode=job_mode,
-                        docker_args=docker_m,
-                        region=region,
-                        project_id=project_id,
-                        credentials_path=cloud_key,
-                        dry_run=dry_run,
-                        job_name=job_name,
-                        machine_type=machine_type,
-                        gpu_spec=gpu_spec,
-                        tpu_spec=tpu_spec,
-                        image_tag=image_tag,
-                        labels=labels,
-                        script_args=script_args,
-                        experiment_config=exp_config)
+    cloud.submit_ml_job(
+        job_mode=job_mode,
+        docker_args=docker_m,
+        region=region,
+        project_id=project_id,
+        credentials_path=cloud_key,
+        dry_run=dry_run,
+        job_name=job_name,
+        machine_type=machine_type,
+        gpu_spec=gpu_spec,
+        tpu_spec=tpu_spec,
+        image_tag=image_tag,
+        labels=labels,
+        script_args=script_args,
+        experiment_config=exp_config,
+        xgroup=xgroup,
+    )
   else:
     logging.info("Unknown command: {}".format(command))
     sys.exit(1)

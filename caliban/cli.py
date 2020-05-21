@@ -301,6 +301,7 @@ def local_run_parser(base):
   executing_parser(parser)
   image_id_arg(parser)
   docker_run_arg(parser)
+  xgroup_submit_arg(parser)
 
 
 def gpu_spec_arg(parser, validate_count: bool = False):
@@ -370,6 +371,7 @@ def container_parser(parser):
   force_arg(parser)
   job_name_arg(parser)
   label_arg(parser)
+  xgroup_submit_arg(parser)
 
 
 def cloud_parser(base):
@@ -398,6 +400,7 @@ def caliban_parser():
   local_run_parser(subparser)
   cloud_parser(subparser)
   cluster_parser(subparser)
+  status_parser(subparser)
 
   return parser
 
@@ -665,6 +668,7 @@ def cluster_job_submit_cmd(base):
   nonpreemptible_arg(parser)
   dry_run_arg(parser)
   job_export_arg(parser)
+  xgroup_submit_arg(parser)
 
   require_module(parser)
   add_script_args(parser)
@@ -855,3 +859,45 @@ def min_mem_arg(parser):
       'with 8GB total memory, then if you specify a minimum memory of 8000MB, '
       'then your job will not be schedulable on a 8GB machine as the daemon '
       'processes will push the total memory needed to more than 8GB.')
+
+
+# ----------------------------------------------------------------------------
+def xgroup_arg(parser, helpstr: str):
+  parser.add_argument(
+      '--xgroup',
+      type=str,
+      help=helpstr,
+  )
+
+
+def xgroup_submit_arg(parser):
+  xgroup_arg(
+      parser,
+      helpstr=
+      f'This specifies an experiment group, which ties experiments and job '
+      f'instances together. If you do not specify a group, then a new one will be '
+      f'created. If you specify an existing experiment group here, then new '
+      f'experiments and jobs you create will be added to the group you specify.',
+  )
+
+
+# ----------------------------------------------------------------------------
+def status_parser(base):
+  '''cli parser for status command'''
+
+  parser = base.add_parser("status", help="get status for caliban jobs")
+  xgroup_arg(parser, helpstr='experiment group')
+  max_jobs_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def max_jobs_arg(parser):
+  parser.add_argument(
+      '--max_jobs',
+      type=int,
+      help=(f'Maximum number of jobs to view. If you specify an experiment '
+            f'group, then this specifies the maximum number of jobs per '
+            f'experiment to view. If you do not specify an experiment group, '
+            f'then this specifies the total number of jobs to return, ordered '
+            f'by creation date, or all jobs if max_jobs==0.'),
+  )

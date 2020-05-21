@@ -5,15 +5,20 @@ from typing import Optional, Dict, Any, List
 
 from absl import logging
 from blessings import Terminal
+from googleapiclient import discovery
+
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-from caliban.history.types import (init_db, ContainerSpec, Experiment,
-                                   ExperimentGroup)
-
 import caliban.config as conf
+from caliban.gke.cluster import Cluster
+from caliban.gke.utils import default_credentials
+from caliban.gke.types import JobStatus as GkeStatus
+from caliban.cloud.types import JobStatus as CloudStatus
+from caliban.history.types import (init_db, Job, JobStatus, Platform,
+                                   ContainerSpec, Experiment, ExperimentGroup)
 
 DB_URL_ENV = 'CALIBAN_DB_URL'
 MEMORY_DB_URL = 'sqlite:///:memory:'
@@ -211,3 +216,132 @@ def create_experiments(
           kwargs=kwargs,
       ) for kwargs in conf.expand_experiment_config(experiment_config)
   ]
+
+
+# ----------------------------------------------------------------------------
+def _get_caip_job_name(j: Job) -> str:
+  '''gets job name for use with caip rest api'''
+  job_id = j.details['jobId']
+  project_id = j.details['project_id']
+  return f'projects/{project_id}/jobs/{job_id}'
+
+
+# ----------------------------------------------------------------------------
+def _get_caip_job_api() -> Any:
+  return discovery.build('ml', 'v1', cache_discovery=False).projects().jobs()
+
+
+# ----------------------------------------------------------------------------
+def get_caip_job_status(j: Job) -> JobStatus:
+  '''gets caip job status
+
+    https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs#State
+
+    Returns:
+    JobStatus
+'''
+
+  CAIP_TO_JOB_STATUS = {
+      CloudStatus.STATE_UNSPECIFIED: JobStatus.UNKNOWN,
+      CloudStatus.QUEUED: JobStatus.SUBMITTED,
+      CloudStatus.PREPARING: JobStatus.SUBMITTED,
+      CloudStatus.RUNNING: JobStatus.RUNNING,
+      CloudStatus.SUCCEEDED: JobStatus.SUCCEEDED,
+      CloudStatus.FAILED: JobStatus.FAILED,
+      CloudStatus.CANCELLING: JobStatus.RUNNING,
+      CloudStatus.CANCELLED: JobStatus.STOPPED
+  }
+
+  api = _get_caip_job_api()
+  job_id = j.details['jobId']
+  name = _get_caip_job_name(j)
+
+  try:
+    rsp = api.get(name=name).execute()
+    caip_status = CloudStatus[rsp['state']]
+  except Exception as e:
+    logging.error(f'error getting job status for {job_id}')
+    return JobStatus.UNKNOWN
+
+  return CAIP_TO_JOB_STATUS.get(caip_status) or JobStatus.UNKNOWN
+
+
+# ----------------------------------------------------------------------------
+def get_gke_job_name(j: Job) -> str:
+  '''gets gke job name from Job object'''
+  return j.details['job']['metadata']['name']
+
+
+# ----------------------------------------------------------------------------
+def get_job_cluster(j: Job) -> Optional[Cluster]:
+  '''gets the cluster name from a Job object'''
+  if j.spec.platform != Platform.GKE:
+    return None
+
+  return Cluster.get(name=j.details['cluster_name'],
+                     project_id=j.details['project_id'],
+                     zone=j.details['cluster_zone'],
+                     creds=default_credentials().credentials)
+
+
+# ----------------------------------------------------------------------------
+def get_gke_job_status(j: Job) -> JobStatus:
+  '''get gke job status
+
+    see:
+    https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#jobcondition-v1-batch
+
+    Returns:
+    JobStatus
+  '''
+
+  GKE_TO_JOB_STATUS = {
+      GkeStatus.STATE_UNSPECIFIED: JobStatus.SUBMITTED,
+      GkeStatus.PENDING: JobStatus.SUBMITTED,
+      GkeStatus.RUNNING: JobStatus.RUNNING,
+      GkeStatus.FAILED: JobStatus.FAILED,
+      GkeStatus.SUCCEEDED: JobStatus.SUCCEEDED,
+      GkeStatus.UNAVAILABLE: JobStatus.UNKNOWN
+  }
+
+  cluster_name = j.details['cluster_name']
+  job_name = get_gke_job_name(j)
+
+  cluster = get_job_cluster(j)
+  if cluster is None:
+    logging.error(f'unable to connect to cluster {cluster_name}, '
+                  f'so unable to update run status')
+    return JobStatus.UNKNOWN
+
+  job_info = cluster.get_job(job_name)
+  if job_info is None:
+    logging.error(f'unable to get job info from cluster {cluster_name}, '
+                  f'so unable to update run status')
+    return JobStatus.UNKNOWN
+
+  return GKE_TO_JOB_STATUS[GkeStatus.from_job_info(job_info)]
+
+
+# ----------------------------------------------------------------------------
+def update_job_status(j: Job) -> JobStatus:
+  '''updates and returns job status
+
+    Returns:
+    current status for this job
+    '''
+
+  if j.status is not None and j.status.is_terminal():
+    return j.status
+
+  if j.spec.platform == Platform.LOCAL:
+    return j.status
+
+  if j.spec.platform == Platform.CAIP:
+    j.status = get_caip_job_status(j)
+    return j.status
+
+  if j.spec.platform == Platform.GKE:
+    j.status = get_gke_job_status(j)
+    return j.status
+
+  assert False, "can't get job status for platform {j.platform.name}"
