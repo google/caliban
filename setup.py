@@ -32,6 +32,7 @@ REQUIRED_PACKAGES = [
     'google-auth>=1.7.0',
     'google-cloud-core>=1.0.3',
     'google-cloud-container>=0.3.0',
+    'psycopg2-binary==2.8.5',
     'urllib3>=1.25.7',
     'yaspin>=0.16.0',
     # This is not a real dependency of ours, but we need it to override the

@@ -24,6 +24,20 @@ from collections import OrderedDict
 
 from caliban.util import current_user
 
+# ----------------------------------------------------------------------------
+# A note on JSON columns here:
+# Currently sqlite supports JSON column comparisons in query filters, so
+# you can query something along the lines of:
+#   Query(Foo).filter(Bar.json_column == {'a':4})
+# Postgres supportst this as well, but *only* for JSONB columns. Thus in order
+# to use both sqlite and postgres backends you must stick to JSON columns,
+# and when doing comparisons, use filter experssions of the form:
+#   Query(Foo).filter(Bar.json_column.cast(String) == json.dumps({'a':4}))
+# The danger here of course is that if the json serialization is inconsistent,
+# then the above query will fail. As of this writing (2020.05.15), the
+# psycopg2 driver for postgres uses python's default json.dumps() as its
+# serializer, so this practice should be ok.
+
 
 # ----------------------------------------------------------------------------
 class JobStatus(str, Enum):
@@ -147,10 +161,10 @@ class ContainerSpec(Base):
     existing = session.query(ContainerSpec)
     existing = existing.filter(
         ContainerSpec.user == new_spec.user,
-        ContainerSpec.spec == new_spec.spec,
-    ).first()
+        ContainerSpec.spec.cast(String) == json.dumps(new_spec.spec),
+    )
 
-    return existing or new_spec
+    return existing.first() or new_spec
 
 
 # ----------------------------------------------------------------------------
@@ -322,12 +336,13 @@ class Experiment(Base):
     existing = session.query(Experiment)
     existing = existing.join(ExperimentGroup)
     existing = existing.join(ContainerSpec)
+
     existing = existing.filter(
         ExperimentGroup.id == xgroup.id,
         ContainerSpec.id == container_spec.id,
         xgroup.id == xgroup.id,
-        Experiment.args == e.args,
-        Experiment.kwargs == e.kwargs,
+        Experiment.args.cast(String) == json.dumps(e.args),
+        Experiment.kwargs.cast(String) == json.dumps(e.kwargs),
     )
 
     return existing.first()
@@ -446,7 +461,7 @@ class JobSpec(Base):
     existing = session.query(JobSpec).join(Experiment)
     existing = existing.filter(
         JobSpec.platform == s.platform,
-        JobSpec.spec == s.spec,
+        JobSpec.spec.cast(String) == json.dumps(s.spec),
         Experiment.id == experiment.id,
     )
     return existing.first()

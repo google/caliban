@@ -33,7 +33,6 @@ from kubernetes.client import (V1Container, V1DaemonSet, V1EnvVar, V1Job,
                                V1Toleration)
 
 import caliban
-import caliban.cli as cli
 import caliban.config as conf
 import caliban.gke.constants as k
 import caliban.gke.utils as utils
