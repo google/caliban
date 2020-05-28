@@ -636,6 +636,7 @@ class Cluster(object):
   ) -> V1Job:
     '''creates a V1Job from a JobSpec, a job name, and an optional set of labels'''
 
+    name = utils.sanitize_job_name(name)
     job_metadata = V1ObjectMeta(generate_name=name + '-', labels=labels)
 
     return V1Job(api_version=k.BATCH_V1_VERSION,

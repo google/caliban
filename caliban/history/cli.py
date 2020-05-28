@@ -25,7 +25,8 @@ from sqlalchemy import or_, and_
 
 from caliban.util import current_user, Package
 from caliban.history.utils import (get_sql_engine, session_scope,
-                                   update_job_status, get_gke_job_name)
+                                   update_job_status, get_gke_job_name,
+                                   stop_job)
 from caliban.history.types import (ContainerSpec, ExperimentGroup, Experiment,
                                    JobSpec, Job, Platform, JobStatus, Platform)
 from caliban.gke.utils import user_verify, credentials
@@ -194,3 +195,57 @@ def get_status(args: Dict[str, Any]) -> None:
     _display_recent_jobs(user, max_jobs)
   else:
     _display_xgroup(xgroup, user, max_jobs)
+
+
+# ----------------------------------------------------------------------------
+def stop(args: Dict[str, Any]) -> None:
+  '''executes the `caliban stop` cli command'''
+
+  user = current_user()
+  xgroup = args.get('xgroup')
+  dry_run = args.get('dry_run', False)
+
+  with session_scope(get_sql_engine()) as session:
+    running_jobs = session.query(Job).join(Experiment).join(
+        ExperimentGroup).filter(
+            or_(Job.status == JobStatus.SUBMITTED,
+                Job.status == JobStatus.RUNNING))
+
+    if xgroup is not None:
+      running_jobs = running_jobs.filter(ExperimentGroup.name == xgroup)
+
+    running_jobs = running_jobs.all()
+
+    if len(running_jobs) == 0:
+      logging.info(f'no running jobs found')
+      return
+
+    # this is necessary to filter out jobs that have finished but whose status
+    # has not yet been updated in the backing store
+    running_jobs = list(
+        filter(
+            lambda x: update_job_status(x) in
+            [JobStatus.SUBMITTED, JobStatus.RUNNING], running_jobs))
+
+    logging.info(f'the following jobs would be stopped:')
+    for j in running_jobs:
+      logging.info(_experiment_command_str(j.experiment))
+      logging.info(f'    job {_job_str(j)}')
+
+    if dry_run:
+      logging.info(f'to actually stop these jobs, re-run the command without '
+                   f'the --dry_run flag')
+      return
+
+    # make sure
+    if not user_verify(f'do you wish to stop these {len(running_jobs)} jobs?',
+                       False):
+      return
+
+    for j in running_jobs:
+      logging.info(f'stopping job: {_job_str(j)}')
+      stop_job(j)
+
+    print(f'requested job cancellation, please be patient as it may take '
+          f'a short while for this status change to be reflected in the '
+          f'gcp dashboard or from the `caliban status` command.')

@@ -433,6 +433,7 @@ def caliban_parser():
   cloud_parser(subparser)
   cluster_parser(subparser)
   status_parser(subparser)
+  stop_parser(subparser)
 
   return parser
 
@@ -920,6 +921,14 @@ def status_parser(base):
   parser = base.add_parser("status", help="get status for caliban jobs")
   xgroup_arg(parser, helpstr='experiment group')
   max_jobs_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def stop_parser(base):
+  '''cli parser for stop command'''
+  parser = base.add_parser('stop', help='stop running caliban jobs')
+  xgroup_arg(parser, helpstr='experiment group')
+  dry_run_arg(parser)
 
 
 # ----------------------------------------------------------------------------

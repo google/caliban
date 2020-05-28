@@ -86,6 +86,9 @@ def run_app(arg_input):
   elif command == 'status':
     caliban.history.cli.get_status(args)
 
+  elif command == 'stop':
+    caliban.history.cli.stop(args)
+
   elif command == "run":
     dry_run = args["dry_run"]
     package = args["module"]
