@@ -167,6 +167,26 @@ documentation.
 - run `make release` to push the latest code and tags to all relevant
   repositories.
 
-## Trouble?
+## Citing Caliban
 
-Get in touch with [samritchie@x.team](mailto:samritchie@x.team).
+To cite this repository:
+
+```
+@software{caliban2020github,
+  author = {Vinay Ramasesh and Sam Ritchie and Ambrose Slone},
+  title = {{Caliban}: Docker-based job manager for reproducible workflows},
+  url = {http://github.com/google/caliban},
+  version = {0.1.0},
+  year = {2020},
+}
+```
+
+In the above bibtex entry, names are in alphabetical order, the version number
+is intended to be that of the latest tag on github, and the year corresponds to
+the project's open-source release.
+
+## License
+
+Copyright 2020 Google LLC.
+
+Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
