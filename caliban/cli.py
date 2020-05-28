@@ -385,7 +385,7 @@ def caliban_parser():
 
   parser = argparse_flags.ArgumentParser(description="""Docker and AI
   Platform model training and development script. For detailed
-  documentation, visit http://go/caliban""",
+  documentation, visit https://github.com/google/caliban""",
                                          prog="caliban")
   parser.add_argument('--version',
                       action='version',

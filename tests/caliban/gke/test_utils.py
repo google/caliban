@@ -144,7 +144,6 @@ class UtilsTestSuite(unittest.TestCase):
     except:
       return
 
-    # avoid stupid testing errors
     if valid_return == return_val:
       return
 

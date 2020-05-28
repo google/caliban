@@ -145,8 +145,6 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   single_zone = args['single_zone']
 
   # --------------------------------------------------------------------------
-  # see https://buganizer.corp.google.com/issues/148180423 for why we use the
-  # discovery api here
   cluster_client = googleapiclient.discovery.build('container',
                                                    k.CLUSTER_API_VERSION,
                                                    credentials=creds,

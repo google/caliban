@@ -23,7 +23,7 @@ def expansion_parser():
 
   parser = argparse_flags.ArgumentParser(
       description=
-      "Experiment config expander. For documentation, visit http://go/caliban",
+      "Experiment config expander. For documentation, visit https://github.com/google/caliban",
       prog="expansion")
   parser.add_argument('--version',
                       action='version',

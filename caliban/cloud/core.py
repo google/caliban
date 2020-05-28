@@ -46,7 +46,7 @@ def job_url(project_id: str, job_id: str) -> str:
   Platform job.
 
   """
-  prefix = "https://pantheon.corp.google.com/ai-platform/jobs"
+  prefix = "https://console.cloud.google.com/ai-platform/jobs"
   return "{}/{}?projectId={}".format(prefix, job_id, project_id)
 
 
@@ -254,11 +254,10 @@ def ml_api(credentials_path: Optional[str] = None):
                          credentials=credentials)
 
 
-def create_requests(
-    specs: List[ht.JobSpec],
-    project_id: str,
-    credentials_path: Optional[str] = None
-) -> Iterable[Tuple[Any, ht.JobSpec, Any]]:
+def create_requests(specs: List[ht.JobSpec],
+                    project_id: str,
+                    credentials_path: Optional[str] = None
+                   ) -> Iterable[Tuple[Any, ht.JobSpec, Any]]:
   """Returns an iterator of (HttpRequest, ht.JobSpec, Callback).
 
   HttpRequests look like:
