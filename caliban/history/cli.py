@@ -13,19 +13,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 '''caliban history cli support'''
 
 import os
 import logging
 import pprint as pp
-from typing import Optional, Iterable, Dict, Any
+from typing import Optional, Iterable, Dict, Any, List
 
 from sqlalchemy import or_, and_
+from sqlalchemy.orm import Session
 
 from caliban.util import current_user, Package
 from caliban.history.utils import (get_sql_engine, session_scope,
-                                   update_job_status, get_gke_job_name)
+                                   update_job_status, get_gke_job_name,
+                                   stop_job, replace_job_spec_image)
+from caliban.history.submit import submit_job_specs
 from caliban.history.types import (ContainerSpec, ExperimentGroup, Experiment,
                                    JobSpec, Job, Platform, JobStatus, Platform)
 from caliban.gke.utils import user_verify, credentials
@@ -194,3 +196,249 @@ def get_status(args: Dict[str, Any]) -> None:
     _display_recent_jobs(user, max_jobs)
   else:
     _display_xgroup(xgroup, user, max_jobs)
+
+
+# ----------------------------------------------------------------------------
+def stop(args: Dict[str, Any]) -> None:
+  '''executes the `caliban stop` cli command'''
+
+  user = current_user()
+  xgroup = args.get('xgroup')
+  dry_run = args.get('dry_run', False)
+
+  with session_scope(get_sql_engine()) as session:
+    running_jobs = session.query(Job).join(Experiment).join(
+        ExperimentGroup).filter(
+            or_(Job.status == JobStatus.SUBMITTED,
+                Job.status == JobStatus.RUNNING))
+
+    if xgroup is not None:
+      running_jobs = running_jobs.filter(ExperimentGroup.name == xgroup)
+
+    running_jobs = running_jobs.all()
+
+    if len(running_jobs) == 0:
+      logging.info(f'no running jobs found')
+      return
+
+    # this is necessary to filter out jobs that have finished but whose status
+    # has not yet been updated in the backing store
+    running_jobs = list(
+        filter(
+            lambda x: update_job_status(x) in
+            [JobStatus.SUBMITTED, JobStatus.RUNNING], running_jobs))
+
+    logging.info(f'the following jobs would be stopped:')
+    for j in running_jobs:
+      logging.info(_experiment_command_str(j.experiment))
+      logging.info(f'    job {_job_str(j)}')
+
+    if dry_run:
+      logging.info(f'to actually stop these jobs, re-run the command without '
+                   f'the --dry_run flag')
+      return
+
+    # make sure
+    if not user_verify(f'do you wish to stop these {len(running_jobs)} jobs?',
+                       False):
+      return
+
+    for j in running_jobs:
+      logging.info(f'stopping job: {_job_str(j)}')
+      stop_job(j)
+
+    logging.info(
+        f'requested job cancellation, please be patient as it may take '
+        f'a short while for this status change to be reflected in the '
+        f'gcp dashboard or from the `caliban status` command.')
+
+
+# ----------------------------------------------------------------------------
+def _rebuild_containers(
+    jobs: Iterable[Job],
+    project_id: Optional[str] = None,
+) -> Dict[Job, str]:
+  '''this utility rebuilds all the needed containers for the given jobs
+
+  This also tags and uploads the containers to the appropriate project
+  cloud registry if necessary.
+
+  Args:
+  jobs: iterable of jobs for which to rebuild containers
+  project_id: project id
+
+  Returns:
+  dictionary mapping jobs to new image tags
+  '''
+
+  image_id_map = {}
+
+  container_specs = set([j.experiment.container_spec for j in jobs])
+  for c in container_specs:
+    image_id = build_image(**c.spec)
+    cs_jobs = filter(lambda x: x.experiment.container_spec == c, jobs)
+
+    image_tag = None
+    for j in cs_jobs:
+      if j.spec.platform in [Platform.CAIP, Platform.GKE]:
+        assert project_id != None, 'project id must be specified for CAIP, GKE jobs'
+
+        if image_tag is None:
+          image_tag = push_uuid_tag(project_id, image_id)
+        image_id_map[j] = image_tag
+      else:
+        image_id_map[j] = image_id
+
+  return image_id_map
+
+
+# ----------------------------------------------------------------------------
+def _get_resubmit_project_id(
+    jobs: Iterable[Job],
+    project_id: Optional[str],
+    creds_file: Optional[str],
+) -> Optional[str]:
+  '''checks CAIP or GKE jobs in provided list, and if any exist, then ensures
+  that a valid project_id can be determined, either using defaults or an
+  explicitly-provided value
+
+  Args:
+  jobs: list of jobs to inspect
+  project_id: explicitly-provided project id, or if None attempt to determine
+  creds_file: optional credentials file to use for determining project id
+
+  Returns:
+  project_id
+  '''
+
+  if project_id is not None:
+    return project_id
+
+  cloud_jobs = filter(
+      lambda j: j.spec.platform in [Platform.CAIP, Platform.GKE],
+      jobs,
+  )
+
+  if len(list(cloud_jobs)) == 0:
+    return project_id
+
+  return credentials(creds_file).project_id
+
+
+# ----------------------------------------------------------------------------
+def _get_resubmit_jobs(
+    session: Session,
+    xgroup: str,
+    user: str,
+    all_jobs: bool,
+) -> Optional[List[Job]]:
+  '''gets jobs for resubmission'''
+
+  xg = session.query(ExperimentGroup).filter(
+      ExperimentGroup.user == user,
+      ExperimentGroup.name == xgroup,
+  ).first()
+
+  if xg is None:
+    logging.error(f'could not find experiment group {xgroup}')
+    return None
+
+  # we get the most recent job for each experiment
+  # note that these are already ordered by creation time
+  jobs = []
+  for e in xg.experiments:
+    if len(e.jobs) > 0:
+      jobs.append(e.jobs[-1])
+
+  if len(jobs) == 0:
+    logging.error(f'no jobs found in experiment group')
+    return None
+
+  # we are only resubmitting stopped or failed jobs
+  if not all_jobs:
+    jobs = list(
+        filter(
+            lambda x: update_job_status(x) in
+            [JobStatus.FAILED, JobStatus.STOPPED], jobs))
+
+  if len(jobs) == 0:
+    logging.error(f'no jobs found in FAILED or STOPPED state')
+    return None
+
+  return jobs
+
+
+# ----------------------------------------------------------------------------
+def resubmit(args: Dict[str, Any]) -> None:
+  '''executes the `caliban resubmit` command'''
+
+  user = current_user()
+  xgroup = args.get('xgroup')
+  dry_run = args.get('dry_run', False)
+  all_jobs = args.get('all_jobs', False)
+  project_id = args.get('project_id')
+  creds_file = args.get('cloud_key')
+  rebuild = True
+
+  if xgroup is None:
+    logging.error(f'you must specify an experiment group for this command')
+    return
+
+  with session_scope(get_sql_engine()) as session:
+    jobs = _get_resubmit_jobs(
+        session=session,
+        xgroup=xgroup,
+        user=user,
+        all_jobs=all_jobs,
+    )
+
+    if jobs is None:
+      return
+
+    # if we have CAIP or GKE jobs, then we need to have a project_id
+    project_id = _get_resubmit_project_id(jobs, project_id, creds_file)
+
+    # show what would be done
+    logging.info(f'the following jobs would be resubmitted:')
+    for j in jobs:
+      logging.info(_experiment_command_str(j.experiment))
+      logging.info(f'  job {_job_str(j)}')
+
+    if dry_run:
+      logging.info(f'to actually resubmit these jobs, run this command again '
+                   f'without the --dry_run flag')
+      return
+
+    # make sure
+    if not user_verify(f'do you wish to resubmit these {len(jobs)} jobs?',
+                       False):
+      return
+
+    # rebuild all containers first
+    if rebuild:
+      logging.info(f'rebuilding containers...')
+      image_id_map = _rebuild_containers(jobs, project_id=project_id)
+    else:
+      image_id_map = {j: j.container for j in jobs}
+
+    # create new job specs
+    job_specs = [
+        replace_job_spec_image(spec=j.spec, image_id=image_id_map[j])
+        for j in jobs
+    ]
+
+    # submit jobs, grouped by platform
+    for platform in [Platform.CAIP, Platform.GKE, Platform.LOCAL]:
+      pspecs = list(filter(lambda x: x.platform == platform, job_specs))
+      try:
+        submit_job_specs(
+            specs=pspecs,
+            platform=platform,
+            project_id=project_id,
+            credentials_path=creds_file,
+        )
+      except Exception as e:
+        session.commit()  # avoid rollback
+        logging.error(f'there was an error submitting some jobs')
+
+    return

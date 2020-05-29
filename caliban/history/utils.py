@@ -18,7 +18,7 @@ import os
 import sys
 from contextlib import contextmanager
 from typing import Optional, Dict, Any, List
-
+from copy import deepcopy
 from absl import logging
 from blessings import Terminal
 from googleapiclient import discovery
@@ -34,7 +34,8 @@ from caliban.gke.utils import default_credentials
 from caliban.gke.types import JobStatus as GkeStatus
 from caliban.cloud.types import JobStatus as CloudStatus
 from caliban.history.types import (init_db, Job, JobStatus, Platform,
-                                   ContainerSpec, Experiment, ExperimentGroup)
+                                   ContainerSpec, Experiment, ExperimentGroup,
+                                   JobSpec)
 
 DB_URL_ENV = 'CALIBAN_DB_URL'
 MEMORY_DB_URL = 'sqlite:///:memory:'
@@ -361,3 +362,187 @@ def update_job_status(j: Job) -> JobStatus:
     return j.status
 
   assert False, "can't get job status for platform {j.platform.name}"
+
+
+# ----------------------------------------------------------------------------
+def _stop_caip_job(j: Job) -> bool:
+  '''stops a running caip job
+
+  see:
+  https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs/cancel
+
+  Args:
+  j: job to stop
+
+  Returns:
+  True on success, False otherwise
+  '''
+
+  api = _get_caip_job_api()
+  name = _get_caip_job_name(j)
+
+  try:
+    rsp = api.cancel(name=name).execute()
+  except Exception as e:
+    logging.error('error stopping CAIP job {name}: {e}')
+    return False
+
+  if rsp != {}:
+    logging.error('error stopping CAIP job {name}: {pp.format(rsp)}')
+    return False
+
+  return True
+
+
+# ----------------------------------------------------------------------------
+def _stop_gke_job(j: Job) -> bool:
+  '''stops a running gke job
+
+  see:
+  https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#delete-job-v1-batch
+
+  Args:
+  j: job to stop
+
+  Returns:
+  True on success, False otherwise
+  '''
+
+  cluster_name = j.details['cluster_name']
+  job_name = get_gke_job_name(j)
+
+  cluster = get_job_cluster(j)
+  if cluster is None:
+    logging.error(f'unable to connect to cluster {cluster_name}, '
+                  f'so unable to delete job {job_name}')
+    return False
+
+  status = cluster.delete_job(job_name=job_name)
+
+  # gke deletes the job completely, so we can't then query its status later
+  # thus if the request went through ok, then we mark as stopped
+  if status:
+    j.status = JobStatus.STOPPED
+
+  return status
+
+
+# ----------------------------------------------------------------------------
+def stop_job(j: Job) -> bool:
+  '''stops a running job
+
+  Args:
+  j: job to stop
+
+  Returns:
+  True on success, False otherwise
+  '''
+
+  current_status = update_job_status(j)
+
+  if current_status not in [JobStatus.RUNNING, JobStatus.SUBMITTED]:
+    return True
+
+  if j.spec.platform == Platform.LOCAL:
+    return True  # local jobs run to completion
+
+  if j.spec.platform == Platform.CAIP:
+    return _stop_caip_job(j)
+
+  if j.spec.platform == Platform.GKE:
+    return _stop_gke_job(j)
+
+  return False
+
+
+# ----------------------------------------------------------------------------
+def replace_local_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
+  '''generates a new JobSpec based on an existing one, but replacing the
+  image id
+
+  Args:
+  spec: job spec used as basis
+  image_id: new image id
+
+  Returns:
+  new JobSpec
+  '''
+
+  return JobSpec.get_or_create(
+      experiment=spec.experiment,
+      spec={
+          'command': spec.spec['command'][:-1] + [image_id],
+          'container': image_id,
+      },
+      platform=Platform.LOCAL)
+
+
+# ----------------------------------------------------------------------------
+def replace_caip_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
+  '''generates a new JobSpec based on an existing one, but replacing the
+  image id
+
+  Args:
+  spec: job spec used as basis
+  image_id: new image id
+
+  Returns:
+  new JobSpec
+  '''
+
+  new_spec = deepcopy(spec.spec)
+  new_spec['trainingInput']['masterConfig']['imageUri'] = image_id
+
+  return JobSpec.get_or_create(experiment=spec.experiment,
+                               spec=new_spec,
+                               platform=Platform.CAIP)
+
+
+# ----------------------------------------------------------------------------
+def replace_gke_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
+  '''generates a new JobSpec based on an existing one, but replacing the
+  image id
+
+  Args:
+  spec: job spec used as basis
+  image_id: new image id
+
+  Returns:
+  new JobSpec
+  '''
+
+  new_spec = deepcopy(spec.spec)
+  for i in range(len(new_spec['template']['spec']['containers'])):
+    new_spec['template']['spec']['containers'][i]['image'] = image_id
+
+  print
+  return JobSpec.get_or_create(
+      experiment=spec.experiment,
+      spec=new_spec,
+      platform=Platform.GKE,
+  )
+
+
+# ----------------------------------------------------------------------------
+def replace_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
+  '''generates a new JobSpec based on an existing one, but replacing the
+  image id
+
+  Args:
+  spec: job spec used as basis
+  image_id: new image id
+
+  Returns:
+  new JobSpec
+  '''
+
+  if spec.platform == Platform.LOCAL:
+    return replace_local_job_spec_image(spec=spec, image_id=image_id)
+
+  if spec.platform == Platform.CAIP:
+    return replace_caip_job_spec_image(spec=spec, image_id=image_id)
+
+  if spec.platform == Platform.GKE:
+    return replace_gke_job_spec_image(spec=spec, image_id=image_id)
+
+  return None

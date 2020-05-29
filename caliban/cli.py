@@ -29,7 +29,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Command line parser for the Caliban app."""
 import os
 import sys
@@ -433,6 +432,8 @@ def caliban_parser():
   cloud_parser(subparser)
   cluster_parser(subparser)
   status_parser(subparser)
+  stop_parser(subparser)
+  resubmit_parser(subparser)
 
   return parser
 
@@ -920,6 +921,34 @@ def status_parser(base):
   parser = base.add_parser("status", help="get status for caliban jobs")
   xgroup_arg(parser, helpstr='experiment group')
   max_jobs_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def stop_parser(base):
+  '''cli parser for stop command'''
+  parser = base.add_parser('stop', help='stop running caliban jobs')
+  xgroup_arg(parser, helpstr='experiment group')
+  dry_run_arg(parser)
+
+
+# ----------------------------------------------------------------------------
+def all_jobs_arg(parser):
+  parser.add_argument(
+      '--all_jobs',
+      action='store_true',
+      help=(f'resubmit all jobs regardless of current state, otherwise only '
+            f'jobs that are in FAILED or STOPPED state will be resubmitted'))
+
+
+# ----------------------------------------------------------------------------
+def resubmit_parser(base):
+  '''cli parser for resubmit command'''
+  parser = base.add_parser('resubmit', help='resubmit caliban jobs')
+  xgroup_arg(parser, helpstr='experiment group')
+  dry_run_arg(parser)
+  all_jobs_arg(parser)
+  project_id_arg(parser)
+  cloud_key_arg(parser)
 
 
 # ----------------------------------------------------------------------------

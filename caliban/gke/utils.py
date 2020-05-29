@@ -29,7 +29,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """gke utility routines"""
 
 from __future__ import absolute_import
@@ -597,7 +596,7 @@ def sanitize_job_name(name: str) -> str:
   '-' or '.', and must start and end with an alphanumeric character.
 
   An zero-len string returns 'job'
-  Invalid characters are replaced with 'x'.
+  Invalid characters are replaced with '-'.
   If the job does not start with an alnum, then the prefix 'job-' is prepended.
   If the job does not end with an alnum, then the suffix '-0' is appended.
 
@@ -637,8 +636,8 @@ def sanitize_job_name(name: str) -> str:
   if not _alnum(name[-1]):
     name = name + '-0'
 
-  # replace all invalid chars with 'x'
-  return invalid_re.sub('x', name)
+  # replace all invalid chars with '-'
+  return invalid_re.sub('-', name)
 
 
 # ----------------------------------------------------------------------------

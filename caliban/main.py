@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Entry point for Caliban's various modes."""
 
 from __future__ import absolute_import, division, print_function
@@ -85,6 +84,12 @@ def run_app(arg_input):
 
   elif command == 'status':
     caliban.history.cli.get_status(args)
+
+  elif command == 'stop':
+    caliban.history.cli.stop(args)
+
+  elif command == 'resubmit':
+    caliban.history.cli.resubmit(args)
 
   elif command == "run":
     dry_run = args["dry_run"]
