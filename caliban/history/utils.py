@@ -18,7 +18,7 @@ import os
 import sys
 from contextlib import contextmanager
 from typing import Optional, Dict, Any, List
-
+from copy import deepcopy
 from absl import logging
 from blessings import Terminal
 from googleapiclient import discovery
@@ -34,7 +34,8 @@ from caliban.gke.utils import default_credentials
 from caliban.gke.types import JobStatus as GkeStatus
 from caliban.cloud.types import JobStatus as CloudStatus
 from caliban.history.types import (init_db, Job, JobStatus, Platform,
-                                   ContainerSpec, Experiment, ExperimentGroup)
+                                   ContainerSpec, Experiment, ExperimentGroup,
+                                   JobSpec)
 
 DB_URL_ENV = 'CALIBAN_DB_URL'
 MEMORY_DB_URL = 'sqlite:///:memory:'
@@ -452,3 +453,101 @@ def stop_job(j: Job) -> bool:
     return _stop_gke_job(j)
 
   return False
+
+
+# ----------------------------------------------------------------------------
+def replace_local_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
+  '''generates a new JobSpec based on an existing one, but replacing the
+  image id
+
+  Args:
+  spec: job spec used as basis
+  image_id: new image id
+
+  Returns:
+  new JobSpec
+  '''
+
+  old_image = spec.spec['container']
+  old_cmd = spec.spec['command']
+  new_cmd = list(map(lambda x: x if x != old_image else image_id, old_cmd))
+
+  return JobSpec.get_or_create(
+      experiment=spec.experiment,
+      spec={
+          'command': new_cmd,
+          'container': image_id,
+      },
+      platform=Platform.LOCAL,
+  )
+
+
+# ----------------------------------------------------------------------------
+def replace_caip_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
+  '''generates a new JobSpec based on an existing one, but replacing the
+  image id
+
+  Args:
+  spec: job spec used as basis
+  image_id: new image id
+
+  Returns:
+  new JobSpec
+  '''
+
+  new_spec = deepcopy(spec.spec)
+  new_spec['trainingInput']['masterConfig']['imageUri'] = image_id
+
+  return JobSpec.get_or_create(experiment=spec.experiment,
+                               spec=new_spec,
+                               platform=Platform.CAIP)
+
+
+# ----------------------------------------------------------------------------
+def replace_gke_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
+  '''generates a new JobSpec based on an existing one, but replacing the
+  image id
+
+  Args:
+  spec: job spec used as basis
+  image_id: new image id
+
+  Returns:
+  new JobSpec
+  '''
+
+  new_spec = deepcopy(spec.spec)
+  for i in range(len(new_spec['template']['spec']['containers'])):
+    new_spec['template']['spec']['containers'][i]['image'] = image_id
+
+  print
+  return JobSpec.get_or_create(
+      experiment=spec.experiment,
+      spec=new_spec,
+      platform=Platform.GKE,
+  )
+
+
+# ----------------------------------------------------------------------------
+def replace_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
+  '''generates a new JobSpec based on an existing one, but replacing the
+  image id
+
+  Args:
+  spec: job spec used as basis
+  image_id: new image id
+
+  Returns:
+  new JobSpec
+  '''
+
+  if spec.platform == Platform.LOCAL:
+    return replace_local_job_spec_image(spec=spec, image_id=image_id)
+
+  if spec.platform == Platform.CAIP:
+    return replace_caip_job_spec_image(spec=spec, image_id=image_id)
+
+  if spec.platform == Platform.GKE:
+    return replace_gke_job_spec_image(spec=spec, image_id=image_id)
+
+  return None
