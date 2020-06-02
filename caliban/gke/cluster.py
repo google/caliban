@@ -309,8 +309,7 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def list(project_id: str,
-           creds: Credentials,
+  def list(project_id: str, creds: Credentials,
            zone: str = '-') -> Optional[List[str]]:
     """gets a list of clusters for given project and zone
 
@@ -359,10 +358,10 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def container_limits(
-      accelerator: Optional[Accelerator],
-      count: int = 1,
-      preemptible_tpu: bool = True) -> Optional[Dict[str, str]]:
+  def container_limits(accelerator: Optional[Accelerator],
+                       count: int = 1,
+                       preemptible_tpu: bool = True
+                      ) -> Optional[Dict[str, str]]:
     """creates container limits dictionary for given accelerator type and count
 
     Args:
@@ -419,9 +418,9 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def template_metadata(
-      accelerator: Optional[Accelerator] = None,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[V1ObjectMeta]:
+  def template_metadata(accelerator: Optional[Accelerator] = None,
+                        tpu_driver: str = k.DEFAULT_TPU_DRIVER
+                       ) -> Optional[V1ObjectMeta]:
     """generates template metadata for given accelerator type
 
     Args:
@@ -440,10 +439,10 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def node_selector(
-      preemptible: bool = True,
-      machine_type: Optional[MachineType] = None,
-      accelerator: Optional[Accelerator] = None) -> Optional[Dict[str, str]]:
+  def node_selector(preemptible: bool = True,
+                    machine_type: Optional[MachineType] = None,
+                    accelerator: Optional[Accelerator] = None
+                   ) -> Optional[Dict[str, str]]:
     """gets node selector for given accelerator type and machine spec
 
     Args:
@@ -675,22 +674,22 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def create_simple_job_spec(
-      self,
-      experiment: Experiment,
-      name: str,
-      image: str,
-      min_cpu: int,
-      min_mem: int,
-      command: Optional[List[str]] = None,
-      env: Dict[str, str] = {},
-      accelerator: Optional[Accelerator] = None,
-      accelerator_count: int = 1,
-      namespace: str = k.DEFAULT_NAMESPACE,
-      machine_type: Optional[MachineType] = None,
-      preemptible: bool = True,
-      preemptible_tpu: bool = True,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[JobSpec]:
+  def create_simple_job_spec(self,
+                             experiment: Experiment,
+                             name: str,
+                             image: str,
+                             min_cpu: int,
+                             min_mem: int,
+                             command: Optional[List[str]] = None,
+                             env: Dict[str, str] = {},
+                             accelerator: Optional[Accelerator] = None,
+                             accelerator_count: int = 1,
+                             namespace: str = k.DEFAULT_NAMESPACE,
+                             machine_type: Optional[MachineType] = None,
+                             preemptible: bool = True,
+                             preemptible_tpu: bool = True,
+                             tpu_driver: str = k.DEFAULT_TPU_DRIVER
+                            ) -> Optional[JobSpec]:
     """creates a simple kubernetes job (1 container, 1 pod) JobSpec for this cluster
 
     Args:
@@ -845,9 +844,9 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @staticmethod
-  def convert_accel_spec(
-      gpu_spec: Optional[GPUSpec],
-      tpu_spec: Optional[TPUSpec]) -> Optional[Tuple[Accelerator, int]]:
+  def convert_accel_spec(gpu_spec: Optional[GPUSpec],
+                         tpu_spec: Optional[TPUSpec]
+                        ) -> Optional[Tuple[Accelerator, int]]:
     """converts gpu/tpu spec pair to accelerator,count tuple
 
     Args:
@@ -1000,10 +999,10 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @trap(None)
   @connected(None)
-  def apply_daemonset(
-      self,
-      daemonset: V1DaemonSet,
-      namespace: str = k.DEFAULT_NAMESPACE) -> Optional[V1DaemonSet]:
+  def apply_daemonset(self,
+                      daemonset: V1DaemonSet,
+                      namespace: str = k.DEFAULT_NAMESPACE
+                     ) -> Optional[V1DaemonSet]:
     """applies daemonset to cluster
 
     Args:
@@ -1021,8 +1020,8 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def apply_daemonset_from_url(
-      self, url: str, parser: Callable[[str], dict]) -> Optional[V1DaemonSet]:
+  def apply_daemonset_from_url(self, url: str, parser: Callable[[str], dict]
+                              ) -> Optional[V1DaemonSet]:
     """applies daemonset to cluster from file url
 
     Args:

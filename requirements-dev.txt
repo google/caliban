@@ -4,5 +4,8 @@ ipython
 pre-commit
 pytest
 pytest-cov
+recommonmark
 sphinx
+sphinx-autodoc-typehints
+sphinx_rtd_theme
 twine
