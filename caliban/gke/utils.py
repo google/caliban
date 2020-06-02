@@ -13,22 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-#!/usr/bin/python
-#
-# Copyright 2020 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """gke utility routines"""
 
 from __future__ import absolute_import
@@ -220,14 +204,13 @@ def user_verify(msg: str, default: bool) -> bool:
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def wait_for_operation(cluster_api: discovery.Resource,
-                       name: str,
-                       conditions: List[OpStatus] = [
-                           OpStatus.DONE, OpStatus.ABORTING
-                       ],
-                       sleep_sec: int = 1,
-                       message: str = '',
-                       spinner: bool = True) -> Optional[dict]:
+def wait_for_operation(
+    cluster_api: discovery.Resource,
+    name: str,
+    conditions: List[OpStatus] = [OpStatus.DONE, OpStatus.ABORTING],
+    sleep_sec: int = 1,
+    message: str = '',
+    spinner: bool = True) -> Optional[dict]:
   """waits for cluster operation to reach given state(s)
 
   Args:
@@ -382,8 +365,8 @@ def get_region_quotas(compute_api: discovery.Resource, project_id: str,
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def resource_limits_from_quotas(
-    quotas: List[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+def resource_limits_from_quotas(quotas: List[Dict[str, Any]]
+                               ) -> Optional[List[Dict[str, Any]]]:
   """create resource limits from quota dictionary
 
   Args:
@@ -649,8 +632,8 @@ def application_default_credentials_path() -> str:
 # ----------------------------------------------------------------------------
 @trap(CredentialsData(None, None), silent=False)
 def default_credentials(
-    scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
-) -> CredentialsData:
+    scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL,
+                         k.COMPUTE_SCOPE_URL]) -> CredentialsData:
   """gets default cloud credentials
 
   Args:
@@ -672,8 +655,8 @@ def default_credentials(
 @trap(CredentialsData(None, None), silent=False)
 def credentials_from_file(
     cred_file: str,
-    scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
-) -> CredentialsData:
+    scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL,
+                         k.COMPUTE_SCOPE_URL]) -> CredentialsData:
   """gets cloud credentials from service account file
 
   Args:
