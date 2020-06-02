@@ -20,6 +20,16 @@ Caliban is a tool for developing research workflow and notebooks in an isolated
 Docker environment and submitting those isolated environments to Google Compute
 Cloud.
 
+## Installation and Usage
+
+We'll add more here once we're staged on Github and can get proper links to
+generated docs.
+
+This is a research project, not an official Google product. Expect bugs and
+sharp edges. Please help by trying out Caliban, [reporting
+bugs](https://github.com/google/caliban/issues), and letting us know what you
+think!
+
 ## Developing in Caliban
 
 So you want to add some code to Caliban. Excellent!
