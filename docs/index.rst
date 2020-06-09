@@ -1,16 +1,17 @@
-.. Caliban documentation master file, created by
-   sphinx-quickstart on Tue Jun  2 12:53:55 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-Welcome to Caliban's documentation!
+Caliban reference documentation
 ===================================
+
+Caliban is a tool for developing research workflow and notebooks in an isolated
+Docker environment and submitting those isolated environments to Google Compute
+Cloud.
+
+For an introduction to Caliban, start at the `Caliban GitHub page
+<https://github.com/google/caliban>`_.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
-
+   caliban
 
 Indices and tables
 ==================

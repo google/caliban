@@ -6,6 +6,7 @@ pytest
 pytest-cov
 recommonmark
 sphinx
+sphinx-argparse
 sphinx-autodoc-typehints
 sphinx_rtd_theme
 twine

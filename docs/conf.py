@@ -33,9 +33,9 @@ release = ''
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc', 'sphinx.ext.autosummary', 'sphinx.ext.intersphinx',
-    'sphinx.ext.mathjax', 'sphinx.ext.napoleon', 'sphinx.ext.viewcode',
-    'sphinx_autodoc_typehints', 'recommonmark'
+    'sphinxarg.ext', 'sphinx.ext.autodoc', 'sphinx.ext.autosummary',
+    'sphinx.ext.intersphinx', 'sphinx.ext.mathjax', 'sphinx.ext.napoleon',
+    'sphinx.ext.viewcode', 'sphinx_autodoc_typehints', 'recommonmark'
 ]
 
 intersphinx_mapping = {'python': ('https://docs.python.org/3/', None)}
