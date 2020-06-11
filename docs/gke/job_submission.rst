@@ -44,16 +44,16 @@ Here we create our cluster job (some of output elided):
 
 .. code-block:: bash
 
-   aslone@aslone:$ caliban cluster job submit --gpu_spec 1xK80 --name cifar10-test cifar10_resnet_train.sh --
+   totoro@totoro:$ caliban cluster job submit --gpu_spec 1xK80 --name cifar10-test cifar10_resnet_train.sh --
    I0204 11:33:48.564418 139920906995520 core.py:386] Generating Docker image with parameters:
-   I0204 11:33:48.565413 139920906995520 core.py:387] {'adc_path': '/usr/local/google/home/aslone/.config/gcloud/application_default_credentials.json',
-    'credentials_path': '/usr/local/google/home/aslone/.config/service_keys/aslone_blueshift.json',
+   I0204 11:33:48.565413 139920906995520 core.py:387] {'adc_path': '/usr/local/google/home/totoro/.config/gcloud/application_default_credentials.json',
+    'credentials_path': '/usr/local/google/home/totoro/.config/service_keys/totoro_key.json',
     'extra_dirs': None,
     'job_mode': <JobMode.GPU: 2>,
     'package': Package(executable=['/bin/bash'], package_path='.', script_path='cifar10_resnet_train.sh', main_module=None),
     'requirements_path': 'requirements.txt',
     'setup_extras': None}
-   I0204 11:33:48.566865 139920906995520 docker.py:497] Running command: docker build --rm -f- /usr/local/google/home/aslone/sw/tensorflow_models
+   I0204 11:33:48.566865 139920906995520 docker.py:497] Running command: docker build --rm -f- /usr/local/google/home/totoro/sw/tensorflow_models
    Sending build context to Docker daemon  1.058GB
 
    Step 1/15 : FROM gcr.io/blueshift-playground/blueshift:gpu
@@ -65,7 +65,7 @@ Here we create our cluster job (some of output elided):
    latest: digest: sha256:99c759693d78c24d0b6441e70d5b5538541cccaa158142b5896fadebc30b7ab9 size: 6608
    I0204 11:35:12.189604 139920906995520 cli.py:431] submitted job:
    cifar10-test-tsnlf:
-   https://pantheon.corp.google.com/kubernetes/job/us-central1-a/foo/default/cifar10-test-tsnlf
+   https://console.cloud.google.com/kubernetes/job/us-central1-a/foo/default/cifar10-test-tsnlf
 
 Our job has now been submitted to our cluster. Due to various factors, it will
 take a short time before the job is actually running. We can use the link

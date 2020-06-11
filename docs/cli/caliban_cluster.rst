@@ -69,7 +69,7 @@ The syntax for this command is as follows:
 
 .. code-block:: text
 
-   aslone@aslone:$ caliban cluster create --help
+   totoro@totoro:$ caliban cluster create --help
    usage: caliban cluster create [-h] [--helpfull] [--project_id PROJECT_ID]
                                  [--cloud_key CLOUD_KEY]
                                  [--cluster_name CLUSTER_NAME] [--zone ZONE]
@@ -119,7 +119,7 @@ A typical creation request (with ``--dry_run``\ ):
 
 .. code-block:: text
 
-   aslone@aslone:$ caliban cluster create --zone us-central1-a --cluster_name blueshift --dry_run
+   totoro@totoro:$ caliban cluster create --zone us-central1-a --cluster_name blueshift --dry_run
    I0303 13:07:34.257717 140660011796288 cli.py:160] request:
    {'cluster': {'autoscaling': {'autoprovisioningNodePoolDefaults': {'oauthScopes': ['https://www.googleapis.com/auth/compute',
                                                                                      'https://www.googleapis.com/auth/cloud-platform']},
@@ -155,7 +155,7 @@ A typical creation request (with ``--dry_run``\ ):
                                'name': 'default-pool'}],
                 'releaseChannel': {'channel': 'RAPID'},
                 'zone': 'us-central1-a'},
-    'parent': 'projects/aslone-blueshift/locations/us-central1-a'}
+    'parent': 'projects/totoro-project/locations/us-central1-a'}
 
 Cluster creation can take a while to complete (often on the order of five
 minutes). When you use caliban to create a cluster, caliban will provide a link
@@ -179,7 +179,7 @@ The syntax of this command:
 
 .. code-block:: text
 
-   aslone@aslone:$ caliban cluster delete --help
+   totoro@totoro:$ caliban cluster delete --help
    usage: caliban cluster delete [-h] [--helpfull] [--project_id PROJECT_ID]
                                  [--cloud_key CLOUD_KEY]
                                  [--cluster_name CLUSTER_NAME] [--zone ZONE]
@@ -213,7 +213,7 @@ those for :doc:`../cli/caliban_cloud`:
 
 .. code-block:: text
 
-   aslone@aslone:$ caliban cluster job submit --help
+   totoro@totoro:$ caliban cluster job submit --help
    usage: caliban cluster job submit [-h] [--helpfull]
                                      [--cluster_name CLUSTER_NAME] [--nogpu]
                                      [--cloud_key CLOUD_KEY] [--extras EXTRAS]
@@ -336,7 +336,7 @@ The syntax of this command:
 
 .. code-block:: text
 
-   aslone@aslone:$ caliban cluster job submit_file --help
+   totoro@totoro:$ caliban cluster job submit_file --help
    usage: caliban cluster job submit_file [-h] [--helpfull]
                                           [--cluster_name CLUSTER_NAME]
                                           [--cloud_key CLOUD_KEY]

@@ -22,9 +22,9 @@ fail:
    xgroup resubmit_test:
    docker config 1: job_mode: CPU, build url: ~/sw/blueshift/caliban/tmp/cpu, extra dirs: None
      experiment id 37: cpu.py --foo 3 --sleep 2
-       job 69       SUCCEEDED     CAIP 2020-05-29 10:53:41 container: gcr.io/aslone-blueshift/cffd1475aaca:latest name: caliban_aslone_20200529_105340_2
+       job 69       SUCCEEDED     CAIP 2020-05-29 10:53:41 container: gcr.io/totoro-project/cffd1475aaca:latest name: caliban_totoro_20200529_105340_2
      experiment id 38: cpu.py --foo 3 --sleep 1
-       job 68       FAILED        CAIP 2020-05-29 10:53:40 container: gcr.io/aslone-blueshift/cffd1475aaca:latest name: caliban_aslone_20200529_105338_1
+       job 68       FAILED        CAIP 2020-05-29 10:53:40 container: gcr.io/totoro-project/cffd1475aaca:latest name: caliban_totoro_20200529_105338_1
 
 You then go and modify your code, and now you can use the ``resubmit`` command to
 run the jobs that failed:
@@ -34,7 +34,7 @@ run the jobs that failed:
    $ caliban resubmit --xgroup resubmit_test
    the following jobs would be resubmitted:
    cpu.py --foo 3 --sleep 1
-     job 68       FAILED        CAIP 2020-05-29 10:53:40 container: gcr.io/aslone-blueshift/cffd1475aaca:latest name: caliban_aslone_20200529_105338_1
+     job 68       FAILED        CAIP 2020-05-29 10:53:40 container: gcr.io/totoro-project/cffd1475aaca:latest name: caliban_totoro_20200529_105338_1
 
     do you wish to resubmit these 1 jobs? [yN]: y
    rebuilding containers...
@@ -53,9 +53,9 @@ change:
    xgroup resubmit_test:
    docker config 1: job_mode: CPU, build url: ~/sw/blueshift/caliban/tmp/cpu, extra dirs: None
      experiment id 37: cpu.py --foo 3 --sleep 2
-       job 69       SUCCEEDED     CAIP 2020-05-29 10:53:41 container: gcr.io/aslone-blueshift/cffd1475aaca:latest name: caliban_aslone_20200529_105340_2
+       job 69       SUCCEEDED     CAIP 2020-05-29 10:53:41 container: gcr.io/totoro-project/cffd1475aaca:latest name: caliban_totoro_20200529_105340_2
      experiment id 38: cpu.py --foo 3 --sleep 1
-       job 70       SUCCEEDED     CAIP 2020-05-29 11:03:01 container: gcr.io/aslone-blueshift/81b2087b5026:latest name: caliban_aslone_20200529_110259_1
+       job 70       SUCCEEDED     CAIP 2020-05-29 11:03:01 container: gcr.io/totoro-project/81b2087b5026:latest name: caliban_totoro_20200529_110259_1
 
 The ``resubmit`` command supports the following arguments:
 

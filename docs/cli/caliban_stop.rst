@@ -19,17 +19,17 @@ money). The ``caliban stop`` command makes this relatively simple:
    $ caliban stop --xgroup my-xgroup
    the following jobs would be stopped:
    cpu.py --foo 3 --sleep -1
-       job 61       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/aslone-blueshift/0f6d8a3ddbee:latest name: job-stop-test-57pr9
+       job 61       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: job-stop-test-57pr9
    cpu.py --foo 3 --sleep 2
-       job 62       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/aslone-blueshift/0f6d8a3ddbee:latest name: job-stop-test-s67jt
+       job 62       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: job-stop-test-s67jt
    cpu.py --foo 3 --sleep 600
-       job 63       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/aslone-blueshift/0f6d8a3ddbee:latest name: job-stop-test-gg9zm
+       job 63       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: job-stop-test-gg9zm
 
    do you wish to stop these 3 jobs? [yN]: y
 
-   stopping job: 61       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/aslone-blueshift/0f6d8a3ddbee:latest name: job-stop-test-57pr9
-   stopping job: 62       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/aslone-blueshift/0f6d8a3ddbee:latest name: job-stop-test-s67jt
-   stopping job: 63       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/aslone-blueshift/0f6d8a3ddbee:latest name: job-stop-test-gg9zm
+   stopping job: 61       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: job-stop-test-57pr9
+   stopping job: 62       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: job-stop-test-s67jt
+   stopping job: 63       RUNNING        GKE 2020-05-28 11:55:04 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: job-stop-test-gg9zm
 
    requested job cancellation, please be patient as it may take a short while for this status change to be reflected in the gcp dashboard or from the `caliban status` command.
 

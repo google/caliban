@@ -8,8 +8,6 @@ Cloud.
 For an introduction to Caliban, start at the `Caliban GitHub page
 <https://github.com/google/caliban>`_.
 
-This is a link :doc:`/gke/concepts`.
-
 Overview
 --------
 
@@ -59,7 +57,8 @@ declare some set of dependencies in either a ``requirements.txt`` or
 
 The rest of this document contains detailed information and guides on Caliban's
 various modes. If you want to get started in a more interactive way, head over
-to go/bs-tutorials.
+to `the Caliban tutorials
+directory <https://github.com/google/caliban/blob/master/tutorials/README.md>`_.
 
 Caliban's code lives on `Github <https://github.com/google/caliban>`_.
 
@@ -67,9 +66,10 @@ Using Caliban
 -------------
 
 If you want to practice using Caliban with a proper getting-started style guide,
-head over to go/bs-tutorials for a number of tutorials that use Caliban and AI
-Platform.
-`Hello Tensorflow <https://team.git.corp.google.com/blueshift/tutorials/+/refs/heads/master/hello-tensorflow/README.md>`_
+head over to `Caliban's tutorials
+<https://github.com/google/caliban/blob/master/tutorials/README.md>`_ for a
+number of tutorials that use Caliban and AI Platform. `Hello Tensorflow
+<https://team.git.corp.google.com/blueshift/tutorials/+/refs/heads/master/hello-tensorflow/README.md>`_
 is a solid place to start.
 
 Read on for information on the specific commands exposed by Caliban.
@@ -80,6 +80,7 @@ Read on for information on the specific commands exposed by Caliban.
 
    getting_started/prerequisites
    getting_started/getting_caliban
+   getting_started/cloud
 
 .. toctree::
    :maxdepth: 1

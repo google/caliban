@@ -82,9 +82,7 @@ isolated Docker container and runs the resulting Python code on Google's
                            pass through.
 
 .. NOTE:: To use ``caliban cloud`` you'll need to make sure your machine is
-   configured for Cloud access. To verify, visit Blueshift's `Setting up Cloud
-   <https://g3doc.corp.google.com/company/teams/blueshift/guide/cloud.md>`_
-   page.
+   configured for Cloud access. To verify, :doc:`getting_started/cloud`.
 
 Specifically, you'll need to make sure the following environment variables are
 set:
@@ -127,10 +125,7 @@ As with ``caliban run``\ , any arguments you pass to your script after ``--``\ :
 Will be passed directly through to your script.
 
 In cloud mode, all user arguments will be passed to cloud as labels, which means
-that you can filter by these labels in the AI platform jobs UI (run ``ai_job`` in
-a shell if you've got the
-`Blueshift repo <https://team.git.corp.google.com/blueshift/blueshift/>`_
-installed).
+that you can filter by these labels in the AI platform jobs UI.
 
 Keyword Arguments
 ~~~~~~~~~~~~~~~~~

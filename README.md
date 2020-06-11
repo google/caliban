@@ -111,6 +111,11 @@ sharp edges. Please help by trying out Caliban, [reporting
 bugs](https://github.com/google/caliban/issues), and letting us know what you
 think!
 
+## Contributing
+
+Please refer to our [Contributor's Guide](CONTRIBUTING.md) for information on
+how to get started contributing to Caliban.
+
 ## Citing Caliban
 
 If Caliban helps you in your research, pleae consider citing the repository:
