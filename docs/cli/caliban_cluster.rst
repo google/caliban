@@ -208,8 +208,8 @@ single cluster in your project, you can simply type ``caliban cluster delete``.
 ``caliban cluster job submit``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Most of the cli arguments for ``caliban cluster job submit`` are the same as those
-for `caliban cloud <http://go/caliban#caliban-cloud>`_\ :
+Most of the cli arguments for ``caliban cluster job submit`` are the same as
+those for :doc:`../cli/caliban_cloud`:
 
 .. code-block:: text
 
@@ -315,8 +315,7 @@ for `caliban cloud <http://go/caliban#caliban-cloud>`_\ :
                            through to your script. any arguments after '--' will
                            pass through.
 
-Again, this command very closely mirrors
-`caliban cloud <http://go/caliban#caliban-cloud>`_.
+Again, this command very closely mirrors :doc:`../cli/caliban_cloud`.
 
 You can export job requests created with caliban as a ``yaml`` or ``json`` file
 using the ``--export`` flag. You can then use this file with ``caliban cluster job

@@ -111,10 +111,9 @@ are:
 See the ``caliban run`` docs for a detailed walkthrough of most options available
 to ``caliban cloud``.
 
-This mode has many features explored in the
-`Cloud Specific Tutorials <http://go/caliban#cloud-specific-tutorials>`_ below.
-Read on here for a description of each keyword argument supported by ``caliban
-cloud``.
+This mode has many features explored in the "Cloud-Specific Tutorials" section
+in the left-hand menu. Read on here for a description of each keyword argument
+supported by ``caliban cloud``.
 
 Arguments as Labels
 ~~~~~~~~~~~~~~~~~~~
@@ -139,54 +138,44 @@ Keyword Arguments
 The additional options available to ``caliban cloud`` are:
 
 
-*
-  **image_tag**\ : If you supply the tag of a Docker image accessible from your
+* **image_tag**\ : If you supply the tag of a Docker image accessible from your
   project, caliban will bypass the Docker build and push steps and use this
-  image tag directly for AI Platform job submission. This is useful if you
-  want to submit a job quickly without going through a no-op build and push,
-  or if you want to
-  `broadcast an experiment <http://go/caliban#experiment-broadcasting>`_ using
-  some existing container. Note that this flag will cause ``caliban cloud`` to
-  ignore any ``--extras`` or ``--dir`` arguments, as no ``docker build`` step will
-  be executed.
+  image tag directly for AI Platform job submission. This is useful if you want
+  to submit a job quickly without going through a no-op build and push, or if
+  you want to :doc:`broadcast an experiment
+  <../explore/experiment_broadcasting>` using some existing container. Note that
+  this flag will cause ``caliban cloud`` to ignore any ``--extras`` or ``--dir``
+  arguments, as no ``docker build`` step will be executed.
 
-*
-  **project_id**\ : This is the ID of the Cloud project that Caliban will use to
-  push Docker containers and to submit AI platform jobs. By default Caliban
-  will examine your environment for a ``$PROJECT_ID`` variable; if neither is
-  set and you attempt to run a Cloud command, Caliban will exit.
+* **project_id**\ : This is the ID of the Cloud project that Caliban will use to
+  push Docker containers and to submit AI platform jobs. By default Caliban will
+  examine your environment for a ``$PROJECT_ID`` variable; if neither is set and
+  you attempt to run a Cloud command, Caliban will exit.
 
-*
-  **region**\ : The Cloud region you specify with this flag is used for AI
-  Platform job submission. Any value listed in the "Americas" section of
-  `AI Platform's region docs <https://cloud.google.com/ml-engine/docs/regions>`_
-  is valid (Let us know if you need global regions!). If you don't specify a
-  region Caliban will examine your environment for a ``$REGION`` variable and
-  use this if supplied; if that's not set it will default to ``"us-central1"``.
-  See ``caliban cloud --help`` for all possible arguments.
+* **region**\ : The Cloud region you specify with this flag is used for AI
+  Platform job submission. Any value listed in the "Americas" section of `AI
+  Platform's region docs <https://cloud.google.com/ml-engine/docs/regions>`_ is
+  valid (Let us know if you need global regions!). If you don't specify a region
+  Caliban will examine your environment for a ``$REGION`` variable and use this
+  if supplied; if that's not set it will default to ``"us-central1"``. See
+  ``caliban cloud --help`` for all possible arguments.
 
-*
-  **--machine_type**\ : Specifies the type of machine to use for each submitted
-  AI platform job. See ``caliban cloud --help`` for all possible values. See
-  `Custom Machine Types <http://go/caliban#custom-machine-types>`_ for more
-  details.
+* **machine_type**\ : Specifies the type of machine to use for each submitted AI
+  platform job. See ``caliban cloud --help`` for all possible values. See
+  :doc:`../cloud/gpu_specs` for more detail.
 
-*
-  **--gpu_spec**\ : optional argument of the form GPU_COUNTxGPU_TYPE. See
+* **gpu_spec**\ : optional argument of the form GPU_COUNTxGPU_TYPE. See
   ``caliban cloud --help`` for all possible GPU types, and for the default.
-  Usually 1, 2, 4 or 8 of each are supported, though this depends on the
-  machine type you specify. Caliban will throw a validation error and give you
-  a suggestion for how to proceed if you supply a combination that's not
-  possible on AI Platform. See
-  `Custom GPU Specs <http://go/caliban#custom-gpu-specs>`_ for more details.
+  Usually 1, 2, 4 or 8 of each are supported, though this depends on the machine
+  type you specify. Caliban will throw a validation error and give you a
+  suggestion for how to proceed if you supply a combination that's not possible
+  on AI Platform. See :doc:`../cloud/gpu_specs` for more details.
 
-*
-  **--tpu_spec**\ : optional argument of the form TPU_COUNTxTPU_TYPE. See
+* **tpu_spec**\ : optional argument of the form TPU_COUNTxTPU_TYPE. See
   ``caliban cloud --help`` for all supported TPU types. As of December 2019,
   ``8xV2`` and ``8xV3`` are the only available options. TPUs are compatible with
-  GPUs specified using ``--gpu_spec``. See
-  `TPUs on AI Platform <http://go/caliban#tpus-on-ai-platform>`_ for more
-  details.
+  GPUs specified using ``--gpu_spec``. See :doc:`../cloud/ai_platform_tpu` for
+  more details.
 
 *
   **--force**\ : If supplied, this flag will disable all validations on
@@ -195,38 +184,31 @@ The additional options available to ``caliban cloud`` are:
   case some new GPU was added to a region or machine type and caliban hasn't
   yet been updated.
 
-*
-  **--name**\ : If you pass a string via this optional flag, ``caliban cloud``
+* **name**\ : If you pass a string via this optional flag, ``caliban cloud``
   will submit your job with a job id of ``"{name}_{timestamp}"`` and add a
   ``job_name:{name}`` label to your job. It's useful to pass the same name for
   MANY jobs and use this field to group various experiment runs. Experiment
   broadcasting (the next flag, keep reading!) will do this for you
   automatically.
 
-*
-  **--experiment_config**\ : If you pass the location (relative or absolute) of
-  a local JSON file of the proper format, caliban will generate many jobs
-  using this experiment config and submit them all in batch to AI platform.
-  The formatting rules are - keys must be strings, values can be list, int,
-  boolean or string. If the value is a list, caliban will generate N copies of
-  the experiment config, 1 for each entry in the list, and submit a job for
-  each. The total number of jobs submitted is the cardinality of the cartesian
-  product of all lists in the experiment config. Lists of valid dicts are also
-  allowed. See
-  `Experiment Broadcasting <http://go/caliban#experiment-broadcasting>`_ below
-  for more details.
+* **experiment_config**\ : If you pass the location (relative or absolute) of a
+  local JSON file of the proper format, caliban will generate many jobs using
+  this experiment config and submit them all in batch to AI platform. The
+  formatting rules are - keys must be strings, values can be list, int, boolean
+  or string. If the value is a list, caliban will generate N copies of the
+  experiment config, 1 for each entry in the list, and submit a job for each.
+  The total number of jobs submitted is the cardinality of the cartesian product
+  of all lists in the experiment config. Lists of valid dicts are also allowed.
+  See :doc:`../explore/experiment_broadcasting` for more details.
 
-*
-  **--label**\ : You can use this flag to pass many labels to ``caliban cloud``\ ;
-  just pass the flag over and over. Labels must be of the form ``k=v``\ ; ``--label
-  epochs=2``\ , for example. If you pass any labels identical to your flags these
-  labels will take precedence. See `Job Labels <http://go/caliban#job-labels>`_
-  below for more detail.
+* **label**\ : You can use this flag to pass many labels to ``caliban cloud``\ ;
+  just pass the flag over and over. Labels must be of the form ``k=v``\ ;
+  ``--label epochs=2``\ , for example. If you pass any labels identical to your
+  flags these labels will take precedence. See :doc:`../cloud/labels` below for
+  more detail.
 
-*
-  **--dry_run**\ : this flag will force logging output of all jobs that caliban
+* **dry_run**\ : this flag will force logging output of all jobs that caliban
   will submit without the ``--dry_run`` flag. Docker will also skip an actual
-  build and push. Use this to check that your other arguments are well
-  formatted before submitting a potentially very large batch of jobs
-  (depending on your experiment config). See the
-  `--dry_run <http://go/caliban#-dry-run>`_ guide below for more detail.
+  build and push. Use this to check that your other arguments are well formatted
+  before submitting a potentially very large batch of jobs (depending on your
+  experiment config).

@@ -1,10 +1,9 @@
 caliban build
 ^^^^^^^^^^^^^
 
-This command builds the Docker image used in
-`\ ``caliban run`` <http://go/caliban#caliban-run>`_ and
-`\ ``caliban cloud`` <http://go/caliban#caliban-cloud>`_ without actually executing
-the container or submitting it remotely.
+This command builds the Docker image used in :doc:`caliban_run`,
+:doc:`caliban_cloud` and friends, without actually executing the container or
+submitting it remotely.
 
 ``caliban build`` supports the following arguments:
 

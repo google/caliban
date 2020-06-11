@@ -1,11 +1,11 @@
 expansion
 ^^^^^^^^^
 
-The ``expansion`` script allows you to expand the
-`experiment.json <http://go/caliban#experimentjson-format>`_ files accepted by the
-``--experiment_config`` flags in subcommands like
-`\ ``caliban run`` <http://go/caliban#caliban-run>`_ and
-`\ ``caliban cloud`` <http://go/caliban#caliban-cloud>`_.
+The ``expansion`` script allows you to expand the :doc:`experiment.json
+<../explore/experiment_broadcasting>` files accepted by the
+``--experiment_config`` flags in subcommands like :doc:`caliban_run` and
+:doc:`caliban_cloud` .
+
 
 ``expansion`` supports the following arguments:
 
@@ -14,7 +14,7 @@ The ``expansion`` script allows you to expand the
    usage: expansion [-h] [--helpfull] [--version] [--pprint] [--print_flags]
                     experiment_config
 
-   Experiment config expander. For documentation, visit http://go/caliban
+   Experiment config expander. For documentation, visit https://github.com/google/caliban
 
    positional arguments:
      experiment_config  Path to an experiment config, or 'stdin' to read from
@@ -46,9 +46,7 @@ Given a file called ``experiment.json`` with these contents:
 
 Running ``expansion experiment.json`` will generate a NON-pretty-printed string
 containing every combination of flag key and value described by the structure
-above (See the
-`experiment broadcasting <http://go/caliban#experiment-broadcasting>`_ section
-below for details):
+above (See the :doc:`../explore/experiment_broadcasting` page for details):
 
 .. code-block:: json
 
@@ -61,10 +59,9 @@ instead of a filename:
 
    cat experiment.json | expansion stdin
 
-The
-`Experiment File Expansion and Pipes <http://go/caliban#experiment-file-expansion-and-pipes>`_
-section below has more information on how to use this function with other
-caliban commands to generate very complex sets of experiments with ease.
+The :doc:`../explore/experiment_broadcasting` page, specifically its section on
+pipes, has more information on how to use this function with other caliban
+commands to generate very complex sets of experiments with ease.
 
 expansion --pprint
 ~~~~~~~~~~~~~~~~~~

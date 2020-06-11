@@ -55,10 +55,9 @@ run`` you'll have to depend on either:
 * Cloud buckets for persistence.
 
 Your credentials are set up inside the container and available via the required
-``$GOOGLE_APPLICATION_CREDENTIALS`` environment variable, so all Cloud access via
-Python should Just Work. (See the
-`guide below on gcloud authentication <http://go/caliban#gcloud-and-gsutil-authentication>`_
-for more detail.)
+``$GOOGLE_APPLICATION_CREDENTIALS`` environment variable, so all Cloud access
+via Python should Just Work. (See the :doc:`guide on gcloud authentication
+<../explore/gcloud>` for more detail.)
 
 The base Caliban images also have ``gcloud`` installed; all ``gcloud`` and ``gsutil``
 commands will work with the same permissions granted to the key found at
@@ -72,13 +71,14 @@ container will be dependencies that you declare explicitly in either:
 * a ``setup.py`` file.
 
 Your setup file can declare groups of dependencies using the setuptools
-`extras_require <https://setuptools.readthedocs.io/en/latest/setuptools.html#declaring-extras-optional-features-with-their-own-dependencies>`_
-feature. See the
-`setup.py file from our Hello Tensorflow <https://team.git.corp.google.com/blueshift/tutorials/+/refs/heads/master/hello-tensorflow/setup.py>`_
+`extras_require
+<https://setuptools.readthedocs.io/en/latest/setuptools.html#declaring-extras-optional-features-with-their-own-dependencies>`_
+feature. See the `setup.py file from our Hello Tensorflow
+<https://team.git.corp.google.com/blueshift/tutorials/+/refs/heads/master/hello-tensorflow/setup.py>`_
 project for an example of how to use ``extras_require`` to create separate
-environments for GPU and CPU. (See the
-`Declaring Requirements <http://go/caliban#declaring-requirements>`_ doc section
-below for more detail.)
+environments for GPU and CPU. (See the :doc:`../explore/declaring_requirements`
+docs for more detail.)
+
 
 Executing a Python script
 ~~~~~~~~~~~~~~~~~~~~~~~~~
