@@ -26,13 +26,13 @@ You can set the environment variable inside your container by passing
    caliban run --docker_run_args "--env CUDA_VISIBLE_DEVICES=0" trainer.train
 
 .. NOTE:: you may have noticed that this problem doesn't happen when you run a
-   job inside ``caliban shell``. If you've installed the `Blueshift internal
-   repo <http://go/bs-internal>`_\ , your local environment has
-   ``CUDA_VISIBLE_DEVICES`` set (\ `see here <https://team.git.corp.google.com/blueshift/blueshift/+/refs/heads/master/profile/bashrc#291>`_
-   for the code where this happens). ``caliban shell`` and ``caliban notebook``
+   job inside ``caliban shell``. Your local environment may have
+   ``CUDA_VISIBLE_DEVICES`` set. ``caliban shell`` and ``caliban notebook``
    mount your home directory by default, which loads all of your local
-   environment variables into the container. You will always need to use this
-   trick with ``caliban run``.
+   environment variables into the container and, if you've set this environment
+   variable, modifies this setting inside your container. This doesn't happen
+   with ``caliban run`` or ``caliban cloud``. You will always need to use this
+   trick with those modes.
 
 There are two other ways to solve this problem using the
 `custom ``docker run`` arguments detailed here <https://docs.docker.com/engine/reference/commandline/run/>`_.

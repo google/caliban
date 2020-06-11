@@ -28,9 +28,7 @@ This solves the problem of depending on, say, ``tensorflow-gpu`` for a GPU job,
 and ``tensorflow`` for normal, CPU-only jobs, without having to modify your
 dependency file.
 
-Here's an example ``setup.py`` file from the
-`Hello-Tensorflow <https://team.git.corp.google.com/blueshift/tutorials/+/refs/heads/master/hello-tensorflow/README.md>`_
-tutorial:
+Here's an example ``setup.py`` file:
 
 .. code-block:: python
 

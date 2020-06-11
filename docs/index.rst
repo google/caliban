@@ -68,9 +68,7 @@ Using Caliban
 If you want to practice using Caliban with a proper getting-started style guide,
 head over to `Caliban's tutorials
 <https://github.com/google/caliban/blob/master/tutorials/README.md>`_ for a
-number of tutorials that use Caliban and AI Platform. `Hello Tensorflow
-<https://team.git.corp.google.com/blueshift/tutorials/+/refs/heads/master/hello-tensorflow/README.md>`_
-is a solid place to start.
+number of tutorials that use Caliban and AI Platform.
 
 Read on for information on the specific commands exposed by Caliban.
 

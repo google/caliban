@@ -119,7 +119,7 @@ A typical creation request (with ``--dry_run``\ ):
 
 .. code-block:: text
 
-   totoro@totoro:$ caliban cluster create --zone us-central1-a --cluster_name blueshift --dry_run
+   totoro@totoro:$ caliban cluster create --zone us-central1-a --cluster_name newcluster --dry_run
    I0303 13:07:34.257717 140660011796288 cli.py:160] request:
    {'cluster': {'autoscaling': {'autoprovisioningNodePoolDefaults': {'oauthScopes': ['https://www.googleapis.com/auth/compute',
                                                                                      'https://www.googleapis.com/auth/cloud-platform']},
@@ -144,7 +144,7 @@ A typical creation request (with ``--dry_run``\ ):
                               'us-central1-b',
                               'us-central1-c',
                               'us-central1-f'],
-                'name': 'blueshift',
+                'name': 'newcluster',
                 'nodePools': [{'config': {'oauthScopes': ['https://www.googleapis.com/auth/devstorage.read_only',
                                                           'https://www.googleapis.com/auth/logging.write',
                                                           'https://www.googleapis.com/auth/monitoring',

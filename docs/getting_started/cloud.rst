@@ -37,7 +37,7 @@ Next:
    (\ `instructions here <https://cloud.google.com/billing/docs/how-to/modify-project>`_\ )
 #. Enable the AI Platform ("Cloud Machine Learning Engine") and Compute Engine
    APIs
-   `by selecting your project here <https://console.cloud.google.com/flows/enableapi?apiid=ml.googleapis.com,compute_component>`_.
+   `by selecting your prgreroject here <https://console.cloud.google.com/flows/enableapi?apiid=ml.googleapis.com,compute_component>`_.
 
 Configuring Credentials
 -----------------------

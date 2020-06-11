@@ -20,7 +20,7 @@ fail:
 
    $ caliban status --xgroup resubmit_test
    xgroup resubmit_test:
-   docker config 1: job_mode: CPU, build url: ~/sw/blueshift/caliban/tmp/cpu, extra dirs: None
+   docker config 1: job_mode: CPU, build url: ~/sw/cluster/caliban/tmp/cpu, extra dirs: None
      experiment id 37: cpu.py --foo 3 --sleep 2
        job 69       SUCCEEDED     CAIP 2020-05-29 10:53:41 container: gcr.io/totoro-project/cffd1475aaca:latest name: caliban_totoro_20200529_105340_2
      experiment id 38: cpu.py --foo 3 --sleep 1
@@ -51,7 +51,7 @@ change:
 
    $ caliban status --xgroup resubmit_test
    xgroup resubmit_test:
-   docker config 1: job_mode: CPU, build url: ~/sw/blueshift/caliban/tmp/cpu, extra dirs: None
+   docker config 1: job_mode: CPU, build url: ~/sw/cluster/caliban/tmp/cpu, extra dirs: None
      experiment id 37: cpu.py --foo 3 --sleep 2
        job 69       SUCCEEDED     CAIP 2020-05-29 10:53:41 container: gcr.io/totoro-project/cffd1475aaca:latest name: caliban_totoro_20200529_105340_2
      experiment id 38: cpu.py --foo 3 --sleep 1

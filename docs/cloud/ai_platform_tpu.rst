@@ -38,17 +38,9 @@ Authorizing TPU Access
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Before you can pass ``--tpu_spec`` to a job you'll need to authorize your Cloud
-TPU to access your service account. If you have the
-`Blueshift internal repo <http://go/bs-internal>`_ installed, this is as easy as
-running:
-
-.. code-block:: bash
-
-   activate_tpu_service_account
-
-Otherwise check out
-`the AI Platform TPU tutorial <https://cloud.google.com/ml-engine/docs/tensorflow/using-tpus#authorize-tpu>`_
-for more detailed steps.
+TPU to access your service account. Check out `the AI Platform TPU tutorial
+<https://cloud.google.com/ml-engine/docs/tensorflow/using-tpus#authorize-tpu>`_
+for detailed steps on how to achieve this.
 
 Example Workflows
 ~~~~~~~~~~~~~~~~~

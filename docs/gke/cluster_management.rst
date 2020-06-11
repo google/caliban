@@ -14,11 +14,11 @@ You can create a cluster for your project as follows:
 
 .. code-block:: bash
 
-   totoro@totoro:$ caliban cluster create --cluster_name blueshift --zone us-central1-a
-   I0204 09:24:08.710866 139910209476416 cli.py:165] creating cluster blueshift in project totoro-project in us-central1-a...
+   totoro@totoro:$ caliban cluster create --cluster_name cluster_name --zone us-central1-a
+   I0204 09:24:08.710866 139910209476416 cli.py:165] creating cluster cluster_name in project totoro-project in us-central1-a...
    I0204 09:24:08.711183 139910209476416 cli.py:166] please be patient, this may take several minutes
-   I0204 09:24:08.711309 139910209476416 cli.py:167] visit https://console.cloud.google.com/kubernetes/clusters/details/us-central1-a/blueshift?project=totoro-project to monitor cluster creation progress
-   I0204 09:28:05.274621 139910209476416 cluster.py:1091] created cluster blueshift successfully
+   I0204 09:24:08.711309 139910209476416 cli.py:167] visit https://console.cloud.google.com/kubernetes/clusters/details/us-central1-a/cluster_name?project=totoro-project to monitor cluster creation progress
+   I0204 09:28:05.274621 139910209476416 cluster.py:1091] created cluster cluster_name successfully
    I0204 09:28:05.274888 139910209476416 cluster.py:1092] applying nvidia driver daemonset...
 
 The command will typically take several minutes to complete. The command will

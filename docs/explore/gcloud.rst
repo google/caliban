@@ -8,9 +8,8 @@ Caliban supports authentication with GCloud and GSUtil via two methods:
   and
 * `Application Default Credentials <https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login>`_
 
-Service accounts keys (described on Blueshift's
-`Setting Up Cloud page <http://go/bs-cloud#service-account-key>`_\ ) are the method
-of authentication you'll find recommended by most Cloud documentation for
+Service accounts keys (described in :doc:`../getting_started/cloud`) are the
+method of authentication you'll find recommended by most Cloud documentation for
 authentication within Docker containers.
 
 Unfortunately, newer GCP projects created internally at Google are all housed
@@ -18,10 +17,10 @@ inside an "experimental" folder that's banned creation of service account keys.
 For those projects, you'll need to use a different method of authentication
 called "Application Default Credentials", or ADC.
 
-.. NOTE:: to set up service account keys, visit the `Blueshift service account
-   instructions <http://go/bs-cloud#service-account-key>`_. To generate
-   application default credentials on your machine, simply run ``gcloud auth
-   application-default login`` at your terminal, as described `in the Cloud docs
+.. NOTE:: to set up service account keys, visit the :ref:`service
+   account instructions <Service Account Key>`. To generate application default
+   credentials on your machine, simply run ``gcloud auth application-default
+   login`` at your terminal, as described `in the Google Cloud docs
    <https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login>`_.
 
 If you've logged to gcloud on your machine using application default
@@ -57,11 +56,11 @@ able to use the GCloud Python API or the ``gsutil`` or ``gcloud`` commands insid
 the container.
 
 As noted above, if you don't have this variable set up yet and want to get it
-working, check out the
-`Blueshift service account instructions <http://go/bs-cloud#service-account-key>`_.
-To generate application default credentials on your machine, simply run ``gcloud
-auth application-default login`` at your terminal, as described
-`in the Cloud docs <https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login>`_.
+working, check out the :ref:`service account instructions <Service Account
+Key>`. To generate application default credentials on your machine, simply run
+``gcloud auth application-default login`` at your terminal, as described `in the
+Cloud docs
+<https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login>`_.
 
 GCloud SDK
 ~~~~~~~~~~

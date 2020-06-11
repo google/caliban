@@ -11,14 +11,14 @@ your most recent job submissions across all experiment groups:
    most recent 5 jobs for user totoro:
 
    xgroup totoro-xgroup-2020-05-28-11-33-35:
-     docker config 1: job_mode: CPU, build url: ~/sw/blueshift/caliban/tmp/cpu, extra dirs: None
+     docker config 1: job_mode: CPU, build url: ~/sw/cluster/caliban/tmp/cpu, extra dirs: None
       experiment id 28: cpu.py --foo 3 --sleep 2
         job 56       STOPPED        GKE 2020-05-28 11:33:35 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: job-stop-test-rssqq
       experiment id 29: cpu.py --foo 3 --sleep 600
         job 57       STOPPED        GKE 2020-05-28 11:33:36 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: job-stop-test-c5x6v
 
    xgroup totoro-xgroup-2020-05-28-11-40-52:
-     docker config 1: job_mode: CPU, build url: ~/sw/blueshift/caliban/tmp/cpu, extra dirs: None
+     docker config 1: job_mode: CPU, build url: ~/sw/cluster/caliban/tmp/cpu, extra dirs: None
        experiment id 30: cpu.py --foo 3 --sleep -1
          job 58       STOPPED       CAIP 2020-05-28 11:40:54 container: gcr.io/totoro-project/0f6d8a3ddbee:latest name: caliban_totoro_20200528_114052_1
        experiment id 31: cpu.py --foo 3 --sleep 2
@@ -38,7 +38,7 @@ experiment group, using the ``--xgroup`` flag:
 
    $ caliban status --xgroup xg2 --max_jobs 2
    xgroup xg2:
-   docker config 1: job_mode: CPU, build url: ~/sw/blueshift/caliban/tmp/cpu, extra dirs: None
+   docker config 1: job_mode: CPU, build url: ~/sw/cluster/caliban/tmp/cpu, extra dirs: None
      experiment id 1: cpu.py --foo 3 --sleep -1
        job 34       FAILED        CAIP 2020-05-08 18:26:56 container: gcr.io/totoro-project/e2a0b8fca1dc:latest name: caliban_totoro_1_20200508_182654
        job 37       FAILED        CAIP 2020-05-08 19:01:08 container: gcr.io/totoro-project/e2a0b8fca1dc:latest name: caliban_totoro_1_20200508_190107
