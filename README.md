@@ -133,26 +133,9 @@ your machine:
 
 ## Getting Started
 
-This first example will show you how to use Caliban to run a short script inside
-of a Caliban-generated Docker container, then submit that script to AI Platform.
-
-Make a new project folder and create a small script:
-
 ```bash
 mkdir project && cd project
-echo "import platform; print(f\"Hello, World, from a {platform.system()} machine.\")" > hello.py
-```
-
-Run the script with your local Python executable:
-
-```bash
-$ python hello.py
-Hello, World, from a Darwin machine.
-```
-
-Use Caliban to run the same script inside a Docker container:
-
-```bash
+echo "print(f\"Hello, World.\")" > hello.py
 caliban run --nogpu hello.py
 ...elided...
 
