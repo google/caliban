@@ -78,11 +78,13 @@ usage: caliban [-h] [--helpfull] [--version]
 Our more detailed [Getting
 Started](https://caliban.readthedocs.io/en/latest/getting_started/prerequisites.html)
 documentation has instructions for Linux boxes, `nvidia-docker` setup and Google
-Cloud credential configuration, so you can run locally against GPUs or submit
-jobs to Cloud.
+Cloud credential configuration. Armed with these tools you'll be able to run
+scripts locally using a your GPU or submit caliban-dockerized jobs to Cloud.
 
-For a short tutorial, see the [Getting Started](#getting-started) section below,
-or read the [Overview](#overview) for a discussion of Caliban's subcommands.
+Now that you have Caliban installed:
+
+- see the [Getting Started](#getting-started) section below, or
+- read the [Overview](#overview) for a discussion of Caliban's subcommands.
 
 ## Overview
 
