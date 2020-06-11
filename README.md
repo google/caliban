@@ -133,10 +133,17 @@ your machine:
 
 ## Getting Started
 
+```
+```
+
 ```bash
 mkdir project && cd project
-echo "print(f\"Hello, World.\")" > hello.py
-caliban run --nogpu hello.py
+echo "import sys; print(sys.argv[2])" > mirror.py
+echo '{"key": [1,2,3,4,5,6]}'' | caliban run \
+  --experiment_config stdin \
+  --nogpu \
+  mirror.py
+
 ...elided...
 
 0611 15:12:44.371632 4389141952 docker.py:781] Running command: docker run --ipc host 58a1a3bf6145
