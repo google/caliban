@@ -1,0 +1,3 @@
+# Required for development, not publication.
+sphinx
+sphinx_rtd_theme
