@@ -133,21 +133,64 @@ your machine:
 
 ## Getting Started
 
-The easiest way to get started with caliban is to use [`caliban
-shell`](https://caliban.readthedocs.io/en/latest/cli/caliban_shell.html) to set
-up an isolated research environment in your project's folder. To do this:
+This first example will show you how to use Caliban to run a short script inside
+of a Caliban-generated Docker container, then submit that script to AI Platform.
 
-- open up a terminal
-- make a new folder somewhere on your machine and `cd` into it
-- run the following command:
+Make a new project folder and create a small script:
+
+```bash
+mkdir project && cd project
+echo "import platform; print(f\"Hello, World, from a {platform.system()} machine.\")" > hello.py
+```
+
+Run the script with your local Python executable:
+
+```bash
+$ python hello.py
+Hello, World, from a Darwin machine.
+```
+
+Use Caliban to run the same script inside a Docker container:
+
+```bash
+caliban run --nogpu hello.py
+...elided...
+
+0611 15:12:44.371632 4389141952 docker.py:781] Running command: docker run --ipc host 58a1a3bf6145
+Hello, World, from a Linux machine.
+I0611 15:12:45.000511 4389141952 docker.py:738] Job 1 succeeded!
+```
+
+Change a single word to submit the same script to [Google's AI
+Platform](https://cloud.google.com/ai-platform):
+
+```bash
+caliban cloud --nogpu hello.py
+```
+
+(For this last step to work, you'll need to set up a Google Cloud account by
+following [these
+instructions](https://caliban.readthedocs.io/en/latest/getting_started/cloud.html)).
+
+### Slightly Expanded
+
+This next example shows you how to do interactive development using [`caliban
+shell`](https://caliban.readthedocs.io/en/latest/cli/caliban_shell.html). Once
+you get your script working, you can use [`caliban
+run`](https://caliban.readthedocs.io/en/latest/cli/caliban_run.html) and
+[`caliban
+cloud`](https://caliban.readthedocs.io/en/latest/cli/caliban_cloud.html) on the
+script, just like above.
+
+Run the following command in the `project` folder you created earlier:
 
 ```bash
 caliban shell --nogpu
 ```
 
-You should see quite a bit of activity as Caliban downloads its base image to
-your machine and builds your first container. After this passes, you should see
-Caliban's terminal:
+If this is your first command, you'll see quite a bit of activity as Caliban
+downloads its base image to your machine and builds your first container. After
+this passes, you should see Caliban's terminal:
 
 ```
 I0611 12:33:17.551121 4500135360 docker.py:911] Running command: docker run --ipc host -w /usr/app -u 735994:89939 -v /Users/totoro/code/example:/usr/app -it --entrypoint /bin/bash -v /Users/totoro:/home/totoro ab8a7d7db868
