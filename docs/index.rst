@@ -5,8 +5,8 @@ Caliban is a tool for developing research workflow and notebooks in an isolated
 Docker environment and submitting those isolated environments to Google Compute
 Cloud.
 
-For an introduction to Caliban, start at the `Caliban GitHub page
-<https://github.com/google/caliban>`_.
+For a short tutorial introduction to Caliban, see the `GitHub page
+<https://github.com/google/caliban#caliban>`_.
 
 Overview
 --------
@@ -67,10 +67,12 @@ Using Caliban
 
 If you want to practice using Caliban with a proper getting-started style guide,
 head over to `Caliban's tutorials
-<https://github.com/google/caliban/blob/master/tutorials/README.md>`_ for a
-number of tutorials that use Caliban and AI Platform.
+<https://github.com/google/caliban/blob/master/tutorials/README.md>`_ (Coming
+Soon!).
 
-Read on for information on the specific commands exposed by Caliban.
+See the sidebar for information on the subcommands exposed by Caliban and a
+whole series of tutorials and guides that you might find interesting as you work
+with Caliban.
 
 .. toctree::
    :maxdepth: 1

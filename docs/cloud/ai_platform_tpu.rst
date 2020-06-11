@@ -1,8 +1,7 @@
 TPUs on AI Platform
 ^^^^^^^^^^^^^^^^^^^
 
-.. NOTE:: This documentation is currently quite sparse; expect a tutorial in the
-   `tutorials repository <http://go/bs-tutorials>`_ soon.
+.. NOTE:: This documentation is currently quite sparse; expect a tutorial soon.
 
 .. IMPORTANT:: Unlike on Cloud, TPUs on AI Platform only support (as of
    Dec 2019) Tensorflow versions 1.13 and 1.14. No Jax, no Pytorch.

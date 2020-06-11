@@ -7,12 +7,6 @@ pairs. Any arguments you provide using either :doc:`custom script arguments
 <../explore/experiment_broadcasting>` will be added to your job as labels, like
 this:
 
-
-.. image:: https://screenshot.googleplex.com/R0hHH5a12Ad.png
-   :target: https://screenshot.googleplex.com/R0hHH5a12Ad.png
-   :alt: Job labels
-
-
 In addition to arguments Caliban will add these labels to each job:
 
 

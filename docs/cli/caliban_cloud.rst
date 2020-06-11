@@ -82,11 +82,11 @@ isolated Docker container and runs the resulting Python code on Google's
                            pass through.
 
 .. NOTE:: To use ``caliban cloud`` you'll need to make sure your machine is
-   configured for Cloud access. To verify, :doc:`getting_started/cloud`.
+   configured for Cloud access. To verify that you're set up, visit
+   :doc:`../getting_started/cloud`.
 
 Specifically, you'll need to make sure the following environment variables are
 set:
-
 
 * ``$PROJECT_ID``\ : The ID of the Cloud project where you'll be submitting jobs.
 * ``$GOOGLE_APPLICATION_CREDENTIALS``\ : a local path to your JSON Cloud

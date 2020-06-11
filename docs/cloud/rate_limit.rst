@@ -11,8 +11,3 @@ Job submission on Cloud presents a nice progress bar, with terminal colors and
 more. The log commands, URLs, jobIds and custom arguments are highlighted so
 it's clear which jobs are going through. On a failure the error message prints
 in red.
-
-
-.. image:: https://screenshot.googleplex.com/ucAYKrE7Dro.png
-   :target: https://screenshot.googleplex.com/ucAYKrE7Dro.png
-   :alt: progress bar

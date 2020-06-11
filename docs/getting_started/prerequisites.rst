@@ -31,10 +31,11 @@ Docker and CUDA
 Caliban uses Docker for each of its commands. To use Caliban, you'll need
 ``docker`` and (if you're on Linux) ``nvidia-docker`` on your machine.
 
-If you're on a Mac, install `Docker Desktop for Mac <http://go/bs-mac-setup>`_
-(so easy!) You'll only be able to run in CPU mode, as macs don't support
-Docker's nvidia runtime. You will, however, be able to build GPU containers and
-submit them to Google Cloud.
+If you're on a Mac, install `Docker Desktop for Mac
+<https://hub.docker.com/editions/community/docker-ce-desktop-mac>`_ (so easy!)
+You'll only be able to run in CPU mode, as macs don't support Docker's nvidia
+runtime. You will, however, be able to build GPU containers and submit them to
+Google Cloud.
 
 If you're on Linux, follow the instructions at the `nvidia-docker
 <https://github.com/NVIDIA/nvidia-docker>`_ page to configure the ability to run

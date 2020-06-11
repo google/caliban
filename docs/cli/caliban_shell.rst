@@ -33,13 +33,9 @@ Cloud.
                            'bash' if your shell isn't supported.
      --bare                Skip mounting the $HOME directory; load a bare shell.
 
-Running ``caliban shell`` in any directory will generate a Docker image containing
-the minimal environment necessary to execute Python ML workflows and drop you
-into an interactive shell inside of that image.
-
-.. WARNING:: ``caliban shell`` is one of two modes that won't work inside of a ``piper``
-   folder. You can't develop interactively, since Docker can't mount piper volumes.
-   Stick to ``run``\ , ``build``\ , ``cloud`` and ``cluster`` and you'll be fine.
+Running ``caliban shell`` in any directory will generate a Docker image
+containing the minimal environment necessary to execute Python ML workflows and
+drop you into an interactive shell inside of that image.
 
 Caliban will copy in your Cloud credentials and set the required
 ``$GOOGLE_APPLICATION_CREDENTIALS`` env variable, so all Cloud interaction from

@@ -25,20 +25,8 @@ The command will typically take several minutes to complete. The command will
 provide you with an url you can follow to monitor the creation process. The page
 will look something like the following:
 
-
-.. image:: https://screenshot.googleplex.com/bhtqhet5Xu3.png
-   :target: https://screenshot.googleplex.com/bhtqhet5Xu3.png
-   :alt: cluster creation progress
-
-
 Once your cluster is created and running, you can view and inspect it from the
 cloud dashboard from the ``Kuberenetes Engine > Clusters`` menu option:
-
-
-.. image:: https://screenshot.googleplex.com/5mJEi29VPjH.png
-   :target: https://screenshot.googleplex.com/5mJEi29VPjH.png
-   :alt: dashboard cluster tab
-
 
 Cluster Deletion
 ~~~~~~~~~~~~~~~~

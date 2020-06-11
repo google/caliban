@@ -8,21 +8,9 @@ Pre-submission Cluster Status
 
 In this example, we have an existing cluster with no jobs currently running. You
 can inspect the cluster from the GCP dashboard for your project under the
-``Kubernetes Engine > Clusters`` menu:
+``Kubernetes Engine > Clusters`` menu.
 
-
-.. image:: https://screenshot.googleplex.com/pWPkUFBUBsH.png
-   :target: https://screenshot.googleplex.com/pWPkUFBUBsH.png
-   :alt: cluster dashboard
-
-
-Selecting our ``foo`` cluster, we can see more details:
-
-
-.. image:: https://screenshot.googleplex.com/V5QfdB6Nbbi.png
-   :target: https://screenshot.googleplex.com/V5QfdB6Nbbi.png
-   :alt: foo cluster
-
+Selecting our ``foo`` cluster, we can see more details.
 
 Here we can see that our cluster has only a single node pool: the default pool
 created when we started the cluster. We will submit a job that uses gpu
@@ -76,34 +64,16 @@ Monitor Autoscaling/Job Placement
 
 When we first submit the job, we will often see that the job shows what appears
 to be an error with a big, ugly, red message saying something along the lines of
-"unschedulable"
-
-
-.. image:: https://screenshot.googleplex.com/dye5mDUw8zc.png
-   :target: https://screenshot.googleplex.com/dye5mDUw8zc.png
-   :alt: scary
-
+"unschedulable".
 
 We need to look at the 'details' on the right side to see how the Kubernetes pod
 associated with this job is progressing. The job right now is unschedulable
 because the cluster has not yet scaled up to accomodate our request. Choosing
-the 'details' button, we see:
-
-
-.. image:: https://screenshot.googleplex.com/UuLkkHCVZQN.png
-   :target: https://screenshot.googleplex.com/UuLkkHCVZQN.png
-   :alt: pod
-
+the 'details' button, we see this.
 
 This is the pod associated with our job. Clicking on this shows us details on
 the pod, where we can watch its development. On the pod page, choose the
-'Events' tab:
-
-
-.. image:: https://screenshot.googleplex.com/ccbcYVBJxYU.png
-   :target: https://screenshot.googleplex.com/ccbcYVBJxYU.png
-   :alt: pod events
-
+'Events' tab.
 
 Here we can see the progression of the pod. (note that the events here are in
 order of 'last seen', so they appear out-of-order when trying to divine the
@@ -119,12 +89,6 @@ submission to container operation.
 While this process is progressing, we can also monitor the cluster and its node
 pools from the cluster page:
 
-
-.. image:: https://screenshot.googleplex.com/dtx1k9LZaMY.png
-   :target: https://screenshot.googleplex.com/dtx1k9LZaMY.png
-   :alt: cluster node pools
-
-
 Now we can see that the cluster has auto-provisioned a new node pool for us in
 response to our job submission. Exploring this further you can find the new node
 instance that was created and inspect its properties. Once your job has
@@ -137,19 +101,7 @@ Monitor Job Logs
 Now that our job is running, we can monitor the logs from the container from the
 dashboard using stackdriver (Kubernetes Engine > Workloads > our-job):
 
-
-.. image:: https://screenshot.googleplex.com/F7prOO7iGKa.png
-   :target: https://screenshot.googleplex.com/F7prOO7iGKa.png
-   :alt: job details
-
-
 This will take you to the stackdriver log viewer for the container:
-
-
-.. image:: https://screenshot.googleplex.com/b9yu5sHPmj3.png
-   :target: https://screenshot.googleplex.com/b9yu5sHPmj3.png
-   :alt: stackdriver logs
-
 
 Clean up Job
 ~~~~~~~~~~~~
@@ -159,8 +111,3 @@ it, even though the container has been stopped and no compute resources are
 still active. This is quite useful of course, but at some point you will want to
 delete the job (which will delete all of the logs and associated metadata, so
 use caution)
-
-
-.. image:: https://screenshot.googleplex.com/ZQ1mK9LX4Gn.png
-   :target: https://screenshot.googleplex.com/ZQ1mK9LX4Gn.png
-   :alt: delete job

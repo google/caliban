@@ -18,8 +18,8 @@ Caliban uses one of two base images, depending on whether you're running in GPU
 
 These are based on, respectively,
 
-* ``tensorflow/tensorflow:2.1.0-gpu-py3``
-* ``tensorflow/tensorflow:2.1.0-py3``
+* ``tensorflow/tensorflow:2.2.0-gpu-py3``
+* ``tensorflow/tensorflow:2.2.0-py3``
 
 We chose the base Tensorflow containers only because they do the hard work of
 installing all of the CUDA drivers and other software required by NVIDIA GPUs;

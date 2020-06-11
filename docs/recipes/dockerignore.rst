@@ -18,8 +18,7 @@ If you don't want to include any of these things in the Docker container that
 caliban builds for you, you can significantly speed up your builds by creating a
 file called ``.dockerignore`` in the directory of your project.
 
-Here's an example ``.dockerignore`` file from one of our tutorial projects at
-go/bs-tutorials, with comments explaining each line
+Here's an example ``.dockerignore`` file, with comments explaining each line:
 
 .. code-block::
 
