@@ -188,8 +188,8 @@ def _tupleize_compound_key(k: str) -> List[str]:
   return tuple([x.strip() for x in k.strip('][').split(',')])
 
 
-def _tupleize_compound_value(v: Union[List, bool, str, int, float]
-                            ) -> Union[List, Tuple]:
+def _tupleize_compound_value(
+    v: Union[List, bool, str, int, float]) -> Union[List, Tuple]:
   """ list of lists -> list of tuples
       list of primitives -> tuple of primitives
       single primitive -> length-1 tuple of that primitive
@@ -377,7 +377,8 @@ class TempCopy(object):
       self.path = None
 
 
-def capture_stdout(cmd: List[str], input_str: Optional[str] = None,
+def capture_stdout(cmd: List[str],
+                   input_str: Optional[str] = None,
                    file=None) -> str:
   """Executes the supplied command with the supplied string of std input, then
   streams the output to stdout, and returns it as a string along with the
@@ -625,8 +626,8 @@ def script_args_to_labels(script_args: Optional[List[str]]) -> Dict[str, str]:
   return ret
 
 
-def sanitize_labels(pairs: Union[Dict[str, str], List[Tuple[str, str]]]
-                   ) -> Dict[str, str]:
+def sanitize_labels(
+    pairs: Union[Dict[str, str], List[Tuple[str, str]]]) -> Dict[str, str]:
   """Turns a dict, or a list of unsanitized key-value pairs (each represented by
   a tuple) into a dictionary suitable to submit to Cloud as a label dict.
 

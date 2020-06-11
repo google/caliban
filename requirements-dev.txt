@@ -4,7 +4,4 @@ ipython
 pre-commit
 pytest
 pytest-cov
-recommonmark
-sphinx
-sphinx_rtd_theme
 twine

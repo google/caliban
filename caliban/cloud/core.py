@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """cloud utilities."""
 
 from __future__ import absolute_import, division, print_function
@@ -270,10 +269,11 @@ def ml_api(credentials_path: Optional[str] = None):
                          credentials=credentials)
 
 
-def create_requests(specs: List[ht.JobSpec],
-                    project_id: str,
-                    credentials_path: Optional[str] = None
-                   ) -> Iterable[Tuple[Any, ht.JobSpec, Any]]:
+def create_requests(
+    specs: List[ht.JobSpec],
+    project_id: str,
+    credentials_path: Optional[str] = None
+) -> Iterable[Tuple[Any, ht.JobSpec, Any]]:
   """Returns an iterator of (HttpRequest, ht.JobSpec, Callback).
 
   HttpRequests look like:
