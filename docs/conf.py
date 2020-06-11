@@ -1,5 +1,3 @@
-from recommonmark.parser import CommonMarkParser
-
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -33,7 +31,6 @@ release = ''
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinxarg.ext',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosectionlabel',
     'sphinx.ext.autosummary',
@@ -41,18 +38,11 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'recommonmark',
 ]
 
 intersphinx_mapping = {'python': ('https://docs.python.org/3/', None)}
 
-source_parsers = {'.md': CommonMarkParser}
-
-source_suffix = {
-    '.rst': 'restructuredtext',
-    '.txt': 'restructuredtext',
-    '.md': 'markdown',
-}
+source_suffix = {'.rst': 'restructuredtext', '.txt': 'restructuredtext'}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
