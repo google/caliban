@@ -1,5 +1,23 @@
 # How to Contribute
 
+This page details ways that you can contribute.
+
+## Documentation
+
+We use Sphinx to generate docs. To get live reloading working, use
+[sphinx-reload](https://pypi.org/project/sphinx-reload/):
+
+```bash
+pipx install sphinx-reload
+```
+
+Then, inside the caliban folder:
+
+```bash
+sphinx-reload docs
+```
+
+
 ## Contributor License Agreement
 
 Contributions to this project must be accompanied by a Contributor License

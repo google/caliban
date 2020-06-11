@@ -64,8 +64,6 @@ pre-commit: $(ENV_ACT) pre-commit run --all-files
 push:
 	git push origin master
 	git push --tags
-	git push $(SCR_REPO) master
-	git push $(SCR_REPO) --tags
 
 .PHONY: release-egg
 release-egg:
