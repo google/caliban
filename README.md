@@ -277,7 +277,7 @@ how to get started contributing to Caliban.
 
 ## Citing Caliban
 
-If Caliban helps you in your research, pleae consider citing the repository:
+If Caliban helps you in your research, please consider citing the repository:
 
 ```
 @software{caliban2020github,
