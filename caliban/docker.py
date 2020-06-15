@@ -27,7 +27,7 @@ import sys
 from enum import Enum
 from pathlib import Path
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, NewType,
-                    Optional, Set, Union)
+                    Optional, Union)
 
 import tqdm
 from absl import logging
@@ -38,13 +38,13 @@ import caliban.util as u
 from caliban.history.utils import (get_sql_engine, get_mem_engine,
                                    session_scope, generate_container_spec,
                                    create_experiments)
-from caliban.history.types import (ExperimentGroup, Experiment, ContainerSpec,
-                                   JobSpec, Job, Platform, JobSpec, Job,
+
+from caliban.history.types import (Experiment, JobSpec, Job, Platform,
                                    JobStatus)
 t = Terminal()
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
-TF_VERSIONS = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
+TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
 

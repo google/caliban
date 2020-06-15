@@ -134,6 +134,7 @@ your machine:
 ## Getting Started
 
 ```
+
 ```
 
 ```bash
@@ -208,7 +209,12 @@ Create a new file called `requirements.txt` in the folder and add the
 
 ```bash
 echo tensorflow >> requirements.txt
-caliban shell --nogpu
+caliban shell # defaults to cpu
+
+caliban cloud trainer.py # defaults to gpu
+
+
+caliban run trainer.py # defaults to cpu
 ```
 
 You should see more activity as `caliban` builds a new container with
