@@ -308,8 +308,11 @@ def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
 COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
 
 # Use the credentials file to activate gcloud, gsutil inside the container.
-RUN gcloud auth activate-service-account --key-file={container_creds} && \
-  git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
+#RUN mkdir -p /home/agravat/.config
+#RUN chown agravat -R /home/agravat/.config
+#RUN gcloud init
+#RUN gcloud auth activate-service-account --key-file={container_creds} && \
+#  git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
 
 ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
 """.format_map({
@@ -389,9 +392,14 @@ def _notebook_entries(lab: bool = False, version: Optional[str] = None) -> str:
 
   library = "jupyterlab" if lab else "jupyter"
 
-  return """
-RUN pip install {}{}
-""".format(library, version_suffix)
+  #return """
+#RUN pip install {}{}
+#""".format(library, version_suffix)
+  cmds = """
+  RUN /opt/conda/bin/pip install https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
+  RUN /opt/conda/bin/jupyter lab build
+  """
+  return cmds
 
 
 def _custom_packages(
@@ -458,10 +466,18 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
     ret += "\n{}".format(_copy_dir_entry(workdir, user_id, user_group, d))
   return ret
 
+def _dlvm_id(image: str) -> str:
+  if image == "pytorch":
+    return "gcr.io/deeplearning-platform-release/pytorch-cpu:latest"
+  elif image == "tf-21":
+    return "gcr.io/deeplearning-platform-release/tf2-cpu.2-1"
+  else:
+    return None
 
 def _dockerfile_template(
     job_mode: c.JobMode,
     workdir: Optional[str] = None,
+    dlvm: Optional[str] = None,
     base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
     package: Optional[Union[List, u.Package]] = None,
     requirements_path: Optional[str] = None,
@@ -507,7 +523,12 @@ def _dockerfile_template(
   if base_image_fn is None:
     base_image_fn = base_image_id
 
-  base_image = base_image_fn(job_mode)
+  if dlvm is None:
+    base_image = base_image_fn(job_mode)
+  else:
+    base_image = _dlvm_id(dlvm)
+
+  logging.info("base image ------ {}".format(base_image))
 
   dockerfile = """
 FROM {base_image}
@@ -576,6 +597,52 @@ def docker_image_id(output: str) -> ImageId:
 
   """
   return ImageId(output.splitlines()[-1].split()[-1])
+
+
+def build_dlvm_image(job_mode: c.JobMode,
+                build_path: str,
+                credentials_path: Optional[str] = None,
+                adc_path: Optional[str] = None,
+                no_cache: bool = False,
+                dlvm: str = None,
+                **kwargs) -> str:
+  """Builds a Docker image by generating a Dockerfile and passing it to `docker
+  build` via stdin. All output from the `docker build` process prints to
+  stdout.
+
+  Returns the image ID of the new docker container; if the command fails,
+  throws on error with information about the command and any issues that caused
+  the problem.
+
+  """
+  with u.TempCopy(credentials_path,
+                  tmp_name=".caliban_default_creds.json") as creds:
+    with u.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
+      cache_args = ["--no-cache"] if no_cache else []
+      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
+      logging.info("extra: {}".format(kwargs))
+      #spec = {k: v for k, v in build_image_kwargs.items()}
+
+      dockerfile = _dockerfile_template(job_mode,
+                                        credentials_path=creds,
+                                        adc_path=adc,
+                                        dlvm=dlvm,
+                                        **kwargs)
+
+      joined_cmd = " ".join(cmd)
+      logging.info("Running command: {}".format(joined_cmd))
+
+      try:
+        output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
+        if ret_code == 0:
+          return docker_image_id(output)
+        else:
+          error_msg = "Docker failed with error code {}.".format(ret_code)
+          raise DockerError(error_msg, cmd, ret_code)
+
+      except subprocess.CalledProcessError as e:
+        logging.error(e.output)
+        logging.error(e.stderr)
 
 
 def build_image(job_mode: c.JobMode,
@@ -883,6 +950,7 @@ def run(job_mode: c.JobMode,
         run_args: Optional[List[str]] = None,
         script_args: Optional[List[str]] = None,
         image_id: Optional[str] = None,
+        dlvm: Optional[str] = None,
         **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker
   run` on the resulting image using sensible defaults.
@@ -901,7 +969,15 @@ def run(job_mode: c.JobMode,
   if script_args is None:
     script_args = []
 
-  if image_id is None:
+  logging.info("run_args {}".format(run_args))
+  logging.info("script_args {}".format(script_args))
+
+  if dlvm is not None:
+    logging.info("dlvm id: {}".format(dlvm))
+    image_id = build_dlvm_image(job_mode, dlvm=dlvm, **build_image_kwargs)
+    logging.info("image_id: {}".format(image_id))
+  elif image_id is None:
+    logging.info("def run - image__id is none")
     image_id = build_image(job_mode, **build_image_kwargs)
 
   base_cmd = _run_cmd(job_mode, run_args)
@@ -916,6 +992,7 @@ def run(job_mode: c.JobMode,
 def run_interactive(job_mode: c.JobMode,
                     workdir: Optional[str] = None,
                     image_id: Optional[str] = None,
+                    dlvm: Optional[str] = None,
                     run_args: Optional[List[str]] = None,
                     mount_home: Optional[bool] = None,
                     shell: Optional[Shell] = None,
@@ -963,13 +1040,14 @@ def run_interactive(job_mode: c.JobMode,
 
   interactive_run_args = _interactive_opts(workdir) + [
       "-it", \
-      "--entrypoint", entrypoint
+      #"--entrypoint", entrypoint
   ] + _home_mount_cmds(mount_home) + run_args
 
   run(job_mode=job_mode,
       run_args=interactive_run_args,
       script_args=entrypoint_args,
       image_id=image_id,
+      dlvm=dlvm,
       shell=shell,
       workdir=workdir,
       **build_image_kwargs)
@@ -980,6 +1058,7 @@ def run_notebook(job_mode: c.JobMode,
                  lab: Optional[bool] = None,
                  version: Optional[bool] = None,
                  run_args: Optional[List[str]] = None,
+                 dlvm: Optional[str] = None,
                  **run_interactive_kwargs) -> None:
   """Start a notebook in the current working directory; the process will run
   inside of a Docker container that's identical to the environment available to
@@ -1019,8 +1098,10 @@ def run_notebook(job_mode: c.JobMode,
   docker_args = ["-p", "{}:{}".format(port, port)] + run_args
 
   run_interactive(job_mode,
-                  entrypoint="/opt/venv/bin/python",
-                  entrypoint_args=jupyter_args,
+                  dlvm=dlvm,
+                  #entrypoint="/opt/venv/bin/python",
+                  entrypoint="/bin/bash",
+                  #entrypoint_args=jupyter_args,
                   run_args=docker_args,
                   inject_notebook=inject_arg,
                   jupyter_version=version,

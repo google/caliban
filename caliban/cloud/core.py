@@ -486,7 +486,7 @@ def build_job_specs(
                     experiments=experiments)
 
 
-def generate_image_tag(project_id, docker_args, dry_run: bool = False):
+def generate_image_tag(project_id, docker_args, dlvm: str = None, dry_run: bool = False):
   """Generates a new Docker image and pushes an image to the user's GCloud
   Container Repository, tagged using the UUID of the generated image.
 
@@ -500,6 +500,11 @@ def generate_image_tag(project_id, docker_args, dry_run: bool = False):
   if dry_run:
     logging.info("Dry run - skipping actual 'docker build' and 'docker push'.")
     image_tag = "dry_run_tag"
+  elif dlvm is not None:
+    logging.info("DLVM - {}".format(dlvm))
+    #image_tag = dlvm
+    image_id = d.build_dlvm_image(dlvm=dlvm, **docker_args)
+    image_tag = d.push_uuid_tag(project_id, image_id)
   else:
     image_id = d.build_image(**docker_args)
     image_tag = d.push_uuid_tag(project_id, image_id)
@@ -543,6 +548,14 @@ def submit_job_specs(
 
   execute_requests(requests, num_specs, num_retries=request_retries)
 
+def _dlvm_id(image: str) -> str:
+  if image == "pytorch":
+    return "gcr.io/deeplearning-platform-release/pytorch-cpu:latest"
+  elif image == "tf-21":
+    return "gcr.io/deeplearning-platform-release/tf2-cpu.2-1"
+  else:
+    return None
+
 
 def submit_ml_job(job_mode: conf.JobMode,
                   docker_args: Dict[str, Any],
@@ -551,6 +564,7 @@ def submit_ml_job(job_mode: conf.JobMode,
                   credentials_path: Optional[str] = None,
                   dry_run: bool = False,
                   job_name: Optional[str] = None,
+                  dlvm: Optional[str] = None,
                   machine_type: Optional[ct.MachineType] = None,
                   gpu_spec: Optional[ct.GPUSpec] = None,
                   tpu_spec: Optional[ct.TPUSpec] = None,
@@ -633,7 +647,11 @@ def submit_ml_job(job_mode: conf.JobMode,
   with session_scope(engine) as session:
     container_spec = generate_container_spec(session, docker_args, image_tag)
 
-    if image_tag is None:
+    dlvm_tag = None
+    if dlvm is not None:
+      dlvm_tag = dlvm # _dlvm_id(dlvm)
+      image_tag = generate_image_tag(project_id, docker_args, dlvm_tag, dry_run=dry_run)
+    elif image_tag is None:
       image_tag = generate_image_tag(project_id, docker_args, dry_run=dry_run)
 
     experiments = create_experiments(

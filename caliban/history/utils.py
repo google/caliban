@@ -180,6 +180,7 @@ def generate_container_spec(
     session: Session,
     docker_args: Dict[str, Any],
     image_tag: Optional[str] = None,
+    dlvm_tag: Optional[str] = None,
 ) -> ContainerSpec:
   '''generates a container spec
 
@@ -192,7 +193,9 @@ def generate_container_spec(
   ContainerSpec instance
   '''
 
-  if image_tag is None:
+  if dlvm_tag is not None:
+    spec = {'image_id': dlvm_tag}
+  elif image_tag is None:
     spec = docker_args
   else:
     spec = {'image_id': image_tag}

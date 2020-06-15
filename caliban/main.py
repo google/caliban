@@ -68,9 +68,11 @@ def run_app(arg_input):
   elif command == "notebook":
     port = args.get("port")
     lab = args.get("lab")
+    dlvm = args.get("dlvm")
     version = args.get("jupyter_version")
     mount_home = not args['bare']
     docker.run_notebook(job_mode,
+                        dlvm=dlvm,
                         port=port,
                         lab=lab,
                         version=version,
@@ -95,6 +97,7 @@ def run_app(arg_input):
     dry_run = args["dry_run"]
     package = args["module"]
     image_id = args.get("image_id")
+    dlvm = args.get("dlvm")
     exp_config = args.get("experiment_config")
     xgroup = args.get('xgroup')
 
@@ -102,6 +105,7 @@ def run_app(arg_input):
                            run_args=docker_run_args,
                            script_args=script_args,
                            image_id=image_id,
+                           dlvm=dlvm,
                            experiment_config=exp_config,
                            dry_run=dry_run,
                            package=package,
@@ -120,6 +124,7 @@ def run_app(arg_input):
     tpu_spec = args.get("tpu_spec")
     image_tag = args.get("image_tag")
     machine_type = args.get("machine_type")
+    dlvm = args.get("dlvm")
     exp_config = args.get("experiment_config")
     labels = u.sanitize_labels(args.get("label") or [])
     xgroup = args.get('xgroup')
@@ -135,6 +140,7 @@ def run_app(arg_input):
         credentials_path=cloud_key,
         dry_run=dry_run,
         job_name=job_name,
+        dlvm=dlvm,
         machine_type=machine_type,
         gpu_spec=gpu_spec,
         tpu_spec=tpu_spec,
