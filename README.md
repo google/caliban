@@ -24,22 +24,6 @@ Iron machines.
 Full documentation for Caliban lives at [Read The
 Docs](https://caliban.readthedocs.io/en/latest).
 
-<p align="center">
-<img src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Stephano%2C_Trinculo_and_Caliban_dancing_from_The_Tempest_by_Johann_Heinrich_Ramberg.jpg" align="center" width="500">
-</p>
-
-> “Be not afeard; the isle is full of noises, \
-> Sounds, and sweet airs, that give delight and hurt not. \
-> Sometimes a thousand twangling instruments \
-> Will hum about mine ears; and sometime voices, \
-> That, if I then had waked after long sleep, \
-> Will make me sleep again: and then, in dreaming, \
-> The clouds methought would open, and show riches \
-> Ready to drop upon me; that, when I waked, \
-> I cried to dream again.”
->
-> -- <cite>Shakespeare, The Tempest</cite>
-
 ## Installation and Prerequisites
 
 Caliban lives on [PyPI](https://pypi.org/project/caliban/), so installation is
@@ -77,9 +61,11 @@ usage: caliban [-h] [--helpfull] [--version]
 
 Our more detailed [Getting
 Started](https://caliban.readthedocs.io/en/latest/getting_started/prerequisites.html)
-documentation has instructions for Linux boxes, `nvidia-docker` setup and Google
-Cloud credential configuration. Armed with these tools you'll be able to run
-scripts locally using a your GPU or submit caliban-dockerized jobs to Cloud.
+documentation has instructions for
+
+- Linux boxes,
+- `nvidia-docker` setup, so you can use Caliban with GPUS, and
+- Google Cloud credential configuration.
 
 Now that you have Caliban installed:
 
@@ -133,30 +119,45 @@ your machine:
 
 ## Getting Started
 
-```
+Get the project set up.
 
 ```
+mkdir demo && cd demo
+curl --output mnist.py https://raw.githubusercontent.com/google/caliban/sritchie/doc_test/tutorials/basic/mnist.py
+echo "tensorflow-cpu" > requirements.txt
+```
+
+or:
 
 ```bash
-mkdir project && cd project
-echo "import sys; print(sys.argv[2])" > mirror.py
-echo '{"key": [1,2,3,4,5,6]}'' | caliban run \
-  --experiment_config stdin \
-  --nogpu \
-  mirror.py
-
-...elided...
-
-0611 15:12:44.371632 4389141952 docker.py:781] Running command: docker run --ipc host 58a1a3bf6145
-Hello, World, from a Linux machine.
-I0611 15:12:45.000511 4389141952 docker.py:738] Job 1 succeeded!
+git clone https://github.com/google/caliban.git && cd caliban/tutorials/demo
 ```
 
-Change a single word to submit the same script to [Google's AI
-Platform](https://cloud.google.com/ai-platform):
+Then run:
 
 ```bash
-caliban cloud --nogpu hello.py
+caliban run --nogpu mnist.py
+```
+
+You've trained your first ML model! Performance is poor.
+
+```bash
+caliban run --nogpu mnist.py -- --learning_rate 0.01
+```
+
+Is that the best? Do a sweep.
+
+```bash
+echo '{"learning_rate": [0.01, 0.001, 0.0001]}' > experiment.json
+
+caliban run --experiment_config experiment.json --nogpu mnist.py
+```
+
+Learning rate looks good. Change a single word to submit the same script to
+[Google's AI Platform](https://cloud.google.com/ai-platform):
+
+```bash
+caliban cloud --nogpu mnist.py -- --learning_rate 0.01
 ```
 
 (For this last step to work, you'll need to set up a Google Cloud account by
@@ -270,6 +271,24 @@ think!
 
 Please refer to our [Contributor's Guide](CONTRIBUTING.md) for information on
 how to get started contributing to Caliban.
+
+## Inspiration
+
+<p align="center">
+<img src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Stephano%2C_Trinculo_and_Caliban_dancing_from_The_Tempest_by_Johann_Heinrich_Ramberg.jpg" align="center" width="500">
+</p>
+
+> “Be not afeard; the isle is full of noises, \
+> Sounds, and sweet airs, that give delight and hurt not. \
+> Sometimes a thousand twangling instruments \
+> Will hum about mine ears; and sometime voices, \
+> That, if I then had waked after long sleep, \
+> Will make me sleep again: and then, in dreaming, \
+> The clouds methought would open, and show riches \
+> Ready to drop upon me; that, when I waked, \
+> I cried to dream again.”
+>
+> -- <cite>Shakespeare, The Tempest</cite>
 
 ## Citing Caliban
 
