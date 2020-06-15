@@ -5,52 +5,62 @@
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
 [![caliban version](https://img.shields.io/pypi/v/caliban?maxAge=3600)](https://pypi.org/project/caliban)
 
-Caliban is a tool for developing research workflow and notebooks in an isolated
-Docker environment and submitting those isolated environments to Google Compute
-Cloud.
+Caliban is a tool that makes it astonishingly easy to develop and execute code
+locally, and then ship the exact same code up to a Cloud environment for
+execution on Big Iron machines.
 
-Caliban makes it astonishingly easy to develop and execute code locally, and
-then ship the exact same code up to a Cloud environment for execution on Big
-Iron machines.
+Once you have Train your first machine learning model in 3 lines:
+
+```bash
+git clone https://github.com/google/caliban.git && cd caliban/tutorials/demo
+
+pip install caliban
+
+caliban run mnist.py
+```
 
 **To get started**:
 
-- see the [Installation](#installation-and-prerequisites) section below, then
-- visit the short tutorial at the ["Getting Started"](#getting-started) section.
-- Next steps for exploration are outlined at ["What Next?"](#what-next), and
-- the [Overview](#overview) provides some more flavor on the various subcommands
-  that Caliban provides.
+- See the [Installation](#installation-and-prerequisites) section below
+- Train a machine learning model in ["Getting Started"](#getting-started)
+- Read the [Overview](#overview) for more flavor on Caliban's subcommands.
 
 Full documentation for Caliban lives at [Read The
 Docs](https://caliban.readthedocs.io/en/latest).
 
-## Installation and Prerequisites
+<p align="center">
+<img src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Stephano%2C_Trinculo_and_Caliban_dancing_from_The_Tempest_by_Johann_Heinrich_Ramberg.jpg" align="center" width="500">
+</p>
 
-Caliban lives on [PyPI](https://pypi.org/project/caliban/), so installation is
-as easy as:
+> “Be not afeard; the isle is full of noises, \
+> Sounds, and sweet airs, that give delight and hurt not. \
+> Sometimes a thousand twangling instruments \
+> Will hum about mine ears; and sometime voices, \
+> That, if I then had waked after long sleep, \
+> Will make me sleep again: and then, in dreaming, \
+> The clouds methought would open, and show riches \
+> Ready to drop upon me; that, when I waked, \
+> I cried to dream again.”
+>
+> -- <cite>Shakespeare, The Tempest</cite>
+
+## Installing Caliban and Docker
+
+To use Caliban, you need to install:
+
+- The Caliban CLI tool
+- [Docker](https://www.docker.com/)
+- Python >= 3.7.0.
+
+### Caliban
+
+Install Caliban from [PyPI](https://pypi.org/project/caliban/):
 
 ```bash
 pip install -U caliban
 ```
 
-If you want to make Caliban available globally, we recommend installing via
-[pipx](https://pipxproject.github.io/pipx/installation/). [Get pipx installed](https://pipxproject.github.io/pipx/installation/), and then run:
-
-```bash
-pipx install caliban
-```
-
-To run any commands, you'll need to install [Docker](https://www.docker.com/), and make sure your Python version is >= 3.7.0:
-
-```bash
-$ python --version
-Python 3.7.7
-```
-
-On a Mac, install [python](https://www.python.org/downloads/mac-osx) and
-[Docker](https://hub.docker.com/editions/community/docker-ce-desktop-mac), and
-check if your installation is working by navigating to some empty folder and
-running:
+check if your installation is working by navigating to some empty folder and running:
 
 ```bash
 $ caliban --help
@@ -59,11 +69,43 @@ usage: caliban [-h] [--helpfull] [--version]
                ...
 ```
 
+If you want to make Caliban available anywhere on your machine, we recommend
+installing Caliban using
+[pipx](https://pipxproject.github.io/pipx/installation/). [Get pipx
+installed](https://pipxproject.github.io/pipx/installation/), and then run:
+
+```bash
+pipx install caliban
+```
+
+### Docker
+
+Caliban executes your code inside a "container", managed by
+[Docker](https://hub.docker.com/editions/community/docker-ce-desktop-mac).
+
+- If you have a Mac, follow the installation instructions at [Docker
+  Desktop](https://hub.docker.com/editions/community/docker-ce-desktop-mac).
+- Linux users can visit the [Docker installation
+  instructions](https://docs.docker.com/engine/install/ubuntu/#installation-methods).
+
+### Python 3.7
+Make sure your Python version is >= 3.7.0:
+
+```bash
+$ python --version
+Python 3.7.7
+```
+
+If you need to upgrade:
+
+- Mac users can install a new Python version from
+  [python.org](https://www.python.org/downloads/mac-osx).
+- Linux users, run `sudo apt-get update && sudo apt-get install python3.7`.
+
 Our more detailed [Getting
 Started](https://caliban.readthedocs.io/en/latest/getting_started/prerequisites.html)
 documentation has instructions for
 
-- Linux boxes,
 - `nvidia-docker` setup, so you can use Caliban with GPUS, and
 - Google Cloud credential configuration.
 
@@ -271,24 +313,6 @@ think!
 
 Please refer to our [Contributor's Guide](CONTRIBUTING.md) for information on
 how to get started contributing to Caliban.
-
-## Inspiration
-
-<p align="center">
-<img src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Stephano%2C_Trinculo_and_Caliban_dancing_from_The_Tempest_by_Johann_Heinrich_Ramberg.jpg" align="center" width="500">
-</p>
-
-> “Be not afeard; the isle is full of noises, \
-> Sounds, and sweet airs, that give delight and hurt not. \
-> Sometimes a thousand twangling instruments \
-> Will hum about mine ears; and sometime voices, \
-> That, if I then had waked after long sleep, \
-> Will make me sleep again: and then, in dreaming, \
-> The clouds methought would open, and show riches \
-> Ready to drop upon me; that, when I waked, \
-> I cried to dream again.”
->
-> -- <cite>Shakespeare, The Tempest</cite>
 
 ## Citing Caliban
 
