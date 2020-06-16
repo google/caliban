@@ -1,4 +1,9 @@
-# 0.2.1 (in progress)
+# 0.2.2
+
+- Added fix for an issue where large user IDs would crash Docker during the
+  build phase. https://github.com/google/caliban/pull/8
+
+# 0.2.1
 
 - Added support for Conda dependencies
   (https://github.com/google/caliban/pull/5). If you include `environment.yml`
