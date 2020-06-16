@@ -105,7 +105,7 @@ The syntax for this command is as follows:
      --release_channel ['UNSPECIFIED', 'RAPID', 'REGULAR', 'STABLE']
                            cluster release channel, see
                            https://cloud.google.com/kubernetes-
-                           engine/docs/concepts/release-channels (default: RAPID)
+                           engine/docs/concepts/release-channels (default: REGULAR)
      --single_zone         create a single-zone cluster if set, otherwise create
                            a multi-zone cluster: see
                            https://cloud.google.com/kubernetes-
@@ -215,20 +215,21 @@ those for :doc:`../cli/caliban_cloud`:
 
    totoro@totoro:$ caliban cluster job submit --help
    usage: caliban cluster job submit [-h] [--helpfull]
-                                     [--cluster_name CLUSTER_NAME] [--nogpu]
-                                     [--cloud_key CLOUD_KEY] [--extras EXTRAS]
-                                     [-d DIR] [--image_tag IMAGE_TAG]
-                                     [--project_id PROJECT_ID]
-                                     [--machine_type MACHINE_TYPE]
-                                     [--gpu_spec NUMxGPU_TYPE]
-                                     [--tpu_spec NUMxTPU_TYPE]
-                                     [--tpu_driver TPU_DRIVER]
-                                     [--nonpreemptible_tpu] [--force]
-                                     [--name NAME]
-                                     [--experiment_config EXPERIMENT_CONFIG]
-                                     [-l KEY=VALUE] [--nonpreemptible]
-                                     [--dry_run] [--export EXPORT]
-                                     module ...
+                                  [--cluster_name CLUSTER_NAME] [--nogpu]
+                                  [--cloud_key CLOUD_KEY] [--extras EXTRAS]
+                                  [-d DIR] [--image_tag IMAGE_TAG]
+                                  [--project_id PROJECT_ID]
+                                  [--min_cpu MIN_CPU] [--min_mem MIN_MEM]
+                                  [--gpu_spec NUMxGPU_TYPE]
+                                  [--tpu_spec NUMxTPU_TYPE]
+                                  [--tpu_driver TPU_DRIVER]
+                                  [--nonpreemptible_tpu] [--force]
+                                  [--name NAME]
+                                  [--experiment_config EXPERIMENT_CONFIG]
+                                  [-l KEY=VALUE] [--nonpreemptible]
+                                  [--dry_run] [--export EXPORT]
+                                  [--xgroup XGROUP]
+                                  module ...
 
    submit cluster job(s)
 
@@ -259,16 +260,24 @@ those for :doc:`../cli/caliban_cloud`:
                            Cloud job submission and image persistence. (Defaults
                            to $PROJECT_ID; errors if both the argument and
                            $PROJECT_ID are empty.) (default: None)
-     --machine_type MACHINE_TYPE
-                           Cloud machine type to request. Must be one of
-                           ['n1-highcpu-32', 'n1-standard-4', 'n1-highmem-2',
-                           'n1-highmem-96', 'n1-highmem-4', 'n1-standard-96',
-                           'n1-highcpu-64', 'n1-standard-8', 'n1-highmem-8',
-                           'n1-standard-64', 'n1-highmem-16', 'n1-highmem-64',
-                           'n1-highmem-32', 'n1-highcpu-16', 'n1-standard-16',
-                           'n1-highcpu-96', 'n1-standard-32', 'cloud_tpu'].
-                           Defaults to 'n1-standard-8' in GPU mode, or
-                           'n1-highcpu-32' if --nogpu is passed. (default: None)
+     --min_cpu MIN_CPU     Minimum cpu needed by job, in milli-cpus. If not
+                           specified, then this value defaults to 1500 for
+                           gpu/tpu jobs, and 31000 for cpu jobs. Please note that
+                           gke daemon processes utilize a small amount of cpu on
+                           each node, so if you want to have your job run on a
+                           specific machine type, say a 2-cpu machine, then if
+                           you specify a minimum cpu of 2000, then your job will
+                           not be schedulable on a 2-cpu machine as the daemon
+                           processes will push the total cpu needed to more than
+                           two full cpus. (default: None)
+     --min_mem MIN_MEM     Minimum memory needed by job, in MB. Please note that
+                           gke daemon processes utilize a small amount of memory
+                           on each node, so if you want to have your job run on a
+                           specific machine type, say a machine with 8GB total
+                           memory, then if you specify a minimum memory of
+                           8000MB, then your job will not be schedulable on a 8GB
+                           machine as the daemon processes will push the total
+                           memory needed to more than 8GB. (default: None)
      --gpu_spec NUMxGPU_TYPE
                            Type and number of GPUs to use for each AI
                            Platform/GKE submission. Defaults to 1xP100 in GPU
@@ -309,12 +318,18 @@ those for :doc:`../cli/caliban_cloud`:
                            with an index inserted (for example: --export my-job-
                            spec.yaml would yield my-job-spec_0.yaml, my-job-
                            spec_1.yaml...) (default: None)
-
+     --xgroup XGROUP       This specifies an experiment group, which ties
+                           experiments and job instances together. If you do not
+                           specify a group, then a new one will be created. If
+                           you specify an existing experiment group here, then
+                           new experiments and jobs you create will be added to
+                           the group you specify. (default: None)
+   
    pass-through arguments:
      -- YOUR_ARGS          This is a catch-all for arguments you want to pass
                            through to your script. any arguments after '--' will
                            pass through.
-
+   
 Again, this command very closely mirrors :doc:`../cli/caliban_cloud`.
 
 You can export job requests created with caliban as a ``yaml`` or ``json`` file
