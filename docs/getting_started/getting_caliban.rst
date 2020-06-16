@@ -21,17 +21,11 @@ Install ``pipx`` into your global python environment like this:
    python3 -m pip install --user pipx
    python3 -m pipx ensurepath
 
-Once ``pipx`` is installed, use it to install ``caliban``\. The next step is
-slightly different, depending on if you have ``pipx < 0.15.0`` or ``pipx >=
-0.15.0``:
+Once ``pipx`` is installed, use it to install ``caliban``:
 
 .. code-block:: bash
 
-   # Command for pipx < 0.15.0
-   pipx install -e --spec git+https://github.com/google/caliban.git caliban
-
-   # Command for pipx >= 0.15.0
-   pipx install git+https://github.com/google/caliban.git
+   pipx install caliban
 
 Upgrading Caliban
 ^^^^^^^^^^^^^^^^^

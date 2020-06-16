@@ -27,6 +27,7 @@ FLAGS = flags.FLAGS
 # Define a command-line argument using the Abseil library:
 # https://abseil.io/docs/python/guides/flags
 flags.DEFINE_float('learning_rate', 0.1, 'Learning rate.')
+flags.DEFINE_integer('epochs', 3, 'Epochs to train.')
 
 
 def get_keras_model(width=128, activation='relu'):
@@ -54,8 +55,10 @@ def main(_):
 
   model.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
 
-  print(f'Training model with learning rate={FLAGS.learning_rate}.')
-  model.fit(x_train, y_train, epochs=3, verbose=2)
+  print(
+      f'Training model with learning rate={FLAGS.learning_rate} for {FLAGS.epochs} epochs.'
+  )
+  model.fit(x_train, y_train, epochs=FLAGS.epochs, verbose=2)
 
   print('Model performance: ')
   model.evaluate(x_test, y_test, verbose=2)

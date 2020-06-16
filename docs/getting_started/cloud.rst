@@ -4,6 +4,13 @@ Getting Started with Google Cloud
 This document will take you through the process of configuring your machine to
 access Google Cloud.
 
+Cloud Installation Overview
+---------------------------
+
+- Create a Cloud account
+- Make a Cloud project
+- Activate Container Registry https://cloud.google.com/container-registry/docs/quickstart
+
 Create a Project
 ----------------
 
