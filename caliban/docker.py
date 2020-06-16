@@ -519,8 +519,9 @@ FROM {base_image}
 # Create the same group we're using on the host machine.
 RUN [ $(getent group {gid}) ] || groupadd --gid {gid} {gid}
 
-# Create the user by name.
-RUN useradd --no-create-home -u {uid} -g {gid} --shell /bin/bash {username}
+# Create the user by name. --no-log-init guards against a crash with large user
+# IDs.
+RUN useradd --no-log-init --no-create-home -u {uid} -g {gid} --shell /bin/bash {username}
 
 # The directory is created by root. This sets permissions so that any user can
 # access the folder.
