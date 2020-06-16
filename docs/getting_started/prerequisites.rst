@@ -1,8 +1,8 @@
 Prerequisites
 -------------
 
-Before you can install and use Caliban to manage your research workflows, you'll
-need a solid Cloud and Docker installation. Follow these steps to get set up.
+Before you can use Caliban you'll need to install Docker and make sure your
+Python binary is up to date. Follow these steps to get set up.
 
 Python 3
 ^^^^^^^^
@@ -25,18 +25,31 @@ Once that's all set, verify that you're running python 3.7 or above:
    $ python3 --version
    Python 3.7.5 # Or something above 3.7.0
 
-Docker and CUDA
-^^^^^^^^^^^^^^^
+Docker
+^^^^^^
 
 Caliban uses Docker for each of its commands. To use Caliban, you'll need
 ``docker`` and (if you're on Linux) ``nvidia-docker`` on your machine.
 
-If you're on a Mac, install `Docker Desktop for Mac
-<https://hub.docker.com/editions/community/docker-ce-desktop-mac>`_ (so easy!)
-You'll only be able to run in CPU mode, as macs don't support Docker's nvidia
-runtime. You will, however, be able to build GPU containers and submit them to
-Google Cloud.
+On MacOS, install `Docker Desktop for Mac
+<https://hub.docker.com/editions/community/docker-ce-desktop-mac>`_. You'll only
+be able to run in CPU mode, as MacOS doesn't support Docker's nvidia runtime.
+You will, however, be able to build GPU containers and submit them to Google
+Cloud.
 
-If you're on Linux, follow the instructions at the `nvidia-docker
-<https://github.com/NVIDIA/nvidia-docker>`_ page to configure the ability to run
-GPU containers locally.
+On Linux, install Docker with `these instructions
+<https://docs.docker.com/install/linux/docker-ce/ubuntu/>`_. add your username
+to the docker group so that you can run Docker without using ``sudo``:
+
+.. code-block:: bash
+
+   sudo usermod -a -G docker ${USER}
+
+Docker and CUDA
+^^^^^^^^^^^^^^^
+
+On Linux, Caliban can run jobs locally that take advantage of a GPU you may have installed.
+
+To use this feature, install the ``nvidia-docker`` runtime by following the
+instructions at the `nvidia-docker <https://github.com/NVIDIA/nvidia-docker>`_
+page.
