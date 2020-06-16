@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 Caliban
 =======
 
@@ -140,6 +141,30 @@ with Caliban.
    gke/prereq
    gke/cluster_management
    gke/job_submission
+=======
+Caliban reference documentation
+===================================
+
+Composable transformations of Python+NumPy programs: differentiate, vectorize,
+JIT to GPU/TPU, and more.
+
+For an introduction to Caliban, start at the `Caliban GitHub page
+<https://github.com/google/caliban>`_.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+.. argparse::
+   :module: caliban.cli
+   :func: caliban_parser
+   :prog: caliban
+
+.. argparse::
+   :module: caliban.expansion
+   :func: expansion_parser
+   :prog: expansion
+>>>>>>> Stashed changes
 
 
 Indices and tables

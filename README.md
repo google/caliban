@@ -25,7 +25,7 @@ model](https://www.tensorflow.org/tutorials/quickstart/beginner) in 2 lines:
 ```bash
 git clone https://github.com/google/caliban.git && cd caliban/tutorials/demo
 caliban run --nogpu mnist.py
-``
+```
 
 **Next**:
 
