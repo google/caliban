@@ -21,5 +21,5 @@ set -e
 
 docker build -t gcr.io/blueshift-playground/blueshift:cpu -f- . <Dockerfile
 docker push gcr.io/blueshift-playground/blueshift:cpu
-docker build --build-arg BASE_IMAGE=tensorflow/tensorflow:2.1.0-gpu-py3 -t gcr.io/blueshift-playground/blueshift:gpu -f- . <Dockerfile
+docker build --build-arg BASE_IMAGE=tensorflow/tensorflow:2.2.0-gpu -t gcr.io/blueshift-playground/blueshift:gpu -f- . <Dockerfile
 docker push gcr.io/blueshift-playground/blueshift:gpu

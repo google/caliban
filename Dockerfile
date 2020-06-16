@@ -11,26 +11,30 @@
 #
 #  https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/dockerfiles/assembler.py
 
-ARG BASE_IMAGE=tensorflow/tensorflow:2.1.0-py3
+ARG BASE_IMAGE=ubuntu:18.04
 
 FROM $BASE_IMAGE
+MAINTAINER Sam Ritchie <sritchie09@gmail.com>
 
 ARG GCLOUD_LOC=/usr/local/gcloud
 
 LABEL maintainer="samritchie@google.com"
 
+# See http://bugs.python.org/issue19846
+ENV LANG C.UTF-8
+
 # Install git so that users can declare git dependencies, and python3 plus
-# python3-virtualenv so we can generate an isolated Python environment inside
+# python3-venv so we can generate an isolated Python environment inside
 # the container.
-#
-# TODO we COULD use venv, the new python3 business. No urgency at all to change
-# this as this is hidden from the user now.
 RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
   python3 \
   python3-virtualenv \
   wget && \
   rm -rf /var/lib/apt/lists/*
+
+# Some tools expect a "python" binary.
+RUN ln -s $(which python3) /usr/local/bin/python
 
 # install the google cloud SDK.
 RUN wget -nv \
