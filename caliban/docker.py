@@ -47,6 +47,7 @@ DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
 TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
+CONDA_BIN = "/opt/conda/bin/conda"
 
 ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
@@ -216,10 +217,12 @@ def _dependency_entries(workdir: str,
                         user_id: int,
                         user_group: int,
                         requirements_path: Optional[str] = None,
+                        conda_env_path: Optional[str] = None,
                         setup_extras: Optional[List[str]] = None) -> str:
   """Returns the Dockerfile entries required to install dependencies from either:
 
   - a requirements.txt file, path supplied by requirements_path
+  - a conda environment.yml file, path supplied by conda_env_path.
   - a setup.py file, if some sequence of dependencies is supplied.
 
   An empty list for setup_extras means, run `pip install -c .` with no extras.
@@ -229,26 +232,25 @@ def _dependency_entries(workdir: str,
   ret = ""
 
   if setup_extras is not None:
-    ret += """
+    ret += f"""
 COPY --chown={user_id}:{user_group} setup.py {workdir}
-RUN /bin/bash -c "pip install --no-cache-dir {extras}"
-""".format_map({
-        "user_id": user_id,
-        "user_group": user_group,
-        "workdir": workdir,
-        "extras": extras_string(setup_extras)
-    })
+RUN /bin/bash -c "pip install --no-cache-dir {extras_string(setup_extras)}"
+"""
+
+  if conda_env_path is not None:
+    ret += f"""
+COPY --chown={user_id}:{user_group} {conda_env_path} {workdir}
+RUN /bin/bash -c "{CONDA_BIN} env update \
+    --quiet --name caliban \
+    --file {conda_env_path} && \
+    {CONDA_BIN} clean -y -q --all"
+"""
 
   if requirements_path is not None:
     ret += """
 COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
-""".format_map({
-        "user_id": user_id,
-        "user_group": user_group,
-        "workdir": workdir,
-        "requirements_path": requirements_path
-    })
+"""
 
   return ret
 
@@ -465,6 +467,7 @@ def _dockerfile_template(
     base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
     package: Optional[Union[List, u.Package]] = None,
     requirements_path: Optional[str] = None,
+    conda_env_path: Optional[str] = None,
     setup_extras: Optional[List[str]] = None,
     adc_path: Optional[str] = None,
     credentials_path: Optional[str] = None,
@@ -477,8 +480,9 @@ def _dockerfile_template(
   on the value of job_mode) to create a container that:
 
   - installs any dependency specified in a requirements.txt file living at
-    requirements_path, or any dependencies in a setup.py file, including extra
-    dependencies, if setup_extras isn't None
+    requirements_path, a conda environment at conda_env_path, or any
+    dependencies in a setup.py file, including extra dependencies, if
+    setup_extras isn't None
   - injects gcloud credentials into the container, so Cloud interaction works
     just like it does locally
   - potentially installs a custom shell, or jupyterlab for notebook support
@@ -545,6 +549,7 @@ USER {uid}:{gid}
                                     uid,
                                     gid,
                                     requirements_path=requirements_path,
+                                    conda_env_path=conda_env_path,
                                     setup_extras=setup_extras)
 
   if inject_notebook.value != 'none':
