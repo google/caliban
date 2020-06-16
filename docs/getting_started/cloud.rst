@@ -2,14 +2,30 @@ Getting Started with Google Cloud
 =================================
 
 This document will take you through the process of configuring your machine to
-access Google Cloud.
+access Google Cloud. Once you're through you'll be able to submit jobs to Google
+AI Platform using :doc:`../cli/caliban_cloud`.
 
 Cloud Installation Overview
 ---------------------------
 
-- Create a Cloud account
-- Make a Cloud project
-- Activate Container Registry https://cloud.google.com/container-registry/docs/quickstart
+- Visit cloud.google.com, click get started for free.
+- get set up, make the account...
+- Make a project
+- go enable AI Platform + Container Registry
+  https://cloud.google.com/container-registry/docs/quickstart
+- Make a service account key, download it, put it in a spot.
+- install the GCloud SDK, get it authenticated
+
+Add these:
+
+export REGION="us-central1"
+export PROJECT_ID="research-3141"
+export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/devkey.json"
+
+BONUS:
+
+- ADC credentials
+- Make a bucket
 
 Create a Project
 ----------------
@@ -29,7 +45,6 @@ using Google Kubernetes Engine, you need to place your project in the
 
 This should take you out to the project's dashboard. Note the project's ID in
 the project info panel.
-
 
 Add the following line to your ``~/.bashrc`` to make the ID available in later
 commands:

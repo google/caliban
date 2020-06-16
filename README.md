@@ -155,7 +155,7 @@ If you need to upgrade:
 Caliban's [Read the Docs](https://caliban.readthedocs.io/) documentation has
 instructions on:
 
-- [Installing the `nvidia-docker`
+- [Installing the `nvidia-docker2`
   runtime](https://caliban.readthedocs.io/en/latest/getting_started/prerequisites.html#docker-and-cuda),
   so you can use Caliban to run jobs that use your Linux machine's GPU.
 - [Setting up a Google Cloud

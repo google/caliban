@@ -49,11 +49,22 @@ to the docker group so that you can run Docker without using ``sudo``:
 
    sudo usermod -a -G docker ${USER}
 
-Docker and CUDA
-^^^^^^^^^^^^^^^
+GPU Support on Linux Machines
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 On Linux, Caliban can run jobs locally that take advantage of a GPU you may have installed.
 
-To use this feature, install the ``nvidia-docker`` runtime by following the
-instructions at the `nvidia-docker <https://github.com/NVIDIA/nvidia-docker>`_
+To use this feature, install the ``nvidia-docker2`` runtime by following the
+instructions at the `nvidia-docker2
+<https://github.com/NVIDIA/nvidia-docker/wiki/Installation-(version-2.0)>`_
 page.
+
+.. NOTE:: It's important that you install ``nvidia-docker2``, not
+          ``nvidia-docker``! The `nvidia-docker2
+          <https://github.com/NVIDIA/nvidia-docker/wiki/Installation-(version-2.0)>`_
+          instructions discuss how to upgrade if you accidentally install
+          ``nvidia-docker``.
+
+.. NOTE:: The most recent versions of docker don't need the ``nvidia-docker2``
+          dependency. In a future version of Caliban we'll remove this
+          dependency and upgrade the documentation.
