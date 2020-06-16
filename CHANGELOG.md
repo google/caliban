@@ -1,4 +1,13 @@
-# 0.1.16 (IN PROGRESS)
+# 0.3.0 (in progress)
+
+- Added support for Conda dependencies
+  (https://github.com/google/caliban/pull/5). If you include `environment.yml`
+  in your project's folder Caliban will attempt to install all dependencies.
+- Caliban now uses a slimmer base image for GPU mode.
+- Base images for CPU and GPU modes now use Conda to manage the container's
+  virtual environment instead of `virtualenv`.
+
+# 0.2.0
 
 - Caliban now caches the service account key and ADC file; you should see faster
   builds, BUT you might run into trouble if you try to run multiple Caliban
