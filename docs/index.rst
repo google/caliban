@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 Caliban
 =======
 
@@ -164,7 +163,6 @@ For an introduction to Caliban, start at the `Caliban GitHub page
    :module: caliban.expansion
    :func: expansion_parser
    :prog: expansion
->>>>>>> Stashed changes
 
 
 Indices and tables
