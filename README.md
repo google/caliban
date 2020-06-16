@@ -8,7 +8,7 @@
 Caliban is a tool for developing research workflows and notebooks in an
 isolated, reproducible computing environment.
 
-Caliban is makes it astonishingly easy to run your code locally, then ship the
+Caliban makes it astonishingly easy to run your code locally, then ship the
 exact same code up to a Cloud environment for execution on Big Iron machines.
 
 ## Quickstart
