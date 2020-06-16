@@ -1,4 +1,4 @@
-# 0.3.0 (in progress)
+# 0.2.1 (in progress)
 
 - Added support for Conda dependencies
   (https://github.com/google/caliban/pull/5). If you include `environment.yml`
