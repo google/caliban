@@ -247,7 +247,7 @@ RUN /bin/bash -c "{CONDA_BIN} env update \
 """
 
   if requirements_path is not None:
-    ret += """
+    ret += f"""
 COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
