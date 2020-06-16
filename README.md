@@ -23,7 +23,7 @@ Train your first [machine learning
 model](https://www.tensorflow.org/tutorials/quickstart/beginner) in 2 lines:
 
 ```bash
-git clone https://github.com/google/caliban.git && cd caliban/tutorials/demo
+git clone https://github.com/google/caliban.git && cd caliban/tutorials/basic
 caliban run --nogpu mnist.py
 ```
 

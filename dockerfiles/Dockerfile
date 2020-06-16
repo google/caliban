@@ -1,3 +1,17 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # This builds the base images that we can use for development at Blueshift.
 # Tensorflow 2.1 by default, but we can override the image when we call docker.
 #
@@ -55,15 +69,20 @@ ENV PATH $PATH:${GCLOUD_LOC}/google-cloud-sdk/bin
 
 COPY scripts/bashrc /etc/bash.bashrc
 
-# This follows the style laid out here to set up a fresh, activated virtualenv
-# inside the image:
-# https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
-ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m virtualenv --python=/usr/bin/python3 $VIRTUAL_ENV
+# Install Miniconda and prep the system to activate our custom environment.
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.2-Linux-x86_64.sh -O ~/miniconda.sh && \
+  /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+  rm ~/miniconda.sh && \
+  /opt/conda/bin/conda clean -tipsy && \
+  ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+  echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc && \
+  echo "conda activate caliban" >> /etc/bash.bashrc
 
-# There may be a better way - but this allows a user to install packages in the
-# virtualenv once it launches.
-RUN chmod -R 757 $VIRTUAL_ENV && mkdir /.cache && chmod -R 757 /.cache
+RUN yes | /opt/conda/bin/conda create --name caliban python=3.7 && /opt/conda/bin/conda clean --all
+
+# This allows a user to install packages in the conda environment once it
+# launches.
+RUN chmod -R 757 /opt/conda/envs/caliban && mkdir /.cache && chmod -R 757 /.cache
 
 # This is equivalent to activating the env.
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PATH /opt/conda/envs/caliban/bin:$PATH

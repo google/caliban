@@ -549,13 +549,15 @@ def generate_docker_args(job_mode: conf.JobMode,
   adc_loc = csdk.get_application_default_credentials_path()
   adc_path = adc_loc if os.path.isfile(adc_loc) else None
 
-  # TODO we may want to take a custom path, here, in addition to detecting it.
+  # TODO we may want to take custom paths, here, in addition to detecting them.
   reqs = "requirements.txt"
+  conda_env = "environment.yml"
 
   # Arguments that make their way down to caliban.docker.build_image.
   docker_args = {
       "extra_dirs": args.get("dir"),
       "requirements_path": reqs if os.path.exists(reqs) else None,
+      "conda_env_path": conda_env if os.path.exists(conda_env) else None,
       "caliban_config": conf.caliban_config(),
       "credentials_path": creds_path,
       "adc_path": adc_path,
