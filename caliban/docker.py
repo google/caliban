@@ -541,10 +541,6 @@ USER {uid}:{gid}
       "c_home": container_home(),
       "creds_dir": CREDS_DIR
   })
-  dockerfile += _credentials_entries(uid,
-                                     gid,
-                                     adc_path=adc_path,
-                                     credentials_path=credentials_path)
 
   dockerfile += _dependency_entries(workdir,
                                     uid,
@@ -553,18 +549,23 @@ USER {uid}:{gid}
                                     conda_env_path=conda_env_path,
                                     setup_extras=setup_extras)
 
-  if inject_notebook.value != 'none':
-    install_lab = inject_notebook == NotebookInstall.lab
-    dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
-
-  if extra_dirs is not None:
-    dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
-
   dockerfile += _custom_packages(uid,
                                  gid,
                                  packages=c.apt_packages(
                                      caliban_config, job_mode),
                                  shell=shell)
+
+  if extra_dirs is not None:
+    dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
+
+  if inject_notebook.value != 'none':
+    install_lab = inject_notebook == NotebookInstall.lab
+    dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
+
+  dockerfile += _credentials_entries(uid,
+                                     gid,
+                                     adc_path=adc_path,
+                                     credentials_path=credentials_path)
 
   if package is not None:
     # The actual entrypoint and final copied code.
