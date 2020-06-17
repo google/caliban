@@ -47,13 +47,6 @@ test: lint pytest
 pytest:
 	$(ENV_ACT) pytest $(PYTEST_ARGS) $(COVERAGE_ARGS) $(COVERAGE_TARGET) $(PYTEST_TARGET)
 
-.PHONY: pytest-global
-pytest-global:
-	pytest $(PYTEST_ARGS) $(COVERAGE_ARGS) $(COVERAGE_TARGET) $(PYTEST_TARGET)
-
-.PHONY: ci
-ci: pytest-global
-
 .PHONY: test-full
 test-full: lint test-setuppy clean-files
 

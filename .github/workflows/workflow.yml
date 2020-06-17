@@ -31,10 +31,15 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install . codecov
+        pip install .
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
     - name: Run pytest, generate coverage
       run: |
-        make ci
+        pytest --doctest-modules -v -s \
+        --hypothesis-profile dev \
+        --cov-config setup.cfg \
+        --cov-report=xml \
+        --cov caliban \
+        caliban tests
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
