@@ -379,7 +379,7 @@ def _credentials_entries(user_id: int,
   return ret
 
 
-def _notebook_entries(lab: bool = False, version: Optional[str] = None) -> str:
+def _notebook_entries(lab: bool = False, version: Optional[str] = None, dlvm: bool = False) -> str:
   """Returns the Dockerfile entries necessary to install Jupyter{lab}.
 
   Optionally takes a version string.
@@ -392,14 +392,15 @@ def _notebook_entries(lab: bool = False, version: Optional[str] = None) -> str:
 
   library = "jupyterlab" if lab else "jupyter"
 
-  #return """
-#RUN pip install {}{}
-#""".format(library, version_suffix)
-  cmds = """
+  if not dlvm:
+    return """
+RUN pip install {}{}
+""".format(library, version_suffix)
+  else:
+    return """
   RUN /opt/conda/bin/pip install --user --no-cache-dir https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
   RUN /opt/conda/bin/jupyter lab build
   """
-  return cmds
 
 
 def _custom_packages(
@@ -561,7 +562,10 @@ WORKDIR {workdir}
                                      credentials_path=credentials_path)
   if inject_notebook.value != 'none':
     install_lab = inject_notebook == NotebookInstall.lab
-    dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
+    if dlvm is None:
+        dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version, dlvm=False)
+    else:
+        dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version, dlvm=True)
 
   dockerfile += """
 
@@ -1043,10 +1047,20 @@ def run_interactive(job_mode: c.JobMode,
   if entrypoint is None:
     entrypoint = SHELL_DICT[shell].executable
 
-  interactive_run_args = _interactive_opts(workdir) + [
+  if dlvm is None:
+    # Pass the default entrypoint if not using DLVM
+    # Otherwise the DLVM automatically runs jupyterlab so don't set an
+    # entrypoint.
+    interactive_run_args = _interactive_opts(workdir) + [
       "-it", \
-      #"--entrypoint", entrypoint
-  ] + _home_mount_cmds(mount_home) + run_args
+      "--entrypoint", entrypoint
+    ] + _home_mount_cmds(mount_home) + run_args
+  else:
+    interactive_run_args = _interactive_opts(workdir) + [
+      "-it", \
+    ] + _home_mount_cmds(mount_home) + run_args
+
+    entrypoint_args = []
 
   run(job_mode=job_mode,
       run_args=interactive_run_args,
@@ -1104,9 +1118,9 @@ def run_notebook(job_mode: c.JobMode,
 
   run_interactive(job_mode,
                   dlvm=dlvm,
-                  #entrypoint="/opt/venv/bin/python",
-                  entrypoint="/bin/bash",
-                  #entrypoint_args=jupyter_args,
+                  entrypoint="python",
+                  #entrypoint="/bin/bash",
+                  entrypoint_args=jupyter_args,
                   run_args=docker_args,
                   inject_notebook=inject_arg,
                   jupyter_version=version,
