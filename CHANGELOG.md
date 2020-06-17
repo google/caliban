@@ -1,7 +1,18 @@
-# 0.2.2
+# 0.2.4
+
+- fixes a bug with `parse_region` not handling a lack of default.
+- converts the build to Github Actions.
+- Rolls Caliban back to requiring only python 3.6 support.
+- Removes some unused imports from a few files.
+
+# 0.2.3
 
 - Added fix for an issue where large user IDs would crash Docker during the
   build phase. https://github.com/google/caliban/pull/8
+
+# 0.2.2
+
+- Fix for bug with requirements.txt files.
 
 # 0.2.1
 
