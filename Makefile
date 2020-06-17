@@ -38,7 +38,9 @@ clean-files:
 install:
 	rm -rf $(ENV_NAME)
 	virtualenv -p python3.6 $(ENV_NAME)
-	$(PIP) install -r requirements-dev.txt && $(PIP) install -e .
+	$(PIP) install -r requirements-dev.txt
+	$(PIP) install -r docs/requirements.txt
+	$(PIP) install -e .
 
 .PHONY: test
 test: lint pytest

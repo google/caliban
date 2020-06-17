@@ -13,7 +13,8 @@ exact same code up to a Cloud environment for execution on Big Iron machines.
 
 ## Quickstart
 
-[Install Docker](#docker), then install Caliban via pip:
+[Install Docker](#docker), make sure it's running, then install Caliban via
+[pip](https://pypi.org/project/caliban):
 
 ```bash
 pip install caliban
