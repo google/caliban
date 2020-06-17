@@ -99,16 +99,16 @@ your machine:
 
 ## Installing Caliban and Prerequisites
 
-Caliban's prequisites are [Docker](#docker) and [Python >= 3.7](#python-37).
+Caliban's prequisites are [Docker](#docker) and [Python >= 3.6](#python-36).
 
 Make sure your Python is up to date:
 
 ```bash
 $ python --version
-Python 3.7.7 # should be >=3.7.0
+Python 3.6.9 # should be >=3.6.0
 ```
 
-If not, visit ["Installing Python 3.7"](#python-37) before proceeding.
+If not, visit ["Installing Python 3.6"](#python-36) before proceeding.
 
 Next, install Caliban via [pip](https://pypi.org/project/caliban/):
 
@@ -136,12 +136,12 @@ Caliban executes your code inside a "container", managed by
 - On Linux, visit the [Docker installation
   instructions](https://docs.docker.com/engine/install/ubuntu/#installation-methods).
 
-### Python 3.7
+### Python 3.6
 Make sure your Python version is up to date:
 
 ```bash
 $ python --version
-Python 3.7.7 # should be >=3.7.0
+Python 3.6.9 # should be >=3.6.0
 ```
 
 If you need to upgrade:
