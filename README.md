@@ -1,6 +1,5 @@
 # Caliban
 
-
 [![Build status](https://img.shields.io/github/workflow/status/google/caliban/workflow/master.svg?maxAge=3600)](https://github.com/google/caliban/actions)
 [![Codecov branch](https://img.shields.io/codecov/c/github/google/caliban/master.svg?maxAge=3600)](https://codecov.io/github/google/caliban)
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
