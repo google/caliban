@@ -398,8 +398,10 @@ RUN pip install {}{}
 """.format(library, version_suffix)
   else:
     return """
-  RUN /opt/conda/bin/pip install --user --no-cache-dir https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
-  RUN /opt/conda/bin/jupyter lab build
+RUN /opt/conda/bin/pip install --user --no-cache-dir \
+  https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
+
+RUN /opt/conda/bin/jupyter lab build
   """
 
 
@@ -608,7 +610,7 @@ def docker_image_id(output: str) -> ImageId:
   return ImageId(output.splitlines()[-1].split()[-1])
 
 
-def build_dlvm_image(job_mode: c.JobMode,
+def build_image(job_mode: c.JobMode,
                 build_path: str,
                 credentials_path: Optional[str] = None,
                 adc_path: Optional[str] = None,
@@ -629,55 +631,11 @@ def build_dlvm_image(job_mode: c.JobMode,
     with u.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
       cache_args = ["--no-cache"] if no_cache else []
       cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
-      logging.info("extra: {}".format(kwargs))
-      #spec = {k: v for k, v in build_image_kwargs.items()}
 
       dockerfile = _dockerfile_template(job_mode,
                                         credentials_path=creds,
                                         adc_path=adc,
                                         dlvm=dlvm,
-                                        **kwargs)
-
-      joined_cmd = " ".join(cmd)
-      logging.info("Running command: {}".format(joined_cmd))
-
-      try:
-        output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
-        if ret_code == 0:
-          return docker_image_id(output)
-        else:
-          error_msg = "Docker failed with error code {}.".format(ret_code)
-          raise DockerError(error_msg, cmd, ret_code)
-
-      except subprocess.CalledProcessError as e:
-        logging.error(e.output)
-        logging.error(e.stderr)
-
-
-def build_image(job_mode: c.JobMode,
-                build_path: str,
-                credentials_path: Optional[str] = None,
-                adc_path: Optional[str] = None,
-                no_cache: bool = False,
-                **kwargs) -> str:
-  """Builds a Docker image by generating a Dockerfile and passing it to `docker
-  build` via stdin. All output from the `docker build` process prints to
-  stdout.
-
-  Returns the image ID of the new docker container; if the command fails,
-  throws on error with information about the command and any issues that caused
-  the problem.
-
-  """
-  with u.TempCopy(credentials_path,
-                  tmp_name=".caliban_default_creds.json") as creds:
-    with u.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
-      cache_args = ["--no-cache"] if no_cache else []
-      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
-
-      dockerfile = _dockerfile_template(job_mode,
-                                        credentials_path=creds,
-                                        adc_path=adc,
                                         **kwargs)
 
       joined_cmd = " ".join(cmd)
@@ -983,7 +941,7 @@ def run(job_mode: c.JobMode,
 
   if dlvm is not None:
     logging.info("dlvm id: {}".format(dlvm))
-    image_id = build_dlvm_image(job_mode, dlvm=dlvm, **build_image_kwargs)
+    image_id = build_image(job_mode, dlvm=dlvm, **build_image_kwargs)
     logging.info("image_id: {}".format(image_id))
   elif image_id is None:
     logging.info("def run - image__id is none")
