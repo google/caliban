@@ -7,9 +7,17 @@ Python binary is up to date. Follow these steps to get set up.
 Python 3
 ^^^^^^^^
 
-If you're on a Mac, download
-`Python 3.7.5 from python.org <https://www.python.org/downloads/mac-osx>`_
-(\ `direct download link <https://www.python.org/ftp/python/3.7.5/python-3.7.5-macosx10.9.pkg>`_\ )
+Caliban requires Python >= 3.6. Check your current version at the terminal:
+
+.. code-block:: bash
+
+   $ python3 --version
+   Python 3.6.9 # Or something above 3.6.0
+
+If you need to upgrade:
+
+on MacOS, download `the latest Python from python.org
+<https://www.python.org/downloads/mac-osx>`_.
 
 On a Linux machine, make sure your ``python3`` is up to date by running the
 following command at your terminal:
@@ -18,12 +26,8 @@ following command at your terminal:
 
    sudo apt-get install python3 python3-venv python3-pip
 
-Once that's all set, verify that you're running python 3.7 or above:
-
-.. code-block:: bash
-
-   $ python3 --version
-   Python 3.7.5 # Or something above 3.7.0
+Once that's all set, run ``python3 --help`` again to verify that you're running python
+3.6 or above.
 
 Docker
 ^^^^^^

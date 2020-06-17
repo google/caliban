@@ -14,10 +14,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 from argparse import ArgumentTypeError
 
+import caliban.cloud.types as ct
 import caliban.config as c
+import pytest
+
+
+def test_extract_region(monkeypatch):
+  if os.environ.get('REGION'):
+    monkeypatch.delenv('REGION')
+
+  assert c.extract_region({}) == c.DEFAULT_REGION
+
+  # You have to provide a valid region.
+  with pytest.raises(ArgumentTypeError):
+    c.extract_region({"region": "face"})
+
+  # Same goes for the environment variable setting approach.
+  monkeypatch.setenv('REGION', "face")
+  with pytest.raises(ArgumentTypeError):
+    c.extract_region({})
+
+  # an empty string is fine, and ignored.
+  monkeypatch.setenv('REGION', "")
+  assert c.extract_region({}) == c.DEFAULT_REGION
+
+  assert c.extract_region({"region": "us-west1"}) == ct.US.west1
 
 
 class ConfigTestSuite(unittest.TestCase):

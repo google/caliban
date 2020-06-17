@@ -37,7 +37,7 @@ clean-files:
 .PHONY: install
 install:
 	rm -rf $(ENV_NAME)
-	virtualenv -p python3.7 $(ENV_NAME)
+	virtualenv -p python3.6 $(ENV_NAME)
 	$(PIP) install -r requirements-dev.txt && $(PIP) install -e .
 
 .PHONY: test
@@ -46,13 +46,6 @@ test: lint pytest
 .PHONY: pytest
 pytest:
 	$(ENV_ACT) pytest $(PYTEST_ARGS) $(COVERAGE_ARGS) $(COVERAGE_TARGET) $(PYTEST_TARGET)
-
-.PHONY: pytest-global
-pytest-global:
-	pytest $(PYTEST_ARGS) $(COVERAGE_ARGS) $(COVERAGE_TARGET) $(PYTEST_TARGET)
-
-.PHONY: travis
-travis: pytest-global
 
 .PHONY: test-full
 test-full: lint test-setuppy clean-files

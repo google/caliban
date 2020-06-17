@@ -1,6 +1,6 @@
 # Caliban
 
-[![Build status](https://img.shields.io/travis/google/caliban/master.svg?maxAge=3600)](http://travis-ci.org/google/caliban)
+[![Build status](https://img.shields.io/github/workflow/status/google/caliban/workflow/master.svg?maxAge=3600)](https://github.com/google/caliban/actions)
 [![Codecov branch](https://img.shields.io/codecov/c/github/google/caliban/master.svg?maxAge=3600)](https://codecov.io/github/google/caliban)
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
 [![caliban version](https://img.shields.io/pypi/v/caliban?maxAge=3600)](https://pypi.org/project/caliban)
@@ -67,21 +67,21 @@ your machine:
 
 * [`caliban
   notebook`](https://caliban.readthedocs.io/en/latest/cli/caliban_notebook.html)
-  starts a Jupyter notebook or lab instance inside of a docker image containing
+  starts a Jupyter notebook or lab instance inside of a Docker image containing
   your dependencies; the guarantee about an environment identical to AI Platform
   applies here as well.
 
 * [`caliban run`](https://caliban.readthedocs.io/en/latest/cli/caliban_run.html)
   packages your directory's code into the Docker image and executes it locally
   using `docker run`. If you have a GPU, the instance will attach to it by
-  default - no need to install the CUDA toolkit. The docker environment takes
+  default - no need to install the CUDA toolkit. The Docker environment takes
   care of all that. This environment is truly identical to the AI Platform
-  environment. The docker image that runs locally is the same image that will
+  environment. The Docker image that runs locally is the same image that will
   run in AI Platform.
 
 * [`caliban
   cloud`](https://caliban.readthedocs.io/en/latest/cli/caliban_cloud.html) allows
-  you to submit jobs to AI Platform that will run inside the same docker image
+  you to submit jobs to AI Platform that will run inside the same Docker image
   you used with `caliban run`. You can submit hundreds of jobs at once. Any
   machine type, GPU count, and GPU type combination you specify will be
   validated client side, so you'll see an immediate error with suggestions,
@@ -89,7 +89,7 @@ your machine:
 
 * [`caliban
   build`](https://caliban.readthedocs.io/en/latest/cli/caliban_build.html) builds
-  the docker image used in `caliban cloud` and `caliban run` without actually
+  the Docker image used in `caliban cloud` and `caliban run` without actually
   running the container or submitting any code.
 
 * [`caliban
@@ -98,16 +98,16 @@ your machine:
 
 ## Installing Caliban and Prerequisites
 
-Caliban's prequisites are [Docker](#docker) and [Python >= 3.7](#python-37).
+Caliban's prequisites are [Docker](#docker) and [Python >= 3.6](#python-36).
 
 Make sure your Python is up to date:
 
 ```bash
 $ python --version
-Python 3.7.7 # should be >=3.7.0
+Python 3.6.9 # should be >=3.6.0
 ```
 
-If not, visit ["Installing Python 3.7"](#python-37) before proceeding.
+If not, visit ["Installing Python 3.6"](#python-36) before proceeding.
 
 Next, install Caliban via [pip](https://pypi.org/project/caliban/):
 
@@ -135,12 +135,12 @@ Caliban executes your code inside a "container", managed by
 - On Linux, visit the [Docker installation
   instructions](https://docs.docker.com/engine/install/ubuntu/#installation-methods).
 
-### Python 3.7
+### Python 3.6
 Make sure your Python version is up to date:
 
 ```bash
 $ python --version
-Python 3.7.7 # should be >=3.7.0
+Python 3.6.9 # should be >=3.6.0
 ```
 
 If you need to upgrade:

@@ -15,27 +15,18 @@
 # limitations under the License.
 '''types for caliban.history'''
 
-from __future__ import annotations
-
+import json
+from collections import OrderedDict
+from datetime import datetime
 from enum import Enum
-from typing import (Union, NamedTuple, Dict, Any, Optional, List, Iterable)
+from typing import Any, Dict, List, Optional
 
 import sqlalchemy
-from sqlalchemy import (create_engine, Table, Column, Integer, String, MetaData,
-                        ForeignKey, JSON, select, join, and_, DateTime)
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import (sessionmaker, relationship, backref, Session)
-from sqlalchemy.orm.session import object_session
-from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy import func
+from sqlalchemy import (JSON, Column, DateTime, ForeignKey, Integer, String)
 from sqlalchemy.engine.base import Engine
-
-import json
-from datetime import datetime
-import os
-import sqlite3
-from googleapiclient import discovery
-from collections import OrderedDict
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, backref, relationship, sessionmaker
+from sqlalchemy.orm.session import object_session
 
 from caliban.util import current_user
 
@@ -160,7 +151,7 @@ class ContainerSpec(Base):
       session: Session,
       spec: Dict[str, Any],
       user: Optional[str] = None,
-  ) -> ContainerSpec:
+  ) -> "ContainerSpec":
     '''gets an existing instance, or creates a new one as necessary
 
     Args:
@@ -236,7 +227,7 @@ class ExperimentGroup(Base):
       session: Session,
       name: Optional[str] = None,
       user: Optional[str] = None,
-  ) -> ExperimentGroup:
+  ) -> "ExperimentGroup":
     '''gets an existing instance, or creates a new one as necessary
 
     Args:
@@ -342,11 +333,11 @@ class Experiment(Base):
   @classmethod
   def _existing(
       cls,
-      e: Experiment,
+      e: "Experiment",
       xgroup: ExperimentGroup,
       container_spec: ContainerSpec,
       session: Session,
-  ) -> Optional[Experiment]:
+  ) -> Optional["Experiment"]:
     '''returns existing instance of given experiment, or None if none exists'''
     existing = session.query(Experiment)
     existing = existing.join(ExperimentGroup)
@@ -369,7 +360,7 @@ class Experiment(Base):
       container_spec: ContainerSpec,
       args: Optional[List[str]] = None,
       kwargs: Optional[Dict[str, Any]] = None,
-  ) -> Experiment:
+  ) -> "Experiment":
     '''gets an existing instance, or creates a new one as necessary
 
     Args:
@@ -468,10 +459,10 @@ class JobSpec(Base):
   @classmethod
   def _existing(
       cls,
-      s: JobSpec,
+      s: "JobSpec",
       experiment: Experiment,
       session: Session,
-  ) -> Optional[JobSpec]:
+  ) -> Optional["JobSpec"]:
     '''returns existing JobSpec if one exists, None otherwise'''
     existing = session.query(JobSpec).join(Experiment)
     existing = existing.filter(
@@ -487,7 +478,7 @@ class JobSpec(Base):
       experiment: Experiment,
       spec: Dict[str, Any],
       platform: Platform,
-  ) -> JobSpec:
+  ) -> "JobSpec":
     '''gets an existing instance, or creates a new one as necessary
 
     Args:
