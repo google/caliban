@@ -131,6 +131,8 @@ with Caliban.
    cloud/gpu_specs
    cloud/ai_platform_tpu
    cloud/rate_limit
+   cloud/adc
+   cloud/bucket
 
 .. toctree::
    :maxdepth: 1

@@ -1,18 +1,21 @@
 Getting Caliban
 ---------------
 
-.. NOTE:: If you're currently in a ``virtualenv``\ , please run ``deactivate``
+.. warning:: If you're currently in a ``virtualenv``\ , please run ``deactivate``
    to disable it before proceeding.
 
-We recommend installing ``caliban`` using `\ ``pipx``
-<https://pypi.org/project/pipx/>`_. `\ ``pipx``
-<https://pypi.org/project/pipx/>`_ is a tool that lets you install command line
-utilities written in Python into their own virtual environments, completely
-isolated from your system python packages or other virtualenvs.
+We recommend installing ``caliban`` using `pipx
+<https://pypi.org/project/pipx/>`_. `pipx <https://pypi.org/project/pipx/>`_ is
+a tool that lets you install command line utilities written in Python into their
+own virtual environments, completely isolated from your system python packages.
 
 You don't HAVE to do this - you can install caliban in your global environment,
 or in a virtualenv - but ``pipx`` is the sanest way we've found to install
 Python CLI command tools.
+
+.. NOTE:: Before you install Caliban, you'll need to visit the
+          :doc:`prerequisites` page and make sure you have Docker installed and
+          the correct version of Python 3.
 
 Install ``pipx`` into your global python environment like this:
 
@@ -27,6 +30,12 @@ Once ``pipx`` is installed, use it to install ``caliban``:
 
    pipx install caliban
 
+If you don't want to use `pipx`, install Caliban via pip:
+
+.. code-block:: bash
+
+   pip install -U caliban
+
 Upgrading Caliban
 ^^^^^^^^^^^^^^^^^
 
@@ -35,6 +44,12 @@ With ``pipx``\ , upgrading Caliban is simple. The following command will do it:
 .. code-block:: bash
 
    pipx upgrade caliban
+
+If you've installed Caliban with pip:
+
+.. code-block:: bash
+
+   pip upgrade caliban
 
 Check your Installation
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -45,4 +60,7 @@ To check if all is well, run
 
    caliban --help
 
-to see the list of subcommands. We'll explore the meaning of each command below.
+To take Caliban through its paces, visit the `"Getting Started with Caliban"
+<https://github.com/google/caliban#getting-started-with-caliban>`_ tutorial on
+the main page of `Caliban's github repository
+<https://github.com/google/caliban>`_.

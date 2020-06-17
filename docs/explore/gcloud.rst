@@ -12,10 +12,9 @@ Service accounts keys (described in :doc:`../getting_started/cloud`) are the
 method of authentication you'll find recommended by most Cloud documentation for
 authentication within Docker containers.
 
-Unfortunately, newer GCP projects created internally at Google are all housed
-inside an "experimental" folder that's banned creation of service account keys.
-For those projects, you'll need to use a different method of authentication
-called "Application Default Credentials", or ADC.
+ You might also come across a different method of authentication called
+"Application Default Credentials", or ADC Credentials. See :doc:`../cloud/adc`
+for more information.
 
 .. NOTE:: to set up service account keys, visit the :ref:`service
    account instructions <Service Account Key>`. To generate application default
@@ -23,7 +22,7 @@ called "Application Default Credentials", or ADC.
    login`` at your terminal, as described `in the Google Cloud docs
    <https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login>`_.
 
-If you've logged to gcloud on your machine using application default
+If you've logged in to ``gcloud`` on your machine using application default
 credentials, Caliban will copy your stored ADC credentials into your container.
 If you DON'T have a service account, gcloud and the cloud python SDK will use
 these ADC credentials inside the container and work just as they do on your

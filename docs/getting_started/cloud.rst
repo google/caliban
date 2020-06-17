@@ -1,76 +1,207 @@
-Getting Started with Google Cloud
-=================================
+Setting up Google Cloud
+=======================
 
-This document will take you through the process of configuring your machine to
-access Google Cloud.
+This document will guide you through the process of configuring your machine to
+submit jobs to Google's Cloud AI Platform with :doc:`../cli/caliban_cloud`.
 
-Cloud Installation Overview
----------------------------
+.. note:: Caliban will eventually support other Cloud providers like AWS, but
+   Google Cloud will remain a great starting option. Google Cloud gives you $300
+   of credit, so you can get started immediately with
+   :doc:`../cli/caliban_cloud`.
 
-- Create a Cloud account
-- Make a Cloud project
-- Activate Container Registry https://cloud.google.com/container-registry/docs/quickstart
+By the end you'll be able to complete the `final step
+<https://github.com/google/caliban#submitting-to-cloud-ai-platform>`_ of the
+`"Getting Started with Caliban"
+<https://github.com/google/caliban#getting-started-with-caliban>`_ tutorial and
+train an ML model on AI Platform.
 
-Create a Project
-----------------
+**These are the steps we'll cover**:
 
-First, create a new Cloud project. This is the space where every cloud job you
-submit, and every instance you spin up, will live.
+.. contents:: :local:
+   :depth: 1
 
-Go to the `Cloud Console <https://console.cloud.google.com>`_ and select the
-dropdown to the right of "Google Cloud Platform". Choose "New Project" on the
-dialogue that appears.
+To make it through, you'll **need to know**:
 
-Give your project a name, in the "location" field, and use the "browse" button
-to select "experimental-gke" as the project's location. The location of your
-project modifies its permissions, so setting it properly is important. To enable
-using Google Kubernetes Engine, you need to place your project in the
-"experimental-gke" folder.
+- Know how to `save environment variables on your machine
+  <https://scotch.io/tutorials/how-to-use-environment-variables>`_ by saving
+  them in your ``~/.bashrc`` file.
 
-This should take you out to the project's dashboard. Note the project's ID in
-the project info panel.
+Create a Cloud Account
+----------------------
 
+To submit jobs to AI Platform you need to create a Google Cloud account with an
+active "`project
+<https://cloud.google.com/resource-manager/docs/creating-managing-projects>`_".
+Every job you submit to Cloud will be associated with this project.
 
-Add the following line to your ``~/.bashrc`` to make the ID available in later
-commands:
+Visit the `Google Cloud Console <https://console.cloud.google.com>`_ and click
+"Select a Project":
+
+.. image:: /_static/img/cloud/select_project.png
+  :width: 600
+  :align: center
+  :alt: Select a Project
+
+Click "New Project" in the dialogue that appears:
+
+.. image:: /_static/img/cloud/new_project.png
+  :width: 600
+  :align: center
+  :alt: New Project
+
+Give your project a memorable name like "totoro-lives" and click Create. This
+should take you to your new project's dashboard.
+
+Note the **Project ID** in the "Project info" panel:
+
+.. image:: /_static/img/cloud/project_id.png
+  :width: 600
+  :align: center
+  :alt: Project ID
+
+Caliban will use this project ID to submit jobs to the correct project in Cloud.
+
+Add the following line to the file ``~/.bashrc`` or ``~/.bash_profile`` on your
+machine, to make the ID available to Caliban:
 
 .. code-block:: bash
 
    export PROJECT_ID=<your-project-id>
 
-Next:
+.. note:: If you don't know what this means, see `this page
+          <https://scotch.io/tutorials/how-to-use-environment-variables>`_ for a
+          tutorial on environment variables. We'll remind you at the end of the
+          tutorial which variables you'll need.
 
-#. Make sure that billing is enabled for your project
-   (\ `instructions here <https://cloud.google.com/billing/docs/how-to/modify-project>`_\ )
-#. Enable the AI Platform ("Cloud Machine Learning Engine") and Compute Engine
-   APIs
-   `by selecting your prgreroject here <https://console.cloud.google.com/flows/enableapi?apiid=ml.googleapis.com,compute_component>`_.
 
-Configuring Credentials
------------------------
+Activate Free Cloud Trial
+-------------------------
 
-To interact with your new project, you'll need to configure two sets of
-credentials:
+Every new Google Cloud project comes with a free $300 credit. To activate this,
+click "Activate" at the top right of your new Cloud account's console and follow
+the prompts.
 
-#. The Cloud SDK credentials, which you'll use to spin up machines and submit
-   model training jobs to Cloud
-#. python credentials for Google Cloud.
+.. image:: /_static/img/cloud/activate.png
+  :width: 600
+  :align: center
+  :alt: Activate Billing
 
-GCloud SDK
-^^^^^^^^^^
+You'll have to set up a billing account as well.
 
-The Google Cloud SDK is a set of command line tools that you'll install on your
-workspace. These communicate with Cloud using a stored set of credentials that
-you'll generate with ``gcloud init``.
+The system will ask you for a credit card to verify your identity, but if you
+use up the entire credit it won't automatically charge you. You can decide at
+that point whether you'd like to continue or not.
+
+Enable AI Platform and Container Registry
+-----------------------------------------
+
+Google Cloud has a `dizzying number of products
+<https://cloud.google.com/products>`_. To submit jobs with
+:doc:`/cli/caliban_cloud`, you'll need to activate just these two:
+
+- `Cloud AI Platform <https://cloud.google.com/ai-platform/docs>`_
+- `Container Registry <https://cloud.google.com/container-registry/docs/quickstart>`_
+
+Follow the instructions at `this link to enable the Container Registry API
+<https://console.cloud.google.com/flows/enableapi?apiid=containerregistry.googleapis.com&redirect=https://cloud.google.com/container-registry/docs/quickstart&_ga=2.204958805.498449691.1592416944-1401171737.1587152715>`_
+by selecting the project you created above and clicking "Continue".
+
+Click `this link to Enable the AI Platform Jobs API
+<https://console.cloud.google.com/ai-platform/ml-enable-api/jobs>`_ by clicking
+"Enable API" and waiting for the spinner to stop.
+
+Create a Service Account Key
+----------------------------
+
+Next you'll need to create a `Service Account Key
+<https://www.google.com/search?q=service+account+key+google&oq=service+account+key+google&aqs=chrome..69i57j69i60l2.1592j0j4&sourceid=chrome&ie=UTF-8>`_.
+A service account key is a sort of "passport" that Caliban will use to
+authenticate your requests when submitting jobs to Google Cloud.
+
+To create your service account key, visit the `Service Accounts page
+  <https://console.cloud.google.com/iam-admin/serviceaccounts?_ga=2.94132893.1698699355.1592403366-805054138.1592403366>`_
+  and select the project you created earlier.
+
+Click "Create Service Account" at the top of the page:
+
+.. image:: /_static/img/cloud/activate.png
+  :width: 600
+  :align: center
+  :alt: Activate Billing
+
+At the next form, under **"Service Account Name"**, type something like
+**totoro_key** and click **"Create"**.
+
+This will bring up a page titled **"Service Account Permissions"**. Select
+**Project > Owner** from the list:
+
+.. image:: /_static/img/cloud/service_acct_permissions.png
+  :width: 600
+  :align: center
+  :alt: Service Account Permissions
+
+Then click **"Continue"** and **"Done"**. You now have a service account. You'll
+need to download it to your machine for Caliban to use it.
+
+Downloading the Service Account Key
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Click on the hyperlinked name of the key - something like
+``totoro-key@totoro-lives.iam.gserviceaccount.com`` - in the service accounts
+list.
+
+Near the bottom of the page, click "Add Key" > "Create New Key":
+
+.. image:: /_static/img/cloud/create_new_key.png
+  :width: 600
+  :align: center
+  :alt: Create New Key
+
+Select **"JSON"** for key type and click **"Create"**. This will download a file
+with a name like ``totoro-lives-3df07b8c97a0.json`` to your machine.
+
+Find the file in your terminal (probably in your Downloads folder) and run the
+following command to move it to a nice, easy to read location:
+
+.. code-block:: bash
+
+   mv [NEW_FILENAME].json ~/.config/service_key.json
+
+To make this key accessible to Caliban, you'll need to set a variable called
+``GOOGLE_APPLICATION_CREDENTIALS`` in your shell to the path of your new service
+account key. Add the following line to your `~/.bashrc`:
+
+.. code-block:: bash
+
+   export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/service_key.json
+
+One step remains before we can submit jobs to Cloud AI Platform.
+
+Install the Cloud SDK
+---------------------
+
+The final step is to install the `Google Cloud SDK
+<https://cloud.google.com/sdk/install>`_ on your machine.
 
 Visit the `Google Cloud SDK installation page
-<https://cloud.google.com/sdk/install>`_ for a full set of instructions. Keep a
-tab open with the information below to help you through the ``gcloud init``
-step.
+<https://cloud.google.com/sdk/install>`_ for a full set of installation
+instructions. Here is the distilled version:
 
-During ``gcloud init``\ , When you see this output:
+- For MacOS, run the `interactive installer
+  <https://cloud.google.com/sdk/docs/downloads-interactive>`_.
+- For Linux, use `apt-get
+  <https://cloud.google.com/sdk/docs/downloads-apt-get>`_ to get the latest
+  release.
 
-.. code-block:: sh
+If you didn't do it during installation, you'll need to initialize the SDK with this command:
+
+.. code-block:: bash
+
+   gcloud init
+
+When you see this output:
+
+.. code-block:: bash
 
    You are logged in as: [totoro@gmail.com].
 
@@ -80,18 +211,26 @@ During ``gcloud init``\ , When you see this output:
     [3] List projects
    Please enter your numeric choice:
 
-Enter ``1``\ , then type in your project ID from before (now stored under
-``$PROJECT_ID``\ ).
+Enter ``1``, then type in your project ID you noted earlier. (You should have
+saved it as an environment variable called ``$PROJECT_ID``).
 
-If you'd like to set a default zone, I recommend anything beginning with
-``us-central1`` as a sane choice. This region has
-`the most capability <https://cloud.google.com/ml-engine/docs/regions>`_ of any
-region; TPUs, the latest GPUs, you name it.
+If you'd like to set a default zone, anything beginning with ``us-central1`` is
+a great choice. ``us-central1`` has `the most capability
+<https://cloud.google.com/ml-engine/docs/regions>`_ of any region.
 
-To check if everything was successful, run ``gcloud auth list`` in your
-terminal. You should see output like this:
+.. note:: the Cloud SDK is quite powerful, and gives you access to Cloud buckets
+          and all sorts of Google services. You might want to peruse the full
+          set of `SDK documentation
+          <https://cloud.google.com/sdk/gcloud/reference/>`_ once you've got
+          everything working.
 
-.. code-block:: sh
+Test your Environment
+---------------------
+
+To check if your SDK installation was successful, run ``gcloud auth list`` in
+your terminal. You should see your email address listed as the active account:
+
+.. code-block:: bash
 
    [totoro@totoro ~]$ gcloud auth list
        Credentialed Accounts
@@ -101,90 +240,28 @@ terminal. You should see output like this:
    To set the active account, run:
        $ gcloud config set account `ACCOUNT`
 
-You might want to peruse the full set of `SDK documentation
-<https://cloud.google.com/sdk/gcloud/reference/>`_ once you've got everything
-working.
-
-Service Account Key
-^^^^^^^^^^^^^^^^^^^
-
-If you want to access Cloud services from inside of the Docker containers
-generated by Caliban, you may need to create a service account key.
-
-When you run containers remotely with :doc:`../cli/caliban_cloud`, the code
-inside your container can authenticate itelf using Google's "application default
-credentials" mechanism. If you'd like to bake credentials into the container, you'll need to create a service account key.
-
-(This is also necessary for more esoteric concerns, like installing ``pip``
-dependencies inside your container from private Cloud Source Repositories.)
-
-To create a service account key for authentication:
-
-#. In the GCP Console, go to the
-   `\ **Create service account key** <https://console.cloud.google.com/apis/credentials/serviceaccountkey?_ga=2.126245134.-201047487.1571450750&_gac=1.63762141.1572378670.CPShq_6ewuUCFYZogQodaXoJbw>`_
-   page.
-#. From the **Service account** drop-down list, select **New service account**.
-#. Enter a name in the **Service account name** field.
-#. From the **Role** drop-down list, select **Project > Owner**. This will give
-   your service account all the access your account has on the project.
-#. Click **Create** to download a JSON file containing your new key to your
-   computer.
-
-This key will let you perform any action using the ``gcloud`` CLI tool and Cloud
-python SDK that you can perform from the browser dashboard, including running ML
-jobs on AI platform and storing your generated models, data and measurements in
-a Cloud bucket.
-
-To make this key accessible to the Python Cloud SDK, you'll need to set the
-``GOOGLE_APPLICATION_CREDENTIALS`` variable in your shell to the path of the new
-JSON file.
-
-This snippet will place your key in a sane location and add a line to your bash
-config that will set this environment variable every time you create a new
-shell. Run the following in a terminal on your workstation:
+As a final step, confirm that you've set the following two or three environment
+variables. (If you set a custom region above, add it here as a ``$REGION``
+variable).
 
 .. code-block:: bash
 
-   mv [NEW_FILENAME].json ~/.config/service_key.json
-   export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/service_key.json >> ~/.bashrc
-
-ADC Credentials
-^^^^^^^^^^^^^^^
-
-Instead of a service account key, you might also generate "Application Default
-Credentials" on your machine.
-
-To install these on your workstation, run
-
-.. code-block:: bash
-
-   gcloud auth application-default login
-
-at your terminal, as described in `these gcloud docs
-<https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login>`_.
-That's it!
-
-Creating a Bucket
-^^^^^^^^^^^^^^^^^
-
-Next you'll create a Cloud bucket.
-
-Your bucket is a reserved "folder" on the Cloud filesystem; you'll use this to
-save models and measurements, and as a staging ground for model workflows you're
-submitting to Cloud.
-
-To create your bucket, add the following lines to your ``~/.bashrc`` file:
-
-.. code-block:: bash
-
-   export BUCKET_NAME="totoro_bucket"
    export REGION="us-central1"
+   export PROJECT_ID="research-3141"
+   export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/devkey.json"
 
-Run ``source ~/.bashrc`` to pick up the changes, then run the following command
-to create your new bucket:
+If you have all of this, you're set!
 
-.. code-block:: bash
+Train a model in Cloud
+----------------------
 
-   gsutil mb -l $REGION gs://$BUCKET_NAME
+Now that you have a working Cloud configuration and a new project, you can use
+:doc:`/cli/caliban_cloud` to submit jobs to Cloud AI platform.
 
-That's it. You're all set.
+The `"Getting Started with Caliban"
+<https://github.com/google/caliban#getting-started-with-caliban>`_ tutorial ends
+with a nice demo that has you training models in Cloud. Head over to `the
+tutorial <https://github.com/google/caliban#getting-started-with-caliban>`_ and
+complete the `final step
+<https://github.com/google/caliban#submitting-to-cloud-ai-platform>`_ to train a
+digit-classifying neural network on AI Platform.
