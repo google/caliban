@@ -396,7 +396,7 @@ def _notebook_entries(lab: bool = False, version: Optional[str] = None) -> str:
 #RUN pip install {}{}
 #""".format(library, version_suffix)
   cmds = """
-  RUN /opt/conda/bin/pip install https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
+  RUN /opt/conda/bin/pip install --user --no-cache-dir https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
   RUN /opt/conda/bin/jupyter lab build
   """
   return cmds
@@ -546,8 +546,6 @@ RUN mkdir -m 777 {workdir} {creds_dir} {c_home}
 ENV HOME={c_home}
 
 WORKDIR {workdir}
-
-USER {uid}:{gid}
 """.format_map({
       "base_image": base_image,
       "username": username,
@@ -561,6 +559,16 @@ USER {uid}:{gid}
                                      gid,
                                      adc_path=adc_path,
                                      credentials_path=credentials_path)
+  if inject_notebook.value != 'none':
+    install_lab = inject_notebook == NotebookInstall.lab
+    dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
+
+  dockerfile += """
+
+USER {uid}:{gid}
+""".format_map({"uid": uid,
+                "gid": gid
+   })
 
   dockerfile += _dependency_entries(workdir,
                                     uid,
@@ -568,9 +576,6 @@ USER {uid}:{gid}
                                     requirements_path=requirements_path,
                                     setup_extras=setup_extras)
 
-  if inject_notebook.value != 'none':
-    install_lab = inject_notebook == NotebookInstall.lab
-    dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
   if extra_dirs is not None:
     dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
