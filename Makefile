@@ -51,8 +51,8 @@ pytest:
 pytest-global:
 	pytest $(PYTEST_ARGS) $(COVERAGE_ARGS) $(COVERAGE_TARGET) $(PYTEST_TARGET)
 
-.PHONY: travis
-travis: pytest-global
+.PHONY: ci
+ci: pytest-global
 
 .PHONY: test-full
 test-full: lint test-setuppy clean-files

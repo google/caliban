@@ -158,9 +158,12 @@ def extract_region(m: Dict[str, Any]) -> ct.Region:
   caliban.cloud.
 
   """
-  return m.get("region") or \
-    ct.parse_region(os.environ.get("REGION")) or \
-    DEFAULT_REGION
+  region = m.get("region") or os.environ.get("REGION")
+
+  if region:
+    return ct.parse_region(region)
+
+  return DEFAULT_REGION
 
 
 def extract_zone(m: Dict[str, Any]) -> str:
