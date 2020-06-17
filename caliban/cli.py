@@ -267,6 +267,7 @@ def shell_parser(base):
   parser = base.add_parser(
       "shell", help="Start an interactive shell with this dir mounted.")
   base_parser(parser)
+  dlvm_arg(parser)
   image_id_arg(parser)
   docker_run_arg(parser)
   parser.add_argument(

@@ -57,8 +57,10 @@ def run_app(arg_input):
   if command == "shell":
     mount_home = not args['bare']
     image_id = args.get("image_id")
+    dlvm = args.get("dlvm")
     shell = args['shell']
     docker.run_interactive(job_mode,
+                           dlvm=dlvm,
                            image_id=image_id,
                            run_args=docker_run_args,
                            mount_home=mount_home,

@@ -1049,16 +1049,27 @@ def run_interactive(job_mode: c.JobMode,
 
   if dlvm is None:
     # Pass the default entrypoint if not using DLVM
-    # Otherwise the DLVM automatically runs jupyterlab so don't set an
-    # entrypoint.
+    # Otherwise set the DLVM entrypoint depending on if we are in notebook 
+    # mode or shell mode.
     interactive_run_args = _interactive_opts(workdir) + [
       "-it", \
       "--entrypoint", entrypoint
     ] + _home_mount_cmds(mount_home) + run_args
   else:
-    interactive_run_args = _interactive_opts(workdir) + [
-      "-it", \
-    ] + _home_mount_cmds(mount_home) + run_args
+    # Don't set an entrypoint if we are running the DLVM notebook
+    # Otherwise we are running in shell mode so we pass in the shell
+    # entrypoint args.
+    if shell is None:
+        interactive_run_args = _interactive_opts(workdir) + [
+            "-it", \
+        ] + _home_mount_cmds(mount_home) + run_args
+    else:
+        entrypoint = SHELL_DICT[shell].executable
+        interactive_run_args = _interactive_opts(workdir) + [
+            "-it", \
+            "--entrypoint", entrypoint
+        ] + _home_mount_cmds(mount_home) + run_args
+
 
     entrypoint_args = []
 
