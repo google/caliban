@@ -1,6 +1,7 @@
 # Caliban
 
-[![Build status](https://img.shields.io/travis/google/caliban/master.svg?maxAge=3600)](http://travis-ci.org/google/caliban)
+
+[![Build status](https://img.shields.io/github/workflow/status/google/caliban/workflow/master.svg?maxAge=3600)](https://github.com/google/caliban/actions)
 [![Codecov branch](https://img.shields.io/codecov/c/github/google/caliban/master.svg?maxAge=3600)](https://codecov.io/github/google/caliban)
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
 [![caliban version](https://img.shields.io/pypi/v/caliban?maxAge=3600)](https://pypi.org/project/caliban)
