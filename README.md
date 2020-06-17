@@ -81,12 +81,14 @@ your machine:
   run in AI Platform.
 
 * [`caliban
-  cloud`](https://caliban.readthedocs.io/en/latest/cli/caliban_cloud.html) allows
-  you to submit jobs to AI Platform that will run inside the same Docker image
-  you used with `caliban run`. You can submit hundreds of jobs at once. Any
-  machine type, GPU count, and GPU type combination you specify will be
-  validated client side, so you'll see an immediate error with suggestions,
-  rather than having to debug by submitting jobs over and over.
+  cloud`](https://caliban.readthedocs.io/en/latest/cli/caliban_cloud.html)
+  allows you to [submit jobs to AI
+  Platform](https://caliban.readthedocs.io/en/latest/getting_started/cloud.html)
+  that will run inside the same Docker image you used with `caliban run`. You
+  can submit hundreds of jobs at once. Any machine type, GPU count, and GPU type
+  combination you specify will be validated client side, so you'll see an
+  immediate error with suggestions, rather than having to debug by submitting
+  jobs over and over.
 
 * [`caliban
   build`](https://caliban.readthedocs.io/en/latest/cli/caliban_build.html) builds
@@ -288,7 +290,7 @@ Platform](https://cloud.google.com/ai-platform).
 account with $300 of credit to get started. Follow Caliban's ["Getting Started
 with Google
 Cloud"](https://caliban.readthedocs.io/en/latest/getting_started/cloud.html)
-documentation, then come back here to proceed.**
+documentation, then come back here to proceed.)
 
 Submit the job to AI Platform by changing the word `run` to `cloud`:
 
@@ -314,7 +316,7 @@ I0615 19:57:45.405819 4563361216 core.py:676] Visit https://console.cloud.google
 I0615 19:57:45.405959 4563361216 core.py:677]
 ```
 
-This means that Caliban has:
+This output means that Caliban has:
 
 - built a Docker container with all of your code
 - Pushed that container up to Google Cloud's [Container
