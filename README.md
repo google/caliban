@@ -5,40 +5,50 @@
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
 [![caliban version](https://img.shields.io/pypi/v/caliban?maxAge=3600)](https://pypi.org/project/caliban)
 
-Caliban is a tool for developing research workflows and notebooks in an
-isolated, reproducible computing environment.
+Caliban is a tool that helps researchers launch and track their numerical experiments in an isolated, reproducible computing environment. It was developed by machine learning researchers and engineers, and makes it easy to go from a simple prototype running on a workstation to thousands of experimental jobs running on Cloud. 
 
-Caliban makes it astonishingly easy to run your code locally, then ship the
-exact same code up to a Cloud environment for execution on Big Iron machines.
+With Caliban, you can:
+
+- Develop your experimental code locally and test it inside an isolated (Docker) environment
+- Easily sweep over experimental parameters
+- Submit your experiments as Cloud jobs, where they will run in the same isolated environment
+- Control and keep track of jobs
+
 
 ## Quickstart
 
-[Install Docker](#docker), make sure it's running, then install Caliban via
-[pip](https://pypi.org/project/caliban):
+[Install Docker](#docker), then install Caliban:
 
 ```bash
 pip install caliban
 ```
 
-Train your first [machine learning
-model](https://www.tensorflow.org/tutorials/quickstart/beginner) in 2 lines:
+Train a simple deep learning model on your local machine:
 
 ```bash
 git clone https://github.com/google/caliban.git && cd caliban/tutorials/basic
 caliban run --nogpu mnist.py
 ```
 
+Sweep over learning rates to find the best one (flags are specified in JSON format):
+
+```bash
+echo '{"learning_rate": [0.01, 0.001, 0.0001]}' | caliban run --experiment_config stdin --nogpu mnist.py
+```
+
 **Next**:
 
-- See the [Installation](#installation-and-prerequisites) section for more detail
-- Explore Caliban's more advanced features with ["Getting Started with Caliban"](#getting-started-with-caliban)
-- Read the [Overview](#overview) for info on Caliban's subcommands.
+- See how to submit the experiment to Cloud and use other Caliban features in ["Getting Started with Caliban"](#getting-started-with-caliban)
+- See [Installation](#installation-and-prerequisites) for detailed installation instructions
+- Read the [Command Overview](#command-overview) for info on Caliban commands.
 
 Full documentation for Caliban lives at [Read The Docs](https://caliban.readthedocs.io/en/latest).
 
-<p align="center">
-<img src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Stephano%2C_Trinculo_and_Caliban_dancing_from_The_Tempest_by_Johann_Heinrich_Ramberg.jpg" align="center" width="500">
-</p>
+<p>
+<!--<p align="center">-->
+<img style="float: right;" align="right"
+src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Stephano%2C_Trinculo_and_Caliban_dancing_from_The_Tempest_by_Johann_Heinrich_Ramberg.jpg" align="center" width="350">
+<!--</p>-->
 
 > “Be not afeard; the isle is full of noises, \
 > Sounds, and sweet airs, that give delight and hurt not. \
@@ -51,55 +61,9 @@ Full documentation for Caliban lives at [Read The Docs](https://caliban.readthed
 > I cried to dream again.”
 >
 > -- <cite>Shakespeare, The Tempest</cite>
+</p>
 
-## Overview
-
-Caliban provides five subcommands that you run inside some project directory on
-your machine:
-
-* [`caliban
-  shell`](https://caliban.readthedocs.io/en/latest/cli/caliban_shell.html)
-  generates a Docker image containing any dependencies you've declared in a
-  `requirements.txt` and/or `setup.py` in the directory and opens an interactive
-  shell in that directory. The `caliban shell` environment is ~identical to the
-  environment that will be available to your code when you submit it to AI
-  Platform; the difference is that your current directory is live-mounted into
-  the container, so you can develop interactively.
-
-* [`caliban
-  notebook`](https://caliban.readthedocs.io/en/latest/cli/caliban_notebook.html)
-  starts a Jupyter notebook or lab instance inside of a Docker image containing
-  your dependencies; the guarantee about an environment identical to AI Platform
-  applies here as well.
-
-* [`caliban run`](https://caliban.readthedocs.io/en/latest/cli/caliban_run.html)
-  packages your directory's code into the Docker image and executes it locally
-  using `docker run`. If you have a GPU, the instance will attach to it by
-  default - no need to install the CUDA toolkit. The Docker environment takes
-  care of all that. This environment is truly identical to the AI Platform
-  environment. The Docker image that runs locally is the same image that will
-  run in AI Platform.
-
-* [`caliban
-  cloud`](https://caliban.readthedocs.io/en/latest/cli/caliban_cloud.html)
-  allows you to [submit jobs to AI
-  Platform](https://caliban.readthedocs.io/en/latest/getting_started/cloud.html)
-  that will run inside the same Docker image you used with `caliban run`. You
-  can submit hundreds of jobs at once. Any machine type, GPU count, and GPU type
-  combination you specify will be validated client side, so you'll see an
-  immediate error with suggestions, rather than having to debug by submitting
-  jobs over and over.
-
-* [`caliban
-  build`](https://caliban.readthedocs.io/en/latest/cli/caliban_build.html) builds
-  the Docker image used in `caliban cloud` and `caliban run` without actually
-  running the container or submitting any code.
-
-* [`caliban
-  cluster`](https://caliban.readthedocs.io/en/latest/cli/caliban_cluster.html)
-  creates GKE clusters and submits jobs to GKE clusters.
-
-## Installing Caliban and Prerequisites
+## Installation and Prerequisites
 
 Caliban's prequisites are [Docker](#docker) and [Python >= 3.6](#python-36).
 
@@ -168,12 +132,10 @@ instructions on:
 
 ## Getting Started with Caliban
 
-This section describes how to use Caliban to train an image-classifying
-[Tensorflow neural
-network](https://www.tensorflow.org/tutorials/quickstart/beginner) with Caliban.
-We'll cover how to:
+In this section we will use Caliban to train an image classification network (implemented in [TensorFlow](https://www.tensorflow.org/tutorials/quickstart/beginner)) with Caliban.
+We will:
 
-- Train a neural network on your local machine
+- Train a neural network on the local machine
 - Increase the model's accuracy by changing the [learning
   rate](https://medium.com/octavian-ai/which-optimizer-and-learning-rate-should-i-use-for-deep-learning-5acb418f9b2)
   with a command-line flag
@@ -414,6 +376,53 @@ sidebar.
 If you find anything confusing, please feel free to [create an
 issue](https://github.com/google/caliban/issues) on our [Github Issues
 page](https://github.com/google/caliban/issues), and we'll get you sorted out.
+
+## Command Overview
+
+Caliban provides five subcommands that you run inside some project directory on
+your machine:
+
+* [`caliban
+  shell`](https://caliban.readthedocs.io/en/latest/cli/caliban_shell.html)
+  generates a Docker image containing any dependencies you've declared in a
+  `requirements.txt` and/or `setup.py` in the directory and opens an interactive
+  shell in that directory. The `caliban shell` environment is ~identical to the
+  environment that will be available to your code when you submit it to AI
+  Platform; the difference is that your current directory is live-mounted into
+  the container, so you can develop interactively.
+
+* [`caliban
+  notebook`](https://caliban.readthedocs.io/en/latest/cli/caliban_notebook.html)
+  starts a Jupyter notebook or lab instance inside of a Docker image containing
+  your dependencies; the guarantee about an environment identical to AI Platform
+  applies here as well.
+
+* [`caliban run`](https://caliban.readthedocs.io/en/latest/cli/caliban_run.html)
+  packages your directory's code into the Docker image and executes it locally
+  using `docker run`. If you have a GPU, the instance will attach to it by
+  default - no need to install the CUDA toolkit. The Docker environment takes
+  care of all that. This environment is truly identical to the AI Platform
+  environment. The Docker image that runs locally is the same image that will
+  run in AI Platform.
+
+* [`caliban
+  cloud`](https://caliban.readthedocs.io/en/latest/cli/caliban_cloud.html)
+  allows you to [submit jobs to AI
+  Platform](https://caliban.readthedocs.io/en/latest/getting_started/cloud.html)
+  that will run inside the same Docker image you used with `caliban run`. You
+  can submit hundreds of jobs at once. Any machine type, GPU count, and GPU type
+  combination you specify will be validated client side, so you'll see an
+  immediate error with suggestions, rather than having to debug by submitting
+  jobs over and over.
+
+* [`caliban
+  build`](https://caliban.readthedocs.io/en/latest/cli/caliban_build.html) builds
+  the Docker image used in `caliban cloud` and `caliban run` without actually
+  running the container or submitting any code.
+
+* [`caliban
+  cluster`](https://caliban.readthedocs.io/en/latest/cli/caliban_cluster.html)
+  creates GKE clusters and submits jobs to GKE clusters.
 
 ## Disclaimer
 
