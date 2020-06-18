@@ -401,7 +401,7 @@ RUN pip install {}{}
 RUN /opt/conda/bin/pip install \
   https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
 
-RUN /opt/conda/bin/jupyter lab build
+RUN /opt/conda/bin/jupyter lab build --minimize==False
   """
 
 
@@ -940,11 +940,8 @@ def run(job_mode: c.JobMode,
   logging.info("script_args {}".format(script_args))
 
   if dlvm is not None:
-    logging.info("dlvm id: {}".format(dlvm))
     image_id = build_image(job_mode, dlvm=dlvm, **build_image_kwargs)
-    logging.info("image_id: {}".format(image_id))
   elif image_id is None:
-    logging.info("def run - image__id is none")
     image_id = build_image(job_mode, **build_image_kwargs)
 
   base_cmd = _run_cmd(job_mode, run_args)
@@ -974,6 +971,8 @@ def run_interactive(job_mode: c.JobMode,
   - job_mode: c.JobMode.
   - image_id: ID of the image to run. Supplying this will skip an image build.
   - run_args: extra arguments to supply to `docker run`.
+  - dlvm: key of the base DLVM image to run. Supplying this perform an image
+    build using DLVM as the base image instead of blueshift
   - mount_home: if true, mounts the user's $HOME directory into the container
     to `/home/$USERNAME`. If False, nothing.
   - shell: name of the shell to install into the container. Also configures the
@@ -1006,24 +1005,18 @@ def run_interactive(job_mode: c.JobMode,
     entrypoint = SHELL_DICT[shell].executable
 
   if dlvm is None:
-    # Pass the default entrypoint if not using DLVM
-    # Otherwise set the DLVM entrypoint depending on if we are in notebook
-    # mode or shell mode.
+    # Pass in the entrypoint if not using DLVM
+    # Otherwise set the DLVM entrypoint from the shell argument
     interactive_run_args = _interactive_opts(workdir) + [
       "-it", \
       "--entrypoint", entrypoint
     ] + _home_mount_cmds(mount_home) + run_args
   else:
-    # Don't set an entrypoint if we are running the DLVM notebook
-    # Otherwise we are running in shell mode so we pass in the shell
-    # entrypoint args.
     entrypoint = SHELL_DICT[shell].executable
     interactive_run_args = _interactive_opts(workdir) + [
         "-it", \
         "--entrypoint", entrypoint
     ] + _home_mount_cmds(mount_home) + run_args
-
-
     entrypoint_args = []
 
   run(job_mode=job_mode,
@@ -1053,6 +1046,8 @@ def run_notebook_interactive(job_mode: c.JobMode,
 
   - job_mode: c.JobMode.
   - image_id: ID of the image to run. Supplying this will skip an image build.
+  - dlvm: key of the base DLVM image to run. Supplying this perform an image
+    build using DLVM as the base image instead of blueshift
   - run_args: extra arguments to supply to `docker run`.
   - mount_home: if true, mounts the user's $HOME directory into the container
     to `/home/$USERNAME`. If False, nothing.
@@ -1086,22 +1081,17 @@ def run_notebook_interactive(job_mode: c.JobMode,
     entrypoint = SHELL_DICT[shell].executable
 
   if dlvm is None:
-    # Pass the default entrypoint if not using DLVM
-    # Otherwise set the DLVM entrypoint depending on if we are in notebook
-    # mode or shell mode.
+    # Run vanilla jupyter/jupyterlab notebook if not using DLVM
+    # Otherwise use the jupyterlab notebook from DLVM with the scheduler
+    # extension.
     interactive_run_args = _interactive_opts(workdir) + [
         "-it", \
         "--entrypoint", entrypoint
     ] + _home_mount_cmds(mount_home) + run_args
   else:
-    # Don't set an entrypoint if we are running the DLVM notebook
-    # Otherwise we are running in shell mode so we pass in the shell
-    # entrypoint args.
     interactive_run_args = _interactive_opts(workdir) + [
         "-it", \
       ] + _home_mount_cmds(mount_home) + run_args
-
-
     entrypoint_args = []
 
   run(job_mode=job_mode,
