@@ -10,7 +10,17 @@ In this example, we have an existing cluster with no jobs currently running. You
 can inspect the cluster from the GCP dashboard for your project under the
 ``Kubernetes Engine > Clusters`` menu.
 
+.. image:: /_static/img/gke/pre_job_submission.png
+  :width: 600
+  :align: center
+  :alt: Pre-submission
+
 Selecting our ``foo`` cluster, we can see more details.
+
+.. image:: /_static/img/gke/pre_job_details.png
+  :width: 600
+  :align: center
+  :alt: Pre-submission details
 
 Here we can see that our cluster has only a single node pool: the default pool
 created when we started the cluster. We will submit a job that uses gpu
@@ -66,14 +76,29 @@ When we first submit the job, we will often see that the job shows what appears
 to be an error with a big, ugly, red message saying something along the lines of
 "unschedulable".
 
+.. image:: /_static/img/gke/unschedulable.png
+  :width: 600
+  :align: center
+  :alt: Unschedulable
+
 We need to look at the 'details' on the right side to see how the Kubernetes pod
 associated with this job is progressing. The job right now is unschedulable
 because the cluster has not yet scaled up to accomodate our request. Choosing
 the 'details' button, we see this.
 
+.. image:: /_static/img/gke/unschedulable_details.png
+  :width: 600
+  :align: center
+  :alt: Unschedulable
+
 This is the pod associated with our job. Clicking on this shows us details on
 the pod, where we can watch its development. On the pod page, choose the
 'Events' tab.
+
+.. image:: /_static/img/gke/pod_events.png
+  :width: 600
+  :align: center
+  :alt: Unschedulable
 
 Here we can see the progression of the pod. (note that the events here are in
 order of 'last seen', so they appear out-of-order when trying to divine the
@@ -89,6 +114,11 @@ submission to container operation.
 While this process is progressing, we can also monitor the cluster and its node
 pools from the cluster page:
 
+.. image:: /_static/img/gke/node_pool_autoprovision.png
+  :width: 600
+  :align: center
+  :alt: Unschedulable
+
 Now we can see that the cluster has auto-provisioned a new node pool for us in
 response to our job submission. Exploring this further you can find the new node
 instance that was created and inspect its properties. Once your job has
@@ -101,7 +131,17 @@ Monitor Job Logs
 Now that our job is running, we can monitor the logs from the container from the
 dashboard using stackdriver (Kubernetes Engine > Workloads > our-job):
 
+.. image:: /_static/img/gke/job_logs.png
+  :width: 600
+  :align: center
+  :alt: Unschedulable
+
 This will take you to the stackdriver log viewer for the container:
+
+.. image:: /_static/img/gke/stackdriver_logs.png
+  :width: 600
+  :align: center
+  :alt: Unschedulable
 
 Clean up Job
 ~~~~~~~~~~~~
@@ -111,3 +151,8 @@ it, even though the container has been stopped and no compute resources are
 still active. This is quite useful of course, but at some point you will want to
 delete the job (which will delete all of the logs and associated metadata, so
 use caution)
+
+.. image:: /_static/img/gke/cleanup_job.png
+  :width: 600
+  :align: center
+  :alt: Unschedulable
