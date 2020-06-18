@@ -398,7 +398,7 @@ RUN pip install {}{}
 """.format(library, version_suffix)
   else:
     return """
-RUN /opt/conda/bin/pip install --user --no-cache-dir \
+RUN /opt/conda/bin/pip install \
   https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
 
 RUN /opt/conda/bin/jupyter lab build
@@ -1007,7 +1007,7 @@ def run_interactive(job_mode: c.JobMode,
 
   if dlvm is None:
     # Pass the default entrypoint if not using DLVM
-    # Otherwise set the DLVM entrypoint depending on if we are in notebook 
+    # Otherwise set the DLVM entrypoint depending on if we are in notebook
     # mode or shell mode.
     interactive_run_args = _interactive_opts(workdir) + [
       "-it", \
@@ -1017,16 +1017,11 @@ def run_interactive(job_mode: c.JobMode,
     # Don't set an entrypoint if we are running the DLVM notebook
     # Otherwise we are running in shell mode so we pass in the shell
     # entrypoint args.
-    if entrypoint_args == []:
-        interactive_run_args = _interactive_opts(workdir) + [
-            "-it", \
-        ] + _home_mount_cmds(mount_home) + run_args
-    else:
-        entrypoint = SHELL_DICT[shell].executable
-        interactive_run_args = _interactive_opts(workdir) + [
-            "-it", \
-            "--entrypoint", entrypoint
-        ] + _home_mount_cmds(mount_home) + run_args
+    entrypoint = SHELL_DICT[shell].executable
+    interactive_run_args = _interactive_opts(workdir) + [
+        "-it", \
+        "--entrypoint", entrypoint
+    ] + _home_mount_cmds(mount_home) + run_args
 
 
     entrypoint_args = []
@@ -1040,6 +1035,83 @@ def run_interactive(job_mode: c.JobMode,
       workdir=workdir,
       **build_image_kwargs)
 
+
+def run_notebook_interactive(job_mode: c.JobMode,
+    workdir: Optional[str] = None,
+    image_id: Optional[str] = None,
+    dlvm: Optional[str] = None,
+    run_args: Optional[List[str]] = None,
+    mount_home: Optional[bool] = None,
+    shell: Optional[Shell] = None,
+    entrypoint: Optional[str] = None,
+    entrypoint_args: Optional[List[str]] = None,
+    **build_image_kwargs) -> None:
+  """Start a live shell in the terminal, with all dependencies installed and the
+  current working directory (and optionally the user's home directory) mounted.
+
+  Keyword args:
+
+  - job_mode: c.JobMode.
+  - image_id: ID of the image to run. Supplying this will skip an image build.
+  - run_args: extra arguments to supply to `docker run`.
+  - mount_home: if true, mounts the user's $HOME directory into the container
+    to `/home/$USERNAME`. If False, nothing.
+  - shell: name of the shell to install into the container. Also configures the
+    entrypoint if that's not supplied.
+  - entrypoint: command to run. Defaults to the executable command for the
+    supplied shell.
+  - entrypoint_args: extra arguments to supply to the entrypoint.
+
+  any extra kwargs supplied are passed through to build_image.
+
+  """
+  if workdir is None:
+    workdir = DEFAULT_WORKDIR
+
+  if run_args is None:
+    run_args = []
+
+  if entrypoint_args is None:
+    entrypoint_args = []
+
+  if mount_home is None:
+    mount_home = True
+
+  if shell is None:
+    # Only set a default shell if we're also mounting the home volume.
+    # Otherwise a custom shell won't have access to the user's profile.
+    shell = default_shell() if mount_home else Shell.bash
+
+  if entrypoint is None:
+    entrypoint = SHELL_DICT[shell].executable
+
+  if dlvm is None:
+    # Pass the default entrypoint if not using DLVM
+    # Otherwise set the DLVM entrypoint depending on if we are in notebook
+    # mode or shell mode.
+    interactive_run_args = _interactive_opts(workdir) + [
+        "-it", \
+        "--entrypoint", entrypoint
+    ] + _home_mount_cmds(mount_home) + run_args
+  else:
+    # Don't set an entrypoint if we are running the DLVM notebook
+    # Otherwise we are running in shell mode so we pass in the shell
+    # entrypoint args.
+    interactive_run_args = _interactive_opts(workdir) + [
+        "-it", \
+      ] + _home_mount_cmds(mount_home) + run_args
+
+
+    entrypoint_args = []
+
+  run(job_mode=job_mode,
+      run_args=interactive_run_args,
+      script_args=entrypoint_args,
+      image_id=image_id,
+      dlvm=dlvm,
+      shell=shell,
+      workdir=workdir,
+      **build_image_kwargs)
 
 def run_notebook(job_mode: c.JobMode,
                  port: Optional[int] = None,
@@ -1085,7 +1157,7 @@ def run_notebook(job_mode: c.JobMode,
   ]
   docker_args = ["-p", "{}:{}".format(port, port)] + run_args
 
-  run_interactive(job_mode,
+  run_notebook_interactive(job_mode,
                   dlvm=dlvm,
                   entrypoint="python",
                   #entrypoint="/bin/bash",
