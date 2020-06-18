@@ -5,7 +5,7 @@
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
 [![caliban version](https://img.shields.io/pypi/v/caliban?maxAge=3600)](https://pypi.org/project/caliban)
 
-Caliban is a tool that helps researchers launch and track their numerical experiments in an isolated, reproducible computing environment. It was developed by machine learning researchers and engineers, and makes it easy to go from a simple prototype running on a workstation to thousands of experimental jobs running on Cloud. 
+Caliban is a tool that helps researchers launch and track their numerical experiments in an isolated, reproducible computing environment. It was developed by machine learning researchers and engineers, and makes it easy to go from a simple prototype running on a workstation to thousands of experimental jobs running on Cloud.
 
 With Caliban, you can:
 
@@ -17,7 +17,7 @@ With Caliban, you can:
 
 ## Quickstart
 
-[Install Docker](#docker), then install Caliban:
+[Install Docker](#docker), make sure it's running, then install Caliban:
 
 ```bash
 pip install caliban
@@ -44,11 +44,10 @@ echo '{"learning_rate": [0.01, 0.001, 0.0001]}' | caliban run --experiment_confi
 
 Full documentation for Caliban lives at [Read The Docs](https://caliban.readthedocs.io/en/latest).
 
+### Dramatic Interlude
+
 <p>
-<!--<p align="center">-->
-<img style="float: right;" align="right"
-src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Stephano%2C_Trinculo_and_Caliban_dancing_from_The_Tempest_by_Johann_Heinrich_Ramberg.jpg" align="center" width="350">
-<!--</p>-->
+<img style="float: right;" align="right" src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Stephano%2C_Trinculo_and_Caliban_dancing_from_The_Tempest_by_Johann_Heinrich_Ramberg.jpg" width="350">
 
 > “Be not afeard; the isle is full of noises, \
 > Sounds, and sweet airs, that give delight and hurt not. \
