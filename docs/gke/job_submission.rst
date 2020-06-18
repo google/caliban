@@ -89,7 +89,7 @@ the 'details' button, we see this.
 .. image:: /_static/img/gke/unschedulable_details.png
   :width: 600
   :align: center
-  :alt: Unschedulable
+  :alt: Unschedulable details
 
 This is the pod associated with our job. Clicking on this shows us details on
 the pod, where we can watch its development. On the pod page, choose the
@@ -98,7 +98,7 @@ the pod, where we can watch its development. On the pod page, choose the
 .. image:: /_static/img/gke/pod_events.png
   :width: 600
   :align: center
-  :alt: Unschedulable
+  :alt: Pod events
 
 Here we can see the progression of the pod. (note that the events here are in
 order of 'last seen', so they appear out-of-order when trying to divine the
@@ -117,7 +117,7 @@ pools from the cluster page:
 .. image:: /_static/img/gke/node_pool_autoprovision.png
   :width: 600
   :align: center
-  :alt: Unschedulable
+  :alt: Node pool autoprovisioning
 
 Now we can see that the cluster has auto-provisioned a new node pool for us in
 response to our job submission. Exploring this further you can find the new node
