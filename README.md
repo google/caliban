@@ -97,9 +97,13 @@ Caliban executes your code inside a "container", managed by
 [Docker](https://hub.docker.com/editions/community/docker-ce-desktop-mac). To get Docker:
 
 - On MacOS, follow the installation instructions at [Docker
-  Desktop](https://hub.docker.com/editions/community/docker-ce-desktop-mac).
+  Desktop](https://hub.docker.com/editions/community/docker-ce-desktop-mac) and
+  start the newly-installed Docker Desktop application.
 - On Linux, visit the [Docker installation
   instructions](https://docs.docker.com/engine/install/ubuntu/#installation-methods).
+  (It's important that you configure [sudo-less
+  Docker](https://caliban.readthedocs.io/en/latest/getting_started/prerequisites.html#docker)
+  and start Docker running on your machine.)
 
 ### Python 3.6
 Make sure your Python version is up to date:
@@ -149,12 +153,12 @@ We will:
 ### Preparing your Project
 
 Create an empty directory and use `curl` to download a [python
-script](https://github.com/google/caliban/blob/sritchie/doc_test/tutorials/basic/mnist.py#L16)
+script](https://github.com/google/caliban/blob/master/tutorials/basic/mnist.py#L16)
 that trains a basic neural betwork.
 
 ```
 mkdir demo && cd demo
-curl --output mnist.py https://raw.githubusercontent.com/google/caliban/sritchie/doc_test/tutorials/basic/mnist.py
+curl --output mnist.py https://raw.githubusercontent.com/google/caliban/master/tutorials/basic/mnist.py
 ```
 
 Create a file called `requirements.txt` to declare `tensorflow-cpu` as a dependency:
@@ -421,6 +425,13 @@ your machine:
 * [`caliban
   cluster`](https://caliban.readthedocs.io/en/latest/cli/caliban_cluster.html)
   creates GKE clusters and submits jobs to GKE clusters.
+
+* [`caliban
+  status`](https://caliban.readthedocs.io/en/latest/cli/caliban_status.html)
+  displays information about all jobs submitted by Caliban, and makes it easy to
+  interact with large groups of experiments. Use `caliban status` when need to
+  cancel pending jobs, or re-build a container and resubmit a batch of
+  experiments after fixing a bug.
 
 ## Disclaimer
 
