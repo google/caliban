@@ -35,7 +35,7 @@ import googleapiclient
 from googleapiclient import discovery
 from googleapiclient.http import HttpRequest
 from google.auth.credentials import Credentials
-from google.auth._default import (_load_credentials_from_file,
+from google.auth._default import (load_credentials_from_file,
                                   _AUTHORIZED_USER_TYPE, _SERVICE_ACCOUNT_TYPE)
 from google.oauth2 import service_account
 from google.cloud.container_v1.types import Cluster as GKECluster, NodePool
@@ -679,7 +679,7 @@ def credentials_from_file(
                                                                   scopes=scopes)
     project_id = info.get('project_id')
   elif cred_type == _AUTHORIZED_USER_TYPE:
-    creds, project_id = _load_credentials_from_file(cred_file)
+    creds, project_id = load_credentials_from_file(cred_file)
   else:
     logging.error('invalid credentials file format: {}'.format(cred_type))
     return CredentialsData(None, None)
