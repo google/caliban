@@ -134,14 +134,14 @@ dashboard using stackdriver (Kubernetes Engine > Workloads > our-job):
 .. image:: /_static/img/gke/job_logs.png
   :width: 600
   :align: center
-  :alt: Unschedulable
+  :alt: Job logs
 
 This will take you to the stackdriver log viewer for the container:
 
 .. image:: /_static/img/gke/stackdriver_logs.png
   :width: 600
   :align: center
-  :alt: Unschedulable
+  :alt: Stackdriver logs
 
 Clean up Job
 ~~~~~~~~~~~~
@@ -155,4 +155,4 @@ use caution)
 .. image:: /_static/img/gke/cleanup_job.png
   :width: 600
   :align: center
-  :alt: Unschedulable
+  :alt: Cleanup job
