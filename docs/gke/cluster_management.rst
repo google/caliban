@@ -25,6 +25,11 @@ The command will typically take several minutes to complete. The command will
 provide you with an url you can follow to monitor the creation process. The page
 will look something like the following:
 
+.. image:: /_static/img/cloud/cluster_create_progress.png
+  :width: 600
+  :align: center
+  :alt: Cluster creation progress
+
 Once your cluster is created and running, you can view and inspect it from the
 cloud dashboard from the ``Kuberenetes Engine > Clusters`` menu option:
 
