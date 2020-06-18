@@ -153,12 +153,12 @@ We will:
 ### Preparing your Project
 
 Create an empty directory and use `curl` to download a [python
-script](https://raw.githubusercontent.com/google/caliban/master/tutorials/basic/mnist.py)
+script](https://github.com/google/caliban/blob/master/tutorials/basic/mnist.py#L16)
 that trains a basic neural betwork.
 
 ```
 mkdir demo && cd demo
-curl --output mnist.py https://raw.githubusercontent.com/google/caliban/sritchie/doc_test/tutorials/basic/mnist.py
+curl --output mnist.py https://raw.githubusercontent.com/google/caliban/master/tutorials/basic/mnist.py
 ```
 
 Create a file called `requirements.txt` to declare `tensorflow-cpu` as a dependency:
