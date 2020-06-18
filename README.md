@@ -14,10 +14,9 @@ With Caliban, you can:
 - Submit your experiments as Cloud jobs, where they will run in the same isolated environment
 - Control and keep track of jobs
 
-
 ## Quickstart
 
-[Install Docker](#docker), make sure it's running, then install Caliban:
+[Install Docker](#docker), make sure it's running, then install Caliban (you'll need [Python >= 3.6](#python-36)):
 
 ```bash
 pip install caliban
