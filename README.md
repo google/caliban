@@ -239,8 +239,7 @@ caliban run --experiment_config experiment.json --nogpu mnist.py
 ```
 
 You should see accuracies of roughly `0.9493`, `0.9723` and `0.9537`. Looks like
-`0.001` is a nice choice (unless I'm
-[overfitting??](https://www.reddit.com/r/MachineLearning/comments/81o4f0/d_does_most_research_in_ml_overfit_to_the_test/))
+`0.001` is a nice choice.
 
 ### Submitting to Cloud AI Platform
 
