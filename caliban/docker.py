@@ -1017,7 +1017,7 @@ def run_interactive(job_mode: c.JobMode,
     # Don't set an entrypoint if we are running the DLVM notebook
     # Otherwise we are running in shell mode so we pass in the shell
     # entrypoint args.
-    if shell is None:
+    if entrypoint_args == []:
         interactive_run_args = _interactive_opts(workdir) + [
             "-it", \
         ] + _home_mount_cmds(mount_home) + run_args
