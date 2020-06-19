@@ -211,7 +211,7 @@ def image_tag_arg(parser):
 
 
 def dlvm_arg(parser):
-  dlvm_types = {key for key in conf._dlvm_config('CPU').keys()}
+  dlvm_types = [key for key in sorted(conf._dlvm_config('CPU').keys())]
   parser.add_argument(
       "--dlvm",
       help="DLVM base image type. Must be one of  "
