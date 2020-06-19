@@ -38,14 +38,15 @@ LABEL maintainer="samritchie@google.com"
 ENV LANG C.UTF-8
 
 # Install git so that users can declare git dependencies, and python3 plus
-# python3-venv so we can generate an isolated Python environment inside
+# python3-virtualenv so we can generate an isolated Python environment inside
 # the container.
 RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
   python3 \
   python3-virtualenv \
-  wget && \
-  rm -rf /var/lib/apt/lists/*
+  wget \
+  && apt-get clean && \
+  && rm -rf /var/lib/apt/lists/*
 
 # Some tools expect a "python" binary.
 RUN ln -s $(which python3) /usr/local/bin/python

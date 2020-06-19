@@ -95,10 +95,10 @@ ShellData = NamedTuple("ShellData", [("executable", str),
 def apt_install(*packages: str) -> str:
   """Returns a command that will install the supplied list of packages without
   requiring confirmation or any user interaction.
-
   """
   package_str = ' '.join(packages)
-  return "apt-get install --yes --no-install-recommends {}".format(package_str)
+  no_prompt = "DEBIAN_FRONTEND=noninteractive"
+  return f"{no_prompt} apt-get install --yes --no-install-recommends {package_str}"
 
 
 def apt_command(commands: List[str]) -> List[str]:
@@ -107,7 +107,7 @@ def apt_command(commands: List[str]) -> List[str]:
 
   """
   update = ["apt-get update"]
-  cleanup = ["rm -rf /var/lib/apt/lists/*"]
+  cleanup = ["apt-get clean", "rm -rf /var/lib/apt/lists/*"]
   return update + commands + cleanup
 
 
@@ -1025,7 +1025,7 @@ def run_notebook(job_mode: c.JobMode,
   docker_args = ["-p", "{}:{}".format(port, port)] + run_args
 
   run_interactive(job_mode,
-                  entrypoint="/opt/venv/bin/python",
+                  entrypoint="/opt/conda/envs/caliban/bin/python",
                   entrypoint_args=jupyter_args,
                   run_args=docker_args,
                   inject_notebook=inject_arg,
