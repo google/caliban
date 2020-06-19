@@ -211,9 +211,11 @@ def image_tag_arg(parser):
 
 
 def dlvm_arg(parser):
+  dlvm_types = {key for key in conf._dlvm_config('CPU').keys()}
   parser.add_argument(
       "--dlvm",
-      help="DLVM base image tag accessible via Container Registry. If supplied, "
+      help="DLVM base image type. Must be one of  "
+           "{}".format(dlvm_types) + ". If supplied, "
       "Caliban will skip the build and push steps and use this image tag.")
 
 

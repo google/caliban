@@ -469,13 +469,13 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
     ret += "\n{}".format(_copy_dir_entry(workdir, user_id, user_group, d))
   return ret
 
-def _dlvm_id(image: str) -> str:
-  if image == "pytorch":
-    return "gcr.io/deeplearning-platform-release/pytorch-cpu:latest"
-  elif image == "tf-21":
-    return "gcr.io/deeplearning-platform-release/tf2-cpu.2-1"
-  else:
-    return None
+
+def _dlvm_id(job_mode: c.JobMode, dlvm_arg: str) -> str:
+  """Returns the DLVM image url for job mode and the command line parameter
+
+  """
+  return c.extract_dlvm_image(job_mode, dlvm_arg)
+
 
 def _dockerfile_template(
     job_mode: c.JobMode,
