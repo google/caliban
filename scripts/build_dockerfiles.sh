@@ -19,7 +19,14 @@
 # Error out if any of the commands fail.
 set -e
 
-docker build -t gcr.io/blueshift-playground/blueshift:cpu -f- . <Dockerfile
+# GPU base-base, with all CUDA dependencies required for GPU work. Built off of the NVIDIA base image.
+docker build -t gcr.io/blueshift-playground/blueshift:gpu-base -f- . <dockerfiles/Dockerfile.gpu
+docker push gcr.io/blueshift-playground/blueshift:gpu-base
+
+# CPU base image for jobs.
+docker build -t gcr.io/blueshift-playground/blueshift:cpu -f- . <dockerfiles/Dockerfile
 docker push gcr.io/blueshift-playground/blueshift:cpu
-docker build --build-arg BASE_IMAGE=tensorflow/tensorflow:2.1.0-gpu-py3 -t gcr.io/blueshift-playground/blueshift:gpu -f- . <Dockerfile
+
+# GPU image.
+docker build --build-arg BASE_IMAGE=gcr.io/blueshift-playground/blueshift:gpu-base -t gcr.io/blueshift-playground/blueshift:gpu -f- . <dockerfiles/Dockerfile
 docker push gcr.io/blueshift-playground/blueshift:gpu

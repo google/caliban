@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command line parser for the Caliban app."""
+import argparse
 import os
 import sys
-import argparse
 from argparse import REMAINDER
 from typing import Any, Dict, List, Optional, Union
 
@@ -27,12 +27,11 @@ from blessings import Terminal
 import caliban.cloud.types as ct
 import caliban.config as conf
 import caliban.docker as docker
-import caliban.util as u
 import caliban.gke as gke
 import caliban.gke.constants as gke_k
-import caliban.gke.utils as gke_u
 import caliban.gke.types as gke_t
-
+import caliban.gke.utils as gke_u
+import caliban.util as u
 from caliban import __version__
 
 t = Terminal()
@@ -562,13 +561,15 @@ def generate_docker_args(job_mode: conf.JobMode,
   adc_loc = csdk.get_application_default_credentials_path()
   adc_path = adc_loc if os.path.isfile(adc_loc) else None
 
-  # TODO we may want to take a custom path, here, in addition to detecting it.
+  # TODO we may want to take custom paths, here, in addition to detecting them.
   reqs = "requirements.txt"
+  conda_env = "environment.yml"
 
   # Arguments that make their way down to caliban.docker.build_image.
   docker_args = {
       "extra_dirs": args.get("dir"),
       "requirements_path": reqs if os.path.exists(reqs) else None,
+      "conda_env_path": conda_env if os.path.exists(conda_env) else None,
       "caliban_config": conf.caliban_config(),
       "credentials_path": creds_path,
       "adc_path": adc_path,

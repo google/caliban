@@ -27,7 +27,7 @@ import sys
 from enum import Enum
 from pathlib import Path
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, NewType,
-                    Optional, Set, Union)
+                    Optional, Union)
 
 import tqdm
 from absl import logging
@@ -38,15 +38,16 @@ import caliban.util as u
 from caliban.history.utils import (get_sql_engine, get_mem_engine,
                                    session_scope, generate_container_spec,
                                    create_experiments)
-from caliban.history.types import (ExperimentGroup, Experiment, ContainerSpec,
-                                   JobSpec, Job, Platform, JobSpec, Job,
+
+from caliban.history.types import (Experiment, JobSpec, Job, Platform,
                                    JobStatus)
 t = Terminal()
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
-TF_VERSIONS = {"2.0.0", "1.12.3", "1.14.0", "1.15.0"}
+TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
+CONDA_BIN = "/opt/conda/bin/conda"
 
 ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
@@ -94,10 +95,10 @@ ShellData = NamedTuple("ShellData", [("executable", str),
 def apt_install(*packages: str) -> str:
   """Returns a command that will install the supplied list of packages without
   requiring confirmation or any user interaction.
-
   """
   package_str = ' '.join(packages)
-  return "apt-get install --yes --no-install-recommends {}".format(package_str)
+  no_prompt = "DEBIAN_FRONTEND=noninteractive"
+  return f"{no_prompt} apt-get install --yes --no-install-recommends {package_str}"
 
 
 def apt_command(commands: List[str]) -> List[str]:
@@ -106,7 +107,7 @@ def apt_command(commands: List[str]) -> List[str]:
 
   """
   update = ["apt-get update"]
-  cleanup = ["rm -rf /var/lib/apt/lists/*"]
+  cleanup = ["apt-get clean", "rm -rf /var/lib/apt/lists/*"]
   return update + commands + cleanup
 
 
@@ -216,10 +217,12 @@ def _dependency_entries(workdir: str,
                         user_id: int,
                         user_group: int,
                         requirements_path: Optional[str] = None,
+                        conda_env_path: Optional[str] = None,
                         setup_extras: Optional[List[str]] = None) -> str:
   """Returns the Dockerfile entries required to install dependencies from either:
 
   - a requirements.txt file, path supplied by requirements_path
+  - a conda environment.yml file, path supplied by conda_env_path.
   - a setup.py file, if some sequence of dependencies is supplied.
 
   An empty list for setup_extras means, run `pip install -c .` with no extras.
@@ -229,26 +232,25 @@ def _dependency_entries(workdir: str,
   ret = ""
 
   if setup_extras is not None:
-    ret += """
+    ret += f"""
 COPY --chown={user_id}:{user_group} setup.py {workdir}
-RUN /bin/bash -c "pip install --no-cache-dir {extras}"
-""".format_map({
-        "user_id": user_id,
-        "user_group": user_group,
-        "workdir": workdir,
-        "extras": extras_string(setup_extras)
-    })
+RUN /bin/bash -c "pip install --no-cache-dir {extras_string(setup_extras)}"
+"""
+
+  if conda_env_path is not None:
+    ret += f"""
+COPY --chown={user_id}:{user_group} {conda_env_path} {workdir}
+RUN /bin/bash -c "{CONDA_BIN} env update \
+    --quiet --name caliban \
+    --file {conda_env_path} && \
+    {CONDA_BIN} clean -y -q --all"
+"""
 
   if requirements_path is not None:
-    ret += """
+    ret += f"""
 COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
-""".format_map({
-        "user_id": user_id,
-        "user_group": user_group,
-        "workdir": workdir,
-        "requirements_path": requirements_path
-    })
+"""
 
   return ret
 
@@ -309,7 +311,7 @@ COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
 
 # Use the credentials file to activate gcloud, gsutil inside the container.
 RUN gcloud auth activate-service-account --key-file={container_creds} && \
- git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
+  git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
 
 ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
 """.format_map({
@@ -398,7 +400,7 @@ RUN pip install {}{}
 RUN /opt/conda/bin/pip install \
   https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
 
-RUN /opt/conda/bin/jupyter lab build --minimize==False
+RUN /opt/conda/bin/jupyter lab build --minimize=False
   """
 
 
@@ -481,6 +483,7 @@ def _dockerfile_template(
     base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
     package: Optional[Union[List, u.Package]] = None,
     requirements_path: Optional[str] = None,
+    conda_env_path: Optional[str] = None,
     setup_extras: Optional[List[str]] = None,
     adc_path: Optional[str] = None,
     credentials_path: Optional[str] = None,
@@ -534,8 +537,9 @@ FROM {base_image}
 # Create the same group we're using on the host machine.
 RUN [ $(getent group {gid}) ] || groupadd --gid {gid} {gid}
 
-# Create the user by name.
-RUN useradd --no-create-home -u {uid} -g {gid} --shell /bin/bash {username}
+# Create the user by name. --no-log-init guards against a crash with large user
+# IDs.
+RUN useradd --no-log-init --no-create-home -u {uid} -g {gid} --shell /bin/bash {username}
 
 # The directory is created by root. This sets permissions so that any user can
 # access the folder.
@@ -575,8 +579,12 @@ USER {uid}:{gid}
                                     uid,
                                     gid,
                                     requirements_path=requirements_path,
+                                    conda_env_path=conda_env_path,
                                     setup_extras=setup_extras)
 
+  if inject_notebook.value != 'none':
+    install_lab = inject_notebook == NotebookInstall.lab
+    dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
   if extra_dirs is not None:
     dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
@@ -931,9 +939,6 @@ def run(job_mode: c.JobMode,
   if script_args is None:
     script_args = []
 
-  logging.info("run_args {}".format(run_args))
-  logging.info("script_args {}".format(script_args))
-
   if dlvm is not None:
     image_id = build_image(job_mode, dlvm=dlvm, **build_image_kwargs)
   elif image_id is None:
@@ -1098,6 +1103,7 @@ def run_notebook_interactive(job_mode: c.JobMode,
       workdir=workdir,
       **build_image_kwargs)
 
+
 def run_notebook(job_mode: c.JobMode,
                  port: Optional[int] = None,
                  lab: Optional[bool] = None,
@@ -1144,8 +1150,7 @@ def run_notebook(job_mode: c.JobMode,
 
   run_notebook_interactive(job_mode,
                   dlvm=dlvm,
-                  entrypoint="python",
-                  #entrypoint="/bin/bash",
+                  entrypoint="/opt/conda/envs/caliban/bin/python",
                   entrypoint_args=jupyter_args,
                   run_args=docker_args,
                   inject_notebook=inject_arg,

@@ -47,6 +47,11 @@ laptop or workstation:
 * :doc:`/cli/caliban_cluster` creates GKE clusters and submits jobs to GKE
   clusters.
 
+* :doc:`/cli/caliban_status` displays information about all jobs submitted by
+  Caliban, and makes it easy to interact with large groups of experiments. Use
+  :doc:`/cli/caliban_status` when you need to cancel pending jobs, or re-build a
+  container and resubmit a batch of experiments after fixing a bug.
+
 These all work from :doc:`your Macbook Pro <explore/mac>`. (Yes, you can build
 and submit GPU jobs to Cloud from your Mac!)
 
@@ -131,6 +136,8 @@ with Caliban.
    cloud/gpu_specs
    cloud/ai_platform_tpu
    cloud/rate_limit
+   cloud/adc
+   cloud/bucket
 
 .. toctree::
    :maxdepth: 1
@@ -140,6 +147,29 @@ with Caliban.
    gke/prereq
    gke/cluster_management
    gke/job_submission
+=======
+Caliban reference documentation
+===================================
+
+Composable transformations of Python+NumPy programs: differentiate, vectorize,
+JIT to GPU/TPU, and more.
+
+For an introduction to Caliban, start at the `Caliban GitHub page
+<https://github.com/google/caliban>`_.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+.. argparse::
+   :module: caliban.cli
+   :func: caliban_parser
+   :prog: caliban
+
+.. argparse::
+   :module: caliban.expansion
+   :func: expansion_parser
+   :prog: expansion
 
 
 Indices and tables

@@ -83,7 +83,7 @@ compatibility table hasn't been updated to support some new combination, you can
 skip all of these validations by providing ``--force`` as an option.
 
 Custom Machine Types
-^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~
 
 The ``--machine_type`` option allows you to specify a custom node type for the
 master node where your containerized job will run. ``caliban cloud --help`` will

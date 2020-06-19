@@ -17,50 +17,34 @@
 
 import json
 import logging
-import os
-import pprint as pp
 import re
-import sys
-from argparse import REMAINDER, ArgumentTypeError
-from enum import Enum
-from time import sleep
-from copy import deepcopy
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-import google
-import google.auth.environment_vars as auth_env
 import googleapiclient
 import kubernetes
 import requests
 # silence warnings about ssl connection not being verified
 import urllib3
 import yaml
-from google.auth import compute_engine
 from google.auth.credentials import Credentials
 from google.cloud.container_v1 import ClusterManagerClient
-from google.cloud.container_v1.types import Cluster as GKECluster
 from google.cloud.container_v1.types import NodePool
-from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.http import HttpRequest
 from kubernetes.client import (V1Container, V1DaemonSet, V1EnvVar, V1Job,
                                V1JobSpec, V1ObjectMeta, V1Pod, V1PodSpec,
                                V1PodTemplateSpec, V1ResourceRequirements,
                                V1Toleration)
-
 from kubernetes.client.api_client import ApiClient
 
-import caliban
 import caliban.config as conf
 import caliban.gke.constants as k
 import caliban.gke.utils as utils
-import caliban.util as u
 from caliban.cloud.types import (GPU, TPU, Accelerator, GPUSpec, MachineType,
-                                 TPUSpec, parse_machine_type)
+                                 TPUSpec)
 from caliban.gke.types import NodeImage, OpStatus, ReleaseChannel
 from caliban.gke.utils import trap
-from caliban.history.types import (JobSpec, Job, Experiment, Platform,
-                                   JobStatus)
+from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 

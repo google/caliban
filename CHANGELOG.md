@@ -1,4 +1,29 @@
-# 0.1.16 (IN PROGRESS)
+# 0.2.4
+
+- fixes a bug with `parse_region` not handling a lack of default.
+- converts the build to Github Actions.
+- Rolls Caliban back to requiring only python 3.6 support.
+- Removes some unused imports from a few files.
+
+# 0.2.3
+
+- Added fix for an issue where large user IDs would crash Docker during the
+  build phase. https://github.com/google/caliban/pull/8
+
+# 0.2.2
+
+- Fix for bug with requirements.txt files.
+
+# 0.2.1
+
+- Added support for Conda dependencies
+  (https://github.com/google/caliban/pull/5). If you include `environment.yml`
+  in your project's folder Caliban will attempt to install all dependencies.
+- Caliban now uses a slimmer base image for GPU mode.
+- Base images for CPU and GPU modes now use Conda to manage the container's
+  virtual environment instead of `virtualenv`.
+
+# 0.2.0
 
 - Caliban now caches the service account key and ADC file; you should see faster
   builds, BUT you might run into trouble if you try to run multiple Caliban
