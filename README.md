@@ -170,7 +170,7 @@ We will:
 
 Create an empty directory and use `curl` to download a [python
 script](https://github.com/google/caliban/blob/master/tutorials/basic/mnist.py#L16)
-that trains a basic neural betwork.
+that trains a basic neural network.
 
 ```
 mkdir demo && cd demo
