@@ -308,11 +308,8 @@ def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
 COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
 
 # Use the credentials file to activate gcloud, gsutil inside the container.
-#RUN mkdir -p /home/agravat/.config
-#RUN chown agravat -R /home/agravat/.config
-#RUN gcloud init
-#RUN gcloud auth activate-service-account --key-file={container_creds} && \
-#  git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
+RUN gcloud auth activate-service-account --key-file={container_creds} && \
+ git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
 
 ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
 """.format_map({
@@ -529,9 +526,7 @@ def _dockerfile_template(
   if dlvm is None:
     base_image = base_image_fn(job_mode)
   else:
-    base_image = _dlvm_id(dlvm)
-
-  logging.info("base image ------ {}".format(base_image))
+    base_image = _dlvm_id(job_mode, dlvm)
 
   dockerfile = """
 FROM {base_image}

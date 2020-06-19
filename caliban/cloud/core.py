@@ -543,14 +543,6 @@ def submit_job_specs(
 
   execute_requests(requests, num_specs, num_retries=request_retries)
 
-def _dlvm_id(image: str) -> str:
-  if image == "pytorch":
-    return "gcr.io/deeplearning-platform-release/pytorch-cpu:latest"
-  elif image == "tf-21":
-    return "gcr.io/deeplearning-platform-release/tf2-cpu.2-1"
-  else:
-    return None
-
 
 def submit_ml_job(job_mode: conf.JobMode,
                   docker_args: Dict[str, Any],
