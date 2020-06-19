@@ -104,7 +104,24 @@ Caliban executes your code inside a "container", managed by
   Docker](https://caliban.readthedocs.io/en/latest/getting_started/prerequisites.html#docker)
   and start Docker running on your machine.)
 
+Make sure Docker is correctly installed, configured and running by executing the
+following command:
+
+```bash
+docker run hello-world
+```
+
+You should see output that looks like this:
+
+```text
+...
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+...
+```
+
 ### Python 3.6
+
 Make sure your Python version is up to date:
 
 ```bash
@@ -428,8 +445,8 @@ your machine:
 * [`caliban
   status`](https://caliban.readthedocs.io/en/latest/cli/caliban_status.html)
   displays information about all jobs submitted by Caliban, and makes it easy to
-  interact with large groups of experiments. Use `caliban status` when need to
-  cancel pending jobs, or re-build a container and resubmit a batch of
+  interact with large groups of experiments. Use `caliban status` when you need
+  to cancel pending jobs, or re-build a container and resubmit a batch of
   experiments after fixing a bug.
 
 ## Disclaimer

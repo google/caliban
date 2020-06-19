@@ -17,8 +17,7 @@
 
 import argparse
 from enum import Enum
-from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
-                    Set, Tuple, Union)
+from typing import Callable, List, NamedTuple, Optional, Set, Union
 
 import caliban.util as u
 

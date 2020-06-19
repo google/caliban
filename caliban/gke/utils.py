@@ -17,38 +17,33 @@
 
 from __future__ import absolute_import
 
-from typing import Dict, List, Optional, Any, Tuple
+import argparse
+import json
 import logging
-from urllib.parse import urlencode, urlparse
-from time import sleep
-import re
 import os
 import pprint as pp
-import json
+import re
+from time import sleep
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlencode, urlparse
+
+import google
 import yaml
-import argparse
+from google.auth._cloud_sdk import get_application_default_credentials_path
+from google.auth._default import (_AUTHORIZED_USER_TYPE, _SERVICE_ACCOUNT_TYPE,
+                                  load_credentials_from_file)
+from google.cloud.container_v1 import ClusterManagerClient
+from google.cloud.container_v1.types import Cluster as GKECluster
+from google.oauth2 import service_account
+from googleapiclient import discovery
+from kubernetes.client import V1Job
+from kubernetes.client.api_client import ApiClient
 from yaspin import yaspin
 from yaspin.spinners import Spinners
 
-import google
-import googleapiclient
-from googleapiclient import discovery
-from googleapiclient.http import HttpRequest
-from google.auth.credentials import Credentials
-from google.auth._default import (load_credentials_from_file,
-                                  _AUTHORIZED_USER_TYPE, _SERVICE_ACCOUNT_TYPE)
-from google.oauth2 import service_account
-from google.cloud.container_v1.types import Cluster as GKECluster, NodePool
-from google.cloud.container_v1 import ClusterManagerClient
-from google.auth._cloud_sdk import get_application_default_credentials_path
-
-from kubernetes.client import V1Job
-from kubernetes.client.api_client import ApiClient
-
 import caliban.gke.constants as k
-from caliban.gke.types import (NodeImage, OpStatus, CredentialsData,
-                               ReleaseChannel)
-from caliban.cloud.types import (GPU, GPUSpec, TPU, TPUSpec)
+from caliban.cloud.types import GPU, TPU, GPUSpec, TPUSpec
+from caliban.gke.types import (CredentialsData, NodeImage, OpStatus)
 
 
 # ----------------------------------------------------------------------------
