@@ -49,7 +49,7 @@ laptop or workstation:
 
 * :doc:`/cli/caliban_status` displays information about all jobs submitted by
   Caliban, and makes it easy to interact with large groups of experiments. Use
-  :doc:`/cli/caliban_status` when need to cancel pending jobs, or re-build a
+  :doc:`/cli/caliban_status` when you need to cancel pending jobs, or re-build a
   container and resubmit a batch of experiments after fixing a bug.
 
 These all work from :doc:`your Macbook Pro <explore/mac>`. (Yes, you can build

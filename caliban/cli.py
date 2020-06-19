@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command line parser for the Caliban app."""
+import argparse
 import os
 import sys
-import argparse
 from argparse import REMAINDER
 from typing import Any, Dict, List, Optional, Union
 
@@ -27,12 +27,11 @@ from blessings import Terminal
 import caliban.cloud.types as ct
 import caliban.config as conf
 import caliban.docker as docker
-import caliban.util as u
 import caliban.gke as gke
 import caliban.gke.constants as gke_k
-import caliban.gke.utils as gke_u
 import caliban.gke.types as gke_t
-
+import caliban.gke.utils as gke_u
+import caliban.util as u
 from caliban import __version__
 
 t = Terminal()

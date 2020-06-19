@@ -13,36 +13,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-#!/usr/bin/python
-#
-# Copyright 2020 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """gke cli support"""
 
 import json
 import logging
-import pprint as pp
-import re
 import os
-from typing import List, Optional, Tuple, Iterable, Dict, Any
+import pprint as pp
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import googleapiclient
 from google.auth.credentials import Credentials
-from googleapiclient import discovery
-from kubernetes.client import V1Job, V1JobSpec, V1ObjectMeta, V1Pod
-from datetime import datetime
+from kubernetes.client import V1Job
 
 import caliban.cli as cli
 import caliban.config as conf
@@ -50,14 +32,10 @@ import caliban.gke.constants as k
 import caliban.gke.utils as utils
 import caliban.util as u
 from caliban.cloud.core import generate_image_tag
-from caliban.cloud.types import parse_machine_type
 from caliban.gke.cluster import Cluster
-from caliban.gke.types import CredentialsData, NodeImage
-
-from caliban.history.utils import (get_sql_engine, get_mem_engine,
-                                   session_scope, generate_container_spec,
-                                   create_experiments)
-import caliban.history.types as ht
+from caliban.history.utils import (create_experiments, generate_container_spec,
+                                   get_mem_engine, get_sql_engine,
+                                   session_scope)
 
 
 # ----------------------------------------------------------------------------
