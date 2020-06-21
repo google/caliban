@@ -77,15 +77,19 @@ modes with opinionated, intuitive interfaces for each phase of machine learning
 research - interactive development, local execution, cloud execution and data
 analysis in a notebook environment.
 
-The user simply writes code and runs it using Caliban's various subcommands,
+With Caliban, the user simply writes code and runs it using Caliban's various subcommands,
 instead of executing code directly on their machine. This process is, for the
-researcher, just as easy as executing code directly. Behind the scenes, all
+researcher, just as easy as executing code directly: all the user needs to do is specify 
+required packages in a `requirements.txt` file.  Behind the scenes, all
 development has moved inside of a Docker container. This makes it transparent to
 move code's execution from a local environment to Cloud. This ease makes it easy
 to go from a simple prototype running on a workstation to thousands of
 experimental jobs running on Cloud. This removal of friction allows a researcher
 the freedom to be creative in ways that their psychology simply wouldn't allow,
 given the typical pain caused by moves between environments.
+
+In addition, Caliban makes it easy to launch multiple jobs with varying command-line
+arguments with a single command, using experiment configuration files.  
 
 # Caliban's Execution Environments
 
