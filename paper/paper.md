@@ -39,36 +39,39 @@ generate measurements or a serialized model for later analysis.
 
 Writing and debugging model training code is fastest on a local workstation.
 Running the script to generate measurements almost always takes place on some
-much more powerful machine, typically in a Cloud environment. (The [imagenet
-dataset](https://www.tensorflow.org/datasets/catalog/imagenet2012) is 144 GiB,
-for example, far too large to process on a stock laptop.)
+much more powerful machine, typically in a Cloud environment. The [imagenet
+dataset](https://www.tensorflow.org/datasets/catalog/imagenet2012) [@Deng:2009]
+is 144 GiB, for example, far too large to process on a stock laptop.
 
 Moving between these environments almost always causes tremendous pain. In
 Python, a common language for machine learning research, the researcher installs
 their script's dependencies in a system-wide package registry. The Cloud
 environment can have different dependencies available, or different versions of
-the same dependency; different versions of Python itself; different software
-drivers, which produce different behavior from the script that seemed to work locally.
+the same dependency; different versions of Python itself; or different software
+drivers, which elicit different behavior from the script that seemed to work
+locally.
 
 This environment mismatch introduces tremendous friction into the research
 process. The only way to debug a script that succeeds locally and fails in a
-Cloud environment is to attempt to interpret the often-cryptic error logs.
+remote Cloud environment is to attempt to interpret the often-cryptic error
+logs.
 
 ## Docker
 
-One solution to this problem is Docker. A researcher can package their code and
-dependencies inside of a Docker container and execute this container on
-different platforms, each with different hardware options available but with a
-consistent software environment.
+One solution to this problem is Docker [@Merkel:2014]. A researcher can package
+their code and dependencies inside of a Docker container and execute this
+container on different platforms, each with different hardware options available
+but with a consistent software environment.
 
 Many Cloud services (Cloud AI Platform, Amazon Sagemaker etc) allow users to
 submit and execute Docker containers that they've built themselves.
 
-But the process of building a Docker container is difficult, error-prone and
-almost totally orthogonal to the skill set of a machine learning researcher. The
-friction of debugging between local and Cloud environments is solved, but only
-by accepting a not-insignificant baseline level of pain into the local
-development experience.
+Packaging research code inside of a Docker container has many benefits for
+reproducibility [@Cito:2016]. But the process of building a Docker container is
+difficult, error-prone and almost totally orthogonal to the skill set of a
+machine learning researcher. The friction of debugging between local and Cloud
+environments is solved, but only by accepting a not-insignificant baseline level
+of pain into the local development experience.
 
 # Caliban and Reproducible Research
 
@@ -77,15 +80,41 @@ modes with opinionated, intuitive interfaces for each phase of machine learning
 research - interactive development, local execution, cloud execution and data
 analysis in a notebook environment.
 
-The user simply writes code and runs it using Caliban's various subcommands,
-instead of executing code directly on their machine. This process is, for the
-researcher, just as easy as executing code directly. Behind the scenes, all
-development has moved inside of a Docker container. This makes it transparent to
-move code's execution from a local environment to Cloud. This ease makes it easy
-to go from a simple prototype running on a workstation to thousands of
-experimental jobs running on Cloud. This removal of friction allows a researcher
-the freedom to be creative in ways that their psychology simply wouldn't allow,
-given the typical pain caused by moves between environments.
+With Caliban, the user simply writes code and runs it using Caliban's various
+subcommands, instead of executing code directly on their machine. This process
+is, for the researcher, just as easy as executing code directly: all the user
+needs to do is specify required packages in a `requirements.txt` file.
+
+Behind the scenes, all software execution has moved inside of a Docker
+container. This makes it transparent to move that execution from a local
+environment to Cloud, enabling a research project to grow from a simple
+prototype running on a workstation to thousands of experimental jobs running on
+Cloud with little to no cognitive load.
+
+This removal of friction allows a researcher the freedom to be creative in ways
+that their psychology simply wouldn't allow, given the typical pain caused by
+moves between environments.
+
+In addition, Caliban makes it easy to launch multiple jobs with varying
+command-line arguments with a single command, using experiment configuration
+files.
+
+# Impact
+
+Before we introduced Caliban in our lab, researchers reported spending multiple
+weeks learning how to run their experiments at scale. Caliban allows a new
+researcher to reach this level of proficiency in under an hour. Multiple papers
+currently in preparation contain research results generated from thousands of
+experiments executed using Caliban. Given the limited tenure of a typical
+machine learning internship and residency, the efficiency boost offered by
+Caliban can materially change the scope of project that a researcher would be
+willing to take on.
+
+In addition, any research conducted with Caliban that the researcher open
+sources is trivially executable by any interested party. The Docker environment
+managed by Caliban guarantees that anyone with access to the shared source code
+repository will be able to run experiments in an environment identical to the
+environment used in the original research program.
 
 # Caliban's Execution Environments
 
@@ -140,5 +169,3 @@ pricing is available to the researcher.
 status`](https://caliban.readthedocs.io/en/latest/cli/caliban_status.html)
 displays information about all jobs submitted by Caliban, and makes it easy to
 cancel, inspect or resubmit large groups of experiments.
-
-# References
