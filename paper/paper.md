@@ -1,108 +1,144 @@
-title: 'Gala: A Python package for galactic dynamics'
+---
+title: 'Caliban: Docker-based job manager for for reproducible workflows'
 tags:
-  - Python
-  - astronomy
-  - dynamics
-  - galactic dynamics
-  - milky way
+  - python
+  - docker
+  - machine learning
+  - reproducibility
 authors:
   - name: Sam Ritchie
-    orcid: 0000-0003-0872-7098
-    affiliation: "1, 2" # (Multiple affiliations must be quoted)
-  - name: Author Without ORCID
-    affiliation: 2
+    orcid: 0000-0002-0545-6360
+    affiliation: 1
+  - name: Ambrose Slone
+    affiliation: 1
+  - name: Vinay Ramasesh
+    orcid: 0000-0003-0625-3327
+    affiliation: 1
 affiliations:
- - name: Lyman Spitzer, Jr. Fellow, Princeton University
+ - name: Google
    index: 1
- - name: Institution 2
-   index: 2
-date: 13 August 2017
+date: 22 June 2020
 bibliography: paper.bib
-
-# Optional fields if submitting to a AAS journal too, see this blog post:
-# https://blog.joss.theoj.org/2018/12/a-new-collaboration-with-aas-publishing
-aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
-aas-journal: Astrophysical Journal <- The name of the AAS journal.
 ---
 
 # Summary
 
-The forces on stars, galaxies, and dark matter under external gravitational
-fields lead to the dynamical evolution of structures in the universe. The orbits
-of these bodies are therefore key to understanding the formation, history, and
-future state of galaxies. The field of "galactic dynamics," which aims to model
-the gravitating components of galaxies to study their structure and evolution,
-is now well-established, commonly taught, and frequently used in astronomy.
-Aside from toy problems and demonstrations, the majority of problems require
-efficient numerical tools, many of which require the same base code (e.g., for
-performing numerical orbit integration).
+Caliban is a command line tool that helps researchers launch and track their
+numerical experiments in an isolated, reproducible computing environment. It was
+developed by machine learning researchers and engineers, and makes it easy to go
+from a simple prototype running on a workstation to thousands of experimental
+jobs running in a Cloud environment.
 
-`Gala` is an Astropy-affiliated Python package for galactic dynamics. Python
-enables wrapping low-level languages (e.g., C) for speed without losing
-flexibility or ease-of-use in the user-interface. The API for `Gala` was
-designed to provide a class-based and user-friendly interface to fast (C or
-Cython-optimized) implementations of common operations such as gravitational
-potential and force evaluation, orbit integration, dynamical transformations,
-and chaos indicators for nonlinear dynamics. `Gala` also relies heavily on and
-interfaces well with the implementations of physical units and astronomical
-coordinate systems in the `Astropy` package [@astropy] (`astropy.units` and
-`astropy.coordinates`).
+# Motivation
 
-`Gala` was designed to be used by both astronomical researchers and by
-students in courses on gravitational dynamics or astronomy. It has already been
-used in a number of scientific publications [@Pearson:2017] and has also been
-used in graduate courses on Galactic dynamics to, e.g., provide interactive
-visualizations of textbook material [@Binney:2008]. The combination of speed,
-design, and support for Astropy functionality in `Gala` will enable exciting
-scientific explorations of forthcoming data releases from the *Gaia* mission
-[@gaia] by students and experts alike.
+Modern machine learning research typically requires a researcher to execute code
+in multiple computing environments. To investigate some property of a machine
+learning model, the researcher has to write a script that can accept a path to
+some dataset, train a model using some set of configurable parameters, and
+generate measurements or a serialized model for later analysis.
 
-# Mathematics
+Writing and debugging model training code is fastest on a local workstation.
+Running the script to generate measurements almost always takes place on some
+much more powerful machine, typically in a Cloud environment. (The [imagenet
+dataset](https://www.tensorflow.org/datasets/catalog/imagenet2012) is 144 GiB,
+for example, far too large to process on a stock laptop.)
 
-Single dollars ($) are required for inline mathematics e.g. $f(x) = e^{\pi/x}$
+Moving between these environments almost always causes tremendous pain. In
+Python, a common language for machine learning research, the researcher installs
+their script's dependencies in a system-wide package registry. The Cloud
+environment can have different dependencies available, or different versions of
+the same dependency; different versions of Python itself; different software
+drivers, which produce different behavior from the script that seemed to work locally.
 
-Double dollars make self-standing equations:
+This environment mismatch introduces tremendous friction into the research
+process. The only way to debug a script that succeeds locally and fails in a
+Cloud environment is to attempt to interpret the often-cryptic error logs.
 
-$$\Theta(x) = \left\{\begin{array}{l}
-0\textrm{ if } x < 0\cr
-1\textrm{ else}
-\end{array}\right.$$
+## Docker
 
-You can also use plain \LaTeX for equations
-\begin{equation}\label{eq:fourier}
-\hat f(\omega) = \int_{-\infty}^{\infty} f(x) e^{i\omega x} dx
-\end{equation}
-and refer to \autoref{eq:fourier} from text.
+One solution to this problem is Docker. A researcher can package their code and
+dependencies inside of a Docker container and execute this container on
+different platforms, each with different hardware options available but with a
+consistent software environment.
 
-# Citations
+Many Cloud services (Cloud AI Platform, Amazon Sagemaker etc) allow users to
+submit and execute Docker containers that they've built themselves.
 
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
+But the process of building a Docker container is difficult, error-prone and
+almost totally orthogonal to the skill set of a machine learning researcher. The
+friction of debugging between local and Cloud environments is solved, but only
+by accepting a not-insignificant baseline level of pain into the local
+development experience.
 
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit.
+# Caliban and Reproducible Research
 
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
+Caliban is a command line tool that solves this problem by providing execution
+modes with opinionated, intuitive interfaces for each phase of machine learning
+research - interactive development, local execution, cloud execution and data
+analysis in a notebook environment.
 
-# Figures
+The user simply writes code and runs it using Caliban's various subcommands,
+instead of executing code directly on their machine. This process is, for the
+researcher, just as easy as executing code directly. Behind the scenes, all
+development has moved inside of a Docker container. This makes it transparent to
+move code's execution from a local environment to Cloud. This ease makes it easy
+to go from a simple prototype running on a workstation to thousands of
+experimental jobs running on Cloud. This removal of friction allows a researcher
+the freedom to be creative in ways that their psychology simply wouldn't allow,
+given the typical pain caused by moves between environments.
 
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
+# Caliban's Execution Environments
 
-Fenced code blocks are rendered with syntax highlighting:
-```python
-for n in range(10):
-    yield f(n)
-```
+Caliban provides a suite of execution engines that can execute the containers
+built by Caliban.
 
-# Acknowledgements
+[`caliban
+shell`](https://caliban.readthedocs.io/en/latest/cli/caliban_shell.html)
+generates a Docker image containing any dependencies declared in a
+`requirements.txt` and/or `setup.py` in a project's directory and opens an
+interactive shell. Any update to code in the project's folder will be reflected
+immediately inside the container environment. The `caliban shell` environment is
+~identical to the environment that will be available to a cloud environment like
+Google's AI Platform.
 
-We acknowledge contributions from Brigitta Sipocz, Syrtis Major, and Semyeong
-Oh, and support from Kathryn Johnston during the genesis of this project.
+[`caliban
+notebook`](https://caliban.readthedocs.io/en/latest/cli/caliban_notebook.html)
+starts a Jupyter notebook or lab instance inside of a Docker image containing
+the project's dependencies. The environment available to the notebook is
+identical to the environment the code will encounter when executing in a Cloud
+environment.
+
+[`caliban run`](https://caliban.readthedocs.io/en/latest/cli/caliban_run.html)
+packages a project's code into a Docker container and executes it locally using
+`docker run`. If the local machine has access to a GPU, the instance will attach
+to it by default, with no need to configure drivers. The environment is
+completely identical to the environment the code will experience when executing
+on Cloud or interactively, up to access to different hardware.
+
+[`caliban
+cloud`](https://caliban.readthedocs.io/en/latest/cli/caliban_cloud.html) allows
+a researcher to [submit a researcher script to Google's AI
+Platform](https://caliban.readthedocs.io/en/latest/getting_started/cloud.html).
+The code will run inside the same Docker container available with all other
+subcommands. Researchers can submit hundreds of jobs at once. Any machine type,
+GPU count, and GPU type combination specified will be validated client side,
+instead of requiring a round trip to the server.
+
+[`caliban
+build`](https://caliban.readthedocs.io/en/latest/cli/caliban_build.html) builds
+the Docker image used in `caliban cloud` and `caliban run` without actually
+running the container or submitting any code.
+
+[`caliban
+cluster`](https://caliban.readthedocs.io/en/latest/cli/caliban_cluster.html)
+allows a researcher to create and submit jobs to a Kubernetes cluster. This
+environment is superficially similar to the Cloud environment offered by
+Google's AI Platform and `caliban cloud`, but a different range of hardware and
+pricing is available to the researcher.
+
+[`caliban
+status`](https://caliban.readthedocs.io/en/latest/cli/caliban_status.html)
+displays information about all jobs submitted by Caliban, and makes it easy to
+cancel, inspect or resubmit large groups of experiments.
 
 # References
