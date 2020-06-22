@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-'''create cloudbuild.yaml for caliban'''
+'''creates cloudbuild.json for caliban'''
 
 from absl import flags, app, logging
 from typing import Dict, List, Any, NamedTuple, Optional
@@ -20,8 +20,8 @@ _GPU_DOCKERFILE = 'dockerfiles/Dockerfile.gpu'
 # ----------------------------------------------------------------------------
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('output', None, 'output file')
-flags.DEFINE_string('config', None, 'configuration file')
+flags.DEFINE_string('output', None, 'output json file')
+flags.DEFINE_string('config', None, 'input configuration file')
 flags.DEFINE_string('base_url', _BASE_URL, 'base url for images')
 flags.DEFINE_integer('timeout_sec', 24 * 60 * 60,
                      'timeout for all builds to complete')
