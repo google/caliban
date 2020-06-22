@@ -5,13 +5,19 @@
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
 [![caliban version](https://img.shields.io/pypi/v/caliban?maxAge=3600)](https://pypi.org/project/caliban)
 
-Caliban is a tool that helps researchers launch and track their numerical experiments in an isolated, reproducible computing environment. It was developed by machine learning researchers and engineers, and makes it easy to go from a simple prototype running on a workstation to thousands of experimental jobs running on Cloud.
+Caliban is a tool that helps researchers launch and track their numerical
+experiments in an isolated, reproducible computing environment. It was developed
+by machine learning researchers and engineers, and makes it easy to go from a
+simple prototype running on a workstation to thousands of experimental jobs
+running on Cloud.
 
 With Caliban, you can:
 
-- Develop your experimental code locally and test it inside an isolated (Docker) environment
+- Develop your experimental code locally and test it inside an isolated (Docker)
+  environment
 - Easily sweep over experimental parameters
-- Submit your experiments as Cloud jobs, where they will run in the same isolated environment
+- Submit your experiments as Cloud jobs, where they will run in the same
+  isolated environment
 - Control and keep track of jobs
 
 ## Quickstart
@@ -151,8 +157,10 @@ instructions on:
 
 ## Getting Started with Caliban
 
-In this section we will use Caliban to train an image classification network (implemented in [TensorFlow](https://www.tensorflow.org/tutorials/quickstart/beginner)) with Caliban.
-We will:
+In this section we will use Caliban to train an image classification network
+(implemented in
+[TensorFlow](https://www.tensorflow.org/tutorials/quickstart/beginner)). We
+will:
 
 - Train a neural network on the local machine
 - Increase the model's accuracy by changing the [learning
@@ -163,14 +171,14 @@ We will:
   feature
 - Train the model in the Cloud on Google's [AI
   Platform](https://cloud.google.com/ai-platform)
-- Develop your code interactively using `caliban shell` in the exact same
+- Develop code interactively using `caliban shell` in the exact same
   environment.
 
 ### Preparing your Project
 
 Create an empty directory and use `curl` to download a [python
 script](https://github.com/google/caliban/blob/master/tutorials/basic/mnist.py#L16)
-that trains a basic neural betwork.
+that trains a basic neural network.
 
 ```
 mkdir demo && cd demo
@@ -397,7 +405,7 @@ page](https://github.com/google/caliban/issues), and we'll get you sorted out.
 
 ## Command Overview
 
-Caliban provides five subcommands that you run inside some project directory on
+Caliban provides seven subcommands that you run inside some project directory on
 your machine:
 
 * [`caliban
@@ -467,17 +475,17 @@ If Caliban helps you in your research, please consider citing the repository:
 
 ```
 @software{caliban2020github,
-  author = {Vinay Ramasesh and Sam Ritchie and Ambrose Slone},
+  author = {Sam Ritchie and Ambrose Slone and Vinay Ramasesh},
   title = {{Caliban}: Docker-based job manager for reproducible workflows},
   url = {http://github.com/google/caliban},
-  version = {0.1.0},
+  version = {0.2.5},
   year = {2020},
 }
 ```
 
-In the above bibtex entry, names are in alphabetical order, the version number
-is intended to be that of the latest tag on github, and the year corresponds to
-the project's open-source release.
+In the above bibtex entry, the version number is intended to be that of the
+latest tag on github, and the year corresponds to the project's open-source
+release.
 
 ## License
 
