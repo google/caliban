@@ -40,7 +40,7 @@ generate measurements or a serialized model for later analysis.
 Writing and debugging model training code is fastest on a local workstation.
 Running the script to generate measurements almost always takes place on some
 much more powerful machine, typically in a Cloud environment. The [imagenet
-dataset](https://www.tensorflow.org/datasets/catalog/imagenet2012) [@Deng:2009]
+dataset](https://www.tensorflow.org/datasets/catalog/imagenet2012) [@deng2009imagenet]
 is 144 GiB, for example, far too large to process on a stock laptop.
 
 Moving between these environments almost always causes tremendous pain. In
@@ -58,10 +58,10 @@ logs.
 
 ## Docker
 
-One solution to this problem is Docker [@Merkel:2014]. A researcher can package
-their code and dependencies inside of a Docker container and execute this
-container on different platforms, each with different hardware options available
-but with a consistent software environment.
+One solution to this problem is Docker [@merkel2014docker]. A researcher can
+package their code and dependencies inside of a Docker container and execute
+this container on different platforms, each with different hardware options
+available but with a consistent software environment.
 
 Many Cloud services (Google's [Cloud AI
 Platform](https://cloud.google.com/ai-platform), [Amazon
@@ -69,15 +69,15 @@ Sagemaker](https://aws.amazon.com/sagemaker/) etc) allow users to submit and
 execute Docker containers that they've built locally.
 
 Packaging research code inside of a Docker container has many benefits for
-reproducibility [@Cito:2016]. But the process of building a Docker container is
+reproducibility [@cito2016]. But the process of building a Docker container is
 difficult, error-prone and almost totally orthogonal to the skill set of a
 machine learning researcher. The friction of debugging between local and Cloud
 environments is solved, but only by accepting a not-insignificant baseline level
 of pain into the local development experience.
 
 Projects like [MLFlow](https://mlflow.org/docs/latest/projects.html)
-[@Zaharia:2018] attempt to streamline the container creation process, but still
-force the researcher's to absorb much of Docker's mental model.
+[@zaharia2018accelerating] attempt to streamline the container creation process,
+but still force the researcher's to absorb much of Docker's mental model.
 
 # Caliban and Reproducible Research
 
