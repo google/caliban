@@ -1,0 +1,39 @@
+{
+    "@context": "https://raw.githubusercontent.com/codemeta/codemeta/master/codemeta.jsonld",
+    "@type": "Code",
+    "author": [
+        {
+            "@id": "http://orcid.org/0000-0002-0545-6360",
+            "@type": "Person",
+            "email": "samritchie@google.com",
+            "name": "Sam Ritchie",
+            "affiliation": "Google"
+        },
+        {
+            "@id": "",
+            "@type": "Person",
+            "email": "aslone@google.com",
+            "name": "Ambrose Slone",
+            "affiliation": "Google"
+        },
+        {
+            "@id": "http://orcid.org/0000-0003-0625-3327",
+            "@type": "Person",
+            "email": "ramasesh@google.com",
+            "name": "Vinay Ramasesh",
+            "affiliation": "Google"
+        }
+    ],
+    "identifier": "",
+    "maintainer": "http://orcid.org/0000-0002-0545-6360",
+    "codeRepository": "https://github.com/google/caliban",
+    "issueTracker": "https://github.com/google/caliban/issues",
+    "datePublished": "2020-06-22",
+    "dateModified": "2020-06-22",
+    "dateCreated": "2020-06-22",
+    "description": "Docker-based job manager for reproducible workflows",
+    "keywords": "python, docker, machine learning, reproducibility",
+    "license": "Apache 2.0",
+    "title": "Caliban",
+    "version": "0.2.5"
+}

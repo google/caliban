@@ -1,5 +1,5 @@
 ---
-title: 'Caliban: Docker-based job manager for for reproducible workflows'
+title: 'Caliban: Docker-based job manager for reproducible workflows'
 tags:
   - python
   - docker
@@ -63,8 +63,10 @@ their code and dependencies inside of a Docker container and execute this
 container on different platforms, each with different hardware options available
 but with a consistent software environment.
 
-Many Cloud services (Cloud AI Platform, Amazon Sagemaker etc) allow users to
-submit and execute Docker containers that they've built themselves.
+Many Cloud services (Google's [Cloud AI
+Platform](https://cloud.google.com/ai-platform), [Amazon
+Sagemaker](https://aws.amazon.com/sagemaker/) etc) allow users to submit and
+execute Docker containers that they've built locally.
 
 Packaging research code inside of a Docker container has many benefits for
 reproducibility [@Cito:2016]. But the process of building a Docker container is
@@ -73,6 +75,10 @@ machine learning researcher. The friction of debugging between local and Cloud
 environments is solved, but only by accepting a not-insignificant baseline level
 of pain into the local development experience.
 
+Projects like [MLFlow](https://mlflow.org/docs/latest/projects.html)
+[@Zaharia:2018] attempt to streamline the container creation process, but still
+force the researcher's to absorb much of Docker's mental model.
+
 # Caliban and Reproducible Research
 
 Caliban is a command line tool that solves this problem by providing execution
@@ -80,10 +86,11 @@ modes with opinionated, intuitive interfaces for each phase of machine learning
 research - interactive development, local execution, cloud execution and data
 analysis in a notebook environment.
 
-With Caliban, the user simply writes code and runs it using Caliban's various
-subcommands, instead of executing code directly on their machine. This process
-is, for the researcher, just as easy as executing code directly: all the user
-needs to do is specify required packages in a `requirements.txt` file.
+With Caliban, the researcher executes all code using Caliban's various
+subcommands. This process is, for the researcher, just as easy as executing code
+directly. To prepare a research environment, all they need to do is specify
+required packages in a `requirements.txt` file and Caliban will automatically
+make those dependencies available inside the container.
 
 Behind the scenes, all software execution has moved inside of a Docker
 container. This makes it transparent to move that execution from a local
@@ -127,26 +134,23 @@ generates a Docker image containing any dependencies declared in a
 `requirements.txt` and/or `setup.py` in a project's directory and opens an
 interactive shell. Any update to code in the project's folder will be reflected
 immediately inside the container environment. The `caliban shell` environment is
-~identical to the environment that will be available to a cloud environment like
-Google's AI Platform.
+identical to the environment available during Cloud execution, up to access to
+different hardware.
 
 [`caliban
 notebook`](https://caliban.readthedocs.io/en/latest/cli/caliban_notebook.html)
 starts a Jupyter notebook or lab instance inside of a Docker image containing
-the project's dependencies. The environment available to the notebook is
-identical to the environment the code will encounter when executing in a Cloud
-environment.
+the project's dependencies. As with `caliban shell`, the environment available
+to the notebook is identical to the Cloud environment.
 
 [`caliban run`](https://caliban.readthedocs.io/en/latest/cli/caliban_run.html)
 packages a project's code into a Docker container and executes it locally using
 `docker run`. If the local machine has access to a GPU, the instance will attach
-to it by default, with no need to configure drivers. The environment is
-completely identical to the environment the code will experience when executing
-on Cloud or interactively, up to access to different hardware.
+to it by default, with no need to configure drivers.
 
 [`caliban
 cloud`](https://caliban.readthedocs.io/en/latest/cli/caliban_cloud.html) allows
-a researcher to [submit a researcher script to Google's AI
+a researcher to [submit a research script to Google's AI
 Platform](https://caliban.readthedocs.io/en/latest/getting_started/cloud.html).
 The code will run inside the same Docker container available with all other
 subcommands. Researchers can submit hundreds of jobs at once. Any machine type,
@@ -167,5 +171,7 @@ pricing is available to the researcher.
 
 [`caliban
 status`](https://caliban.readthedocs.io/en/latest/cli/caliban_status.html)
-displays information about all jobs submitted by Caliban, and makes it easy to
-cancel, inspect or resubmit large groups of experiments.
+displays information about all jobs submitted by Caliban, and allows a
+researcher to cancel, inspect or resubmit large groups of experiments.
+
+# References
