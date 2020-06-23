@@ -80,7 +80,7 @@ By default this uses your default project and the ``cloudbuild.json`` file in yo
 directory. If you are pushing the images to a different project than your ``gcloud`` default,
 then you may need to set the ``--project`` flag to the target project where you are pushing
 your images. The logs from the build process will be streamed to your console, but they are
-also available from the ``Cloud Build`` tab in the GCP dashboard for your project. 
+also available from the ``Cloud Build`` tab in the GCP dashboard for your project.
 
 To automate the generation of these images, we utilize
 `build triggers <https://cloud.google.com/cloud-build/docs/automating-builds/create-manage-triggers>`_
