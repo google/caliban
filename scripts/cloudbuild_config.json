@@ -1,18 +1,18 @@
 {
   "gpu_versions" : {
-    "100" : ["CUDA=10.0"],
-    "101" : ["CUDA=10.1"]
+    "cuda100" : ["CUDA=10.0"],
+    "cuda101" : ["CUDA=10.1"]
   },
-  "cpu_versions" : {
+  "python_versions" : {
     "py37" : ["PYTHON_VERSION=3.7", "MINICONDA_VERSION=py37_4.8.2"],
     "py38" : ["PYTHON_VERSION=3.8", "MINICONDA_VERSION=py38_4.8.2"]
   },
   "images" : [
-    {"cpu" : "py37"},
-    {"cpu" : "py38"},
-    {"cpu" : "py37", "gpu" : "100"},
-    {"cpu" : "py37", "gpu" : "101"},
-    {"cpu" : "py38", "gpu" : "100"},
-    {"cpu" : "py38", "gpu" : "101"}
+    {"python" : "py37"},
+    {"python" : "py38"},
+    {"python" : "py37", "gpu" : "cuda100"},
+    {"python" : "py37", "gpu" : "cuda101"},
+    {"python" : "py38", "gpu" : "cuda100"},
+    {"python" : "py38", "gpu" : "cuda101"}
   ]
 }

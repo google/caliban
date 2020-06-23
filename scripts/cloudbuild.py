@@ -3,6 +3,7 @@
 
 from absl import flags, app, logging
 from typing import Dict, List, Any, NamedTuple, Optional
+from enum import Enum
 
 import json
 import pprint as pp
@@ -35,15 +36,14 @@ Config = Dict[str, Any]
 # ----------------------------------------------------------------------------
 class BuildStep(NamedTuple):
   '''a google cloud-build step'''
-  sid: str
+  step_id: str
   name: str = _CLOUD_BUILDER
   args: List[str] = []
   dependencies: List[str] = ['-']
 
   def to_dict(self) -> Dict[str, Any]:
-    '''converts step to dict'''
     return {
-        'id': self.sid,
+        'id': self.step_id,
         'name': self.name,
         'args': self.args,
         'waitFor': self.dependencies,
@@ -51,6 +51,12 @@ class BuildStep(NamedTuple):
 
 
 # ----------------------------------------------------------------------------
+class ImageType(Enum):
+  GPU_BASE = 'GPU_BASE'
+  CPU = 'CPU'
+  GPU = 'GPU'
+
+
 class ImageSpec(NamedTuple):
   '''a caliban base image spec'''
   dockerfile: str = _CPU_DOCKERFILE
@@ -59,16 +65,26 @@ class ImageSpec(NamedTuple):
   gpu_version: Optional[str] = None
   build_args: List[str] = []
 
+  @property
+  def image_type(self) -> ImageType:
+    if self.gpu_version is None:
+      return ImageType.CPU
+    else:
+      if self.cpu_version is None:
+        return ImageType.GPU_BASE
+      else:
+        return ImageType.GPU
+
+  @property
   def tag(self) -> str:
-    '''returns tag for this spec'''
     parts = []
-    if self.gpu_version is None:  # cpu image
+    if self.image_type == ImageType.CPU:
       parts = [_CPU_TAG, self.cpu_version]
-    else:  # gpu image
+    else:
       parts.append(_GPU_TAG)
-      if self.cpu_version is None:  # gpu base image
+      if self.image_type == ImageType.GPU_BASE:
         parts += ['base', self.gpu_version]
-      else:  # full gpu image
+      else:
         parts += [self.gpu_version, self.cpu_version]
 
     return f'{FLAGS.base_url}:' + '-'.join(parts)
@@ -76,13 +92,13 @@ class ImageSpec(NamedTuple):
 
 # ----------------------------------------------------------------------------
 def _create_push_step(tag: str) -> BuildStep:
-  '''creates a cloudbuild push step'''
-  return BuildStep(sid=f'{tag}-push', args=['push', tag], dependencies=[tag])
+  return BuildStep(step_id=f'{tag}-push',
+                   args=['push', tag],
+                   dependencies=[tag])
 
 
 # ----------------------------------------------------------------------------
 def _create_gpu_base_image_specs(cfg: Config) -> Dict[str, ImageSpec]:
-  '''creates gpu base image specs'''
   return {
       k: ImageSpec(base_image=None,
                    gpu_version=k,
@@ -93,7 +109,6 @@ def _create_gpu_base_image_specs(cfg: Config) -> Dict[str, ImageSpec]:
 
 # ----------------------------------------------------------------------------
 def _create_cpu_image_specs(cfg: Config) -> Dict[str, ImageSpec]:
-  '''creates cpu image specs'''
   return {k: ImageSpec(cpu_version=k, build_args=v) for k, v in cfg.items()}
 
 
@@ -103,14 +118,13 @@ def _create_image_spec(
     cpu_specs: Dict[str, ImageSpec],
     gpu_specs: Dict[str, ImageSpec],
 ) -> ImageSpec:
-  '''creates an image spec from a config dictionary and gpu/gpu specs'''
   gpu_version = cfg.get('gpu')
-  cpu_spec = cpu_specs[cfg.get('cpu')]
+  cpu_spec = cpu_specs[cfg.get('python')]
 
   if gpu_version is None:
     return cpu_spec
 
-  return ImageSpec(base_image=gpu_specs[gpu_version].tag(),
+  return ImageSpec(base_image=gpu_specs[gpu_version].tag,
                    cpu_version=cpu_spec.cpu_version,
                    gpu_version=gpu_version,
                    build_args=cpu_spec.build_args)
@@ -118,14 +132,13 @@ def _create_image_spec(
 
 # ----------------------------------------------------------------------------
 def _create_specs(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
-  '''creates image specs from configuration dictionary'''
-  conda_cfg = cfg['cpu_versions']
+  conda_cfg = cfg['python_versions']
   cuda_cfg = cfg['gpu_versions']
 
   gpu_specs = _create_gpu_base_image_specs(cfg.get('gpu_versions', {}))
-  cpu_specs = _create_cpu_image_specs(cfg.get('cpu_versions', {}))
+  cpu_specs = _create_cpu_image_specs(cfg.get('python_versions', {}))
 
-  specs = [s for s in gpu_specs.values()]
+  specs = list(gpu_specs.values())
   specs += [
       _create_image_spec(cfg=c, cpu_specs=cpu_specs, gpu_specs=gpu_specs)
       for c in cfg.get('images', [])
@@ -136,9 +149,8 @@ def _create_specs(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 # ----------------------------------------------------------------------------
 def _create_build_step(spec: ImageSpec) -> BuildStep:
-  '''creates a build step from an image spec'''
   args = ['build']
-  args += ['-t', spec.tag()]
+  args += ['-t', spec.tag]
   args += ['-f', spec.dockerfile]
 
   if spec.base_image is not None:
@@ -150,12 +162,12 @@ def _create_build_step(spec: ImageSpec) -> BuildStep:
     args.append(a)
   args.append('.')
 
-  if spec.cpu_version is not None and spec.gpu_version is not None:
+  if spec.image_type == ImageType.GPU:
     dependencies = [spec.base_image]
   else:
     dependencies = ['-']
 
-  return BuildStep(sid=spec.tag(), args=args, dependencies=dependencies)
+  return BuildStep(step_id=spec.tag, args=args, dependencies=dependencies)
 
 
 # ----------------------------------------------------------------------------
@@ -168,7 +180,7 @@ def main(argv):
   steps = []
   for s in specs:
     steps.append(_create_build_step(spec=s).to_dict())
-    steps.append(_create_push_step(tag=s.tag()).to_dict())
+    steps.append(_create_push_step(tag=s.tag).to_dict())
 
   with open(FLAGS.output, 'w') as f:
     json.dump({'steps': steps, 'timeout': f'{FLAGS.timeout_sec}s'}, f, indent=2)
