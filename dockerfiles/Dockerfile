@@ -36,7 +36,7 @@ ARG PYTHON_VERSION=3.7
 # minicoda release archive is here: https://repo.anaconda.com/miniconda
 # see the docs here for managing python versions with conda:
 # https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-python.html
-ARG MINICONDA_VERSION=py38_4.8.2
+ARG MINICONDA_VERSION=py37_4.8.2
 
 LABEL maintainer="samritchie@google.com"
 
