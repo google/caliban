@@ -1,0 +1,18 @@
+{
+  "gpu_versions" : {
+    "cuda100" : ["CUDA=10.0"],
+    "cuda101" : ["CUDA=10.1"]
+  },
+  "python_versions" : {
+    "py37" : ["PYTHON_VERSION=3.7", "MINICONDA_VERSION=py37_4.8.2"],
+    "py38" : ["PYTHON_VERSION=3.8", "MINICONDA_VERSION=py38_4.8.2"]
+  },
+  "images" : [
+    {"python" : "py37"},
+    {"python" : "py38"},
+    {"python" : "py37", "gpu" : "cuda100"},
+    {"python" : "py37", "gpu" : "cuda101"},
+    {"python" : "py38", "gpu" : "cuda100"},
+    {"python" : "py38", "gpu" : "cuda101"}
+  ]
+}

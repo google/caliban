@@ -31,6 +31,12 @@ FROM $BASE_IMAGE
 MAINTAINER Sam Ritchie <sritchie09@gmail.com>
 
 ARG GCLOUD_LOC=/usr/local/gcloud
+ARG PYTHON_VERSION=3.7
+
+# minicoda release archive is here: https://repo.anaconda.com/miniconda
+# see the docs here for managing python versions with conda:
+# https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-python.html
+ARG MINICONDA_VERSION=py37_4.8.2
 
 LABEL maintainer="samritchie@google.com"
 
@@ -44,9 +50,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
   python3 \
   python3-virtualenv \
-  wget \
-  && apt-get clean && \
-  && rm -rf /var/lib/apt/lists/*
+  wget && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 
 # Some tools expect a "python" binary.
 RUN ln -s $(which python3) /usr/local/bin/python
@@ -71,7 +77,7 @@ ENV PATH $PATH:${GCLOUD_LOC}/google-cloud-sdk/bin
 COPY scripts/bashrc /etc/bash.bashrc
 
 # Install Miniconda and prep the system to activate our custom environment.
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.2-Linux-x86_64.sh -O ~/miniconda.sh && \
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -O ~/miniconda.sh && \
   /bin/bash ~/miniconda.sh -b -p /opt/conda && \
   rm ~/miniconda.sh && \
   /opt/conda/bin/conda clean -tipsy && \
@@ -79,7 +85,7 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.2-Linux
   echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc && \
   echo "conda activate caliban" >> /etc/bash.bashrc
 
-RUN yes | /opt/conda/bin/conda create --name caliban python=3.7 && /opt/conda/bin/conda clean --all
+RUN yes | /opt/conda/bin/conda create --name caliban python=${PYTHON_VERSION} && /opt/conda/bin/conda clean --all
 
 # This allows a user to install packages in the conda environment once it
 # launches.

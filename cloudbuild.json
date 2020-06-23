@@ -1,0 +1,253 @@
+{
+  "steps": [
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100",
+        "-f",
+        "dockerfiles/Dockerfile.gpu",
+        "--build-arg",
+        "CUDA=10.0",
+        "."
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100-push",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100"
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101",
+        "-f",
+        "dockerfiles/Dockerfile.gpu",
+        "--build-arg",
+        "CUDA=10.1",
+        "."
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101-push",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101"
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:cpu-py37",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "gcr.io/blueshift-playground/cloudbuild_test:cpu-py37",
+        "-f",
+        "dockerfiles/Dockerfile",
+        "--build-arg",
+        "BASE_IMAGE=ubuntu:18.04",
+        "--build-arg",
+        "PYTHON_VERSION=3.7",
+        "--build-arg",
+        "MINICONDA_VERSION=py37_4.8.2",
+        "."
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:cpu-py37-push",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "gcr.io/blueshift-playground/cloudbuild_test:cpu-py37"
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:cpu-py37"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:cpu-py38",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "gcr.io/blueshift-playground/cloudbuild_test:cpu-py38",
+        "-f",
+        "dockerfiles/Dockerfile",
+        "--build-arg",
+        "BASE_IMAGE=ubuntu:18.04",
+        "--build-arg",
+        "PYTHON_VERSION=3.8",
+        "--build-arg",
+        "MINICONDA_VERSION=py38_4.8.2",
+        "."
+      ],
+      "waitFor": [
+        "-"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:cpu-py38-push",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "gcr.io/blueshift-playground/cloudbuild_test:cpu-py38"
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:cpu-py38"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py37",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py37",
+        "-f",
+        "dockerfiles/Dockerfile",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100",
+        "--build-arg",
+        "PYTHON_VERSION=3.7",
+        "--build-arg",
+        "MINICONDA_VERSION=py37_4.8.2",
+        "."
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py37-push",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py37"
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py37"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py37",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py37",
+        "-f",
+        "dockerfiles/Dockerfile",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101",
+        "--build-arg",
+        "PYTHON_VERSION=3.7",
+        "--build-arg",
+        "MINICONDA_VERSION=py37_4.8.2",
+        "."
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py37-push",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py37"
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py37"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py38",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py38",
+        "-f",
+        "dockerfiles/Dockerfile",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100",
+        "--build-arg",
+        "PYTHON_VERSION=3.8",
+        "--build-arg",
+        "MINICONDA_VERSION=py38_4.8.2",
+        "."
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda100"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py38-push",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py38"
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda100-py38"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py38",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py38",
+        "-f",
+        "dockerfiles/Dockerfile",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101",
+        "--build-arg",
+        "PYTHON_VERSION=3.8",
+        "--build-arg",
+        "MINICONDA_VERSION=py38_4.8.2",
+        "."
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-base-cuda101"
+      ]
+    },
+    {
+      "id": "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py38-push",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py38"
+      ],
+      "waitFor": [
+        "gcr.io/blueshift-playground/cloudbuild_test:gpu-cuda101-py38"
+      ]
+    }
+  ],
+  "timeout": "86400s"
+}
