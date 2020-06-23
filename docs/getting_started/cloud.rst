@@ -224,6 +224,20 @@ a great choice. ``us-central1`` has `the most capability
           <https://cloud.google.com/sdk/gcloud/reference/>`_ once you've got
           everything working.
 
+Configure Docker Authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To submit a job with :doc:`/cli/caliban_cloud`, Caliban needs to push Docker
+images to the Container Registry service that you enabled earlier. To allow
+Docker to push to the Container Registry, run this command at a terminal:
+
+.. code-block:: bash
+
+   gcloud auth configure-docker
+
+You should see output that includes the text ``Adding credentials for all GCR
+repositories.``.
+
 Test your Environment
 ---------------------
 
