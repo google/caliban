@@ -13,6 +13,14 @@ libraries that will be present. No more version clashes or surprises.
 Caliban uses a set of base images covering a set of common combinations of
 python and cuda versions. You can find our base images
 `here <https://pantheon.corp.google.com/gcr/images/blueshift-playground/GLOBAL/blueshift>`_.
+The format of our base image names is ``gcr.io/blueshift-playground/blueshift:TAG``,
+where ``TAG`` describes the configuration of the base image.
+
+For example, ``gcr.io/blueshift-playground/blueshift:gpu-cuda100-py37`` is a
+base image that has CUDA 10.0 and python 3.7, while
+``gcr.io/blueshift-playground/blueshift:cpu-py38`` is a base image that has
+no CUDA support and uses python 3.7.
+
 Our current matrix of supported combinations:
 
 +-----------+------------+------------+
