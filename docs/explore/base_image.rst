@@ -19,7 +19,7 @@ where ``TAG`` describes the configuration of the base image.
 For example, ``gcr.io/blueshift-playground/blueshift:gpu-cuda100-py37`` is a
 base image that has CUDA 10.0 and python 3.7, while
 ``gcr.io/blueshift-playground/blueshift:cpu-py38`` is a base image that has
-no CUDA support and uses python 3.7.
+no CUDA support and uses python 3.8.
 
 Our current matrix of supported combinations:
 
