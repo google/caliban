@@ -559,7 +559,8 @@ def submit_ml_job(job_mode: conf.JobMode,
                   experiment_config: Optional[conf.ExpConf] = None,
                   script_args: Optional[List[str]] = None,
                   request_retries: Optional[int] = None,
-                  xgroup: Optional[str] = None) -> None:
+                  xgroup: Optional[str] = None,
+                  strict_db: bool = False) -> None:
   """Top level function in the module. This function:
 
   - builds an image using the supplied docker_args, in either CPU or GPU mode
@@ -606,6 +607,7 @@ def submit_ml_job(job_mode: conf.JobMode,
     a timeout or a rate limiting request.
   - xgroup: experiment group for this submission, if None a new group will
     be created
+  - strict_db: if database specified by the CALIBAN_DB_URL is not found, exit
   """
   if script_args is None:
     script_args = []
@@ -628,7 +630,7 @@ def submit_ml_job(job_mode: conf.JobMode,
   if request_retries is None:
     request_retries = 10
 
-  engine = get_mem_engine() if dry_run else get_sql_engine()
+  engine = get_mem_engine() if dry_run else get_sql_engine(strict=strict_db)
 
   with session_scope(engine) as session:
     container_spec = generate_container_spec(session, docker_args, image_tag)

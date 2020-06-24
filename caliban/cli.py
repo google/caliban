@@ -316,6 +316,7 @@ def local_run_parser(base):
   image_id_arg(parser)
   docker_run_arg(parser)
   xgroup_submit_arg(parser)
+  strict_db_arg(parser)
 
 
 def gpu_spec_arg(parser, validate_count: bool = False):
@@ -386,6 +387,7 @@ def container_parser(parser):
   job_name_arg(parser)
   label_arg(parser)
   xgroup_submit_arg(parser)
+  strict_db_arg(parser)
 
 
 def cloud_parser(base):
@@ -687,6 +689,7 @@ def cluster_job_submit_cmd(base):
   dry_run_arg(parser)
   job_export_arg(parser)
   xgroup_submit_arg(parser)
+  strict_db_arg(parser)
 
   require_module(parser)
   add_script_args(parser)
@@ -947,3 +950,12 @@ def max_jobs_arg(parser):
             f'then this specifies the total number of jobs to return, ordered '
             f'by creation date, or all jobs if max_jobs==0.'),
   )
+
+
+# ----------------------------------------------------------------------------
+def strict_db_arg(parser):
+  parser.add_argument(
+      '--strict_db',
+      action='store_true',
+      help=(f'if the caliban database specified by the CALIBAN_DB_URL '
+            f'environment variable cannot be reached, then fail and exit'))

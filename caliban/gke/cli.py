@@ -72,7 +72,13 @@ def _with_cluster(fn):
                           zone=zone,
                           creds=creds)
 
-    return fn(args, cluster=cluster) if cluster else None
+    if cluster is None:
+      logging.error(f'unable to resolve cluster')
+      logging.error(f'you can see your available clusters using the command:')
+      logging.error(f'caliban cluster ls')
+      return
+
+    return fn(args, cluster=cluster)
 
   return wrapper
 
@@ -359,6 +365,7 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
   xgroup = args.get('xgroup')
   image_tag = args.get('image_tag')
   export = args.get('export', None)
+  strict_db = args.get('strict_db', False)
 
   labels = args.get('label')
   if labels is not None:
@@ -415,7 +422,7 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
   accel, accel_count = accel_spec
 
   # --------------------------------------------------------------------------
-  engine = get_mem_engine() if dry_run else get_sql_engine()
+  engine = get_mem_engine() if dry_run else get_sql_engine(strict=strict_db)
 
   with session_scope(engine) as session:
     container_spec = generate_container_spec(session, docker_m, image_tag)

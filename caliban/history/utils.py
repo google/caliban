@@ -25,7 +25,7 @@ from googleapiclient import discovery
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ArgumentError
 from sqlalchemy.orm import Session, sessionmaker
 
 import caliban.config as conf
@@ -108,7 +108,7 @@ def get_sql_engine(
   try:
     return _create_sqa_engine(url=url, echo=echo)
 
-  except (OperationalError, OSError) as e:
+  except (OperationalError, OSError, ArgumentError) as e:
     logging.error("")
     logging.error(
         t.red(
