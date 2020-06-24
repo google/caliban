@@ -11,7 +11,9 @@ the dependencies you declare in your code directory are the only Python
 libraries that will be present. No more version clashes or surprises.
 
 Caliban uses a set of base images covering a set of common combinations of
-python and cuda versions. Our current matrix of supported combinations:
+python and cuda versions. You can find our base images
+`here <https://pantheon.corp.google.com/gcr/images/blueshift-playground/GLOBAL/blueshift>`_.
+Our current matrix of supported combinations:
 
 +-----------+------------+------------+
 |           | python 3.7 | python 3.8 |
