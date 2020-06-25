@@ -209,6 +209,15 @@ def image_tag_arg(parser):
       "Caliban will skip the build and push steps and use this image tag.")
 
 
+def dlvm_arg(parser):
+  dlvm_types = [key for key in sorted(conf._dlvm_config('CPU').keys())]
+  parser.add_argument(
+      "--dlvm",
+      help="DLVM base image type. Must be one of  "
+           "{}".format(dlvm_types) + ". If supplied, "
+      "Caliban will skip the build and push steps and use this image tag.")
+
+
 def machine_type_arg(parser):
   machine_types = u.enum_vals(ct.MachineType)
   cpu_default = conf.DEFAULT_MACHINE_TYPE[conf.JobMode.CPU].value
@@ -259,6 +268,7 @@ def shell_parser(base):
   parser = base.add_parser(
       "shell", help="Start an interactive shell with this dir mounted.")
   base_parser(parser)
+  dlvm_arg(parser)
   image_id_arg(parser)
   docker_run_arg(parser)
   parser.add_argument(
@@ -281,6 +291,7 @@ def notebook_parser(base):
                            help="Run a local Jupyter notebook instance.")
   base_parser(parser)
   docker_run_arg(parser)
+  dlvm_arg(parser)
 
   # Custom notebook arguments.
   parser.add_argument(
@@ -313,6 +324,7 @@ def local_run_parser(base):
   """Configure the subparser for `caliban run`."""
   parser = base.add_parser("run", help="Run a job inside a Docker container.")
   executing_parser(parser)
+  dlvm_arg(parser)
   image_id_arg(parser)
   docker_run_arg(parser)
   xgroup_submit_arg(parser)
@@ -379,6 +391,7 @@ def container_parser(parser):
   image_tag_arg(parser)
   project_id_arg(parser)
   region_arg(parser)
+  dlvm_arg(parser)
   machine_type_arg(parser)
   gpu_spec_arg(parser)
   tpu_spec_arg(parser)

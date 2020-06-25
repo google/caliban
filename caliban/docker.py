@@ -378,7 +378,7 @@ def _credentials_entries(user_id: int,
   return ret
 
 
-def _notebook_entries(lab: bool = False, version: Optional[str] = None) -> str:
+def _notebook_entries(lab: bool = False, version: Optional[str] = None, dlvm: bool = False) -> str:
   """Returns the Dockerfile entries necessary to install Jupyter{lab}.
 
   Optionally takes a version string.
@@ -391,9 +391,17 @@ def _notebook_entries(lab: bool = False, version: Optional[str] = None) -> str:
 
   library = "jupyterlab" if lab else "jupyter"
 
-  return """
+  if not dlvm:
+    return """
 RUN pip install {}{}
 """.format(library, version_suffix)
+  else:
+    return """
+RUN /opt/conda/bin/pip install \
+  https://storage.googleapis.com/deeplearning-platform-ui-public/jupyterlab_gcpscheduler-1.0.0.tar.gz
+
+RUN /opt/conda/bin/jupyter lab build --minimize=False
+  """
 
 
 def _custom_packages(
@@ -461,9 +469,17 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
   return ret
 
 
+def _dlvm_id(job_mode: c.JobMode, dlvm_arg: str) -> str:
+  """Returns the DLVM image url for job mode and the command line parameter
+
+  """
+  return c.extract_dlvm_image(job_mode, dlvm_arg)
+
+
 def _dockerfile_template(
     job_mode: c.JobMode,
     workdir: Optional[str] = None,
+    dlvm: Optional[str] = None,
     base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
     package: Optional[Union[List, u.Package]] = None,
     requirements_path: Optional[str] = None,
@@ -480,9 +496,8 @@ def _dockerfile_template(
   on the value of job_mode) to create a container that:
 
   - installs any dependency specified in a requirements.txt file living at
-    requirements_path, a conda environment at conda_env_path, or any
-    dependencies in a setup.py file, including extra dependencies, if
-    setup_extras isn't None
+    requirements_path, or any dependencies in a setup.py file, including extra
+    dependencies, if setup_extras isn't None
   - injects gcloud credentials into the container, so Cloud interaction works
     just like it does locally
   - potentially installs a custom shell, or jupyterlab for notebook support
@@ -511,7 +526,10 @@ def _dockerfile_template(
   if base_image_fn is None:
     base_image_fn = base_image_id
 
-  base_image = base_image_fn(job_mode)
+  if dlvm is None:
+    base_image = base_image_fn(job_mode)
+  else:
+    base_image = _dlvm_id(job_mode, dlvm)
 
   dockerfile = """
 FROM {base_image}
@@ -530,8 +548,6 @@ RUN mkdir -m 777 {workdir} {creds_dir} {c_home}
 ENV HOME={c_home}
 
 WORKDIR {workdir}
-
-USER {uid}:{gid}
 """.format_map({
       "base_image": base_image,
       "username": username,
@@ -545,6 +561,19 @@ USER {uid}:{gid}
                                      gid,
                                      adc_path=adc_path,
                                      credentials_path=credentials_path)
+  if inject_notebook.value != 'none':
+    install_lab = inject_notebook == NotebookInstall.lab
+    if dlvm is None:
+        dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version, dlvm=False)
+    else:
+        dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version, dlvm=True)
+
+  dockerfile += """
+
+USER {uid}:{gid}
+""".format_map({"uid": uid,
+                "gid": gid
+   })
 
   dockerfile += _dependency_entries(workdir,
                                     uid,
@@ -589,6 +618,7 @@ def build_image(job_mode: c.JobMode,
                 credentials_path: Optional[str] = None,
                 adc_path: Optional[str] = None,
                 no_cache: bool = False,
+                dlvm: str = None,
                 **kwargs) -> str:
   """Builds a Docker image by generating a Dockerfile and passing it to `docker
   build` via stdin. All output from the `docker build` process prints to
@@ -608,6 +638,7 @@ def build_image(job_mode: c.JobMode,
       dockerfile = _dockerfile_template(job_mode,
                                         credentials_path=creds,
                                         adc_path=adc,
+                                        dlvm=dlvm,
                                         **kwargs)
 
       joined_cmd = " ".join(cmd)
@@ -889,6 +920,7 @@ def run(job_mode: c.JobMode,
         run_args: Optional[List[str]] = None,
         script_args: Optional[List[str]] = None,
         image_id: Optional[str] = None,
+        dlvm: Optional[str] = None,
         **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker
   run` on the resulting image using sensible defaults.
@@ -907,7 +939,9 @@ def run(job_mode: c.JobMode,
   if script_args is None:
     script_args = []
 
-  if image_id is None:
+  if dlvm is not None:
+    image_id = build_image(job_mode, dlvm=dlvm, **build_image_kwargs)
+  elif image_id is None:
     image_id = build_image(job_mode, **build_image_kwargs)
 
   base_cmd = _run_cmd(job_mode, run_args)
@@ -922,6 +956,7 @@ def run(job_mode: c.JobMode,
 def run_interactive(job_mode: c.JobMode,
                     workdir: Optional[str] = None,
                     image_id: Optional[str] = None,
+                    dlvm: Optional[str] = None,
                     run_args: Optional[List[str]] = None,
                     mount_home: Optional[bool] = None,
                     shell: Optional[Shell] = None,
@@ -935,6 +970,84 @@ def run_interactive(job_mode: c.JobMode,
 
   - job_mode: c.JobMode.
   - image_id: ID of the image to run. Supplying this will skip an image build.
+  - run_args: extra arguments to supply to `docker run`.
+  - dlvm: key of the base DLVM image to run. Supplying this perform an image
+    build using DLVM as the base image instead of blueshift
+  - mount_home: if true, mounts the user's $HOME directory into the container
+    to `/home/$USERNAME`. If False, nothing.
+  - shell: name of the shell to install into the container. Also configures the
+    entrypoint if that's not supplied.
+  - entrypoint: command to run. Defaults to the executable command for the
+    supplied shell.
+  - entrypoint_args: extra arguments to supply to the entrypoint.
+
+  any extra kwargs supplied are passed through to build_image.
+
+  """
+  if workdir is None:
+    workdir = DEFAULT_WORKDIR
+
+  if run_args is None:
+    run_args = []
+
+  if entrypoint_args is None:
+    entrypoint_args = []
+
+  if mount_home is None:
+    mount_home = True
+
+  if shell is None:
+    # Only set a default shell if we're also mounting the home volume.
+    # Otherwise a custom shell won't have access to the user's profile.
+    shell = default_shell() if mount_home else Shell.bash
+
+  if entrypoint is None:
+    entrypoint = SHELL_DICT[shell].executable
+
+  if dlvm is None:
+    # Pass in the entrypoint if not using DLVM
+    # Otherwise set the DLVM entrypoint from the shell argument
+    interactive_run_args = _interactive_opts(workdir) + [
+      "-it", \
+      "--entrypoint", entrypoint
+    ] + _home_mount_cmds(mount_home) + run_args
+  else:
+    entrypoint = SHELL_DICT[shell].executable
+    interactive_run_args = _interactive_opts(workdir) + [
+        "-it", \
+        "--entrypoint", entrypoint
+    ] + _home_mount_cmds(mount_home) + run_args
+    entrypoint_args = []
+
+  run(job_mode=job_mode,
+      run_args=interactive_run_args,
+      script_args=entrypoint_args,
+      image_id=image_id,
+      dlvm=dlvm,
+      shell=shell,
+      workdir=workdir,
+      **build_image_kwargs)
+
+
+def run_notebook_interactive(job_mode: c.JobMode,
+    workdir: Optional[str] = None,
+    image_id: Optional[str] = None,
+    dlvm: Optional[str] = None,
+    run_args: Optional[List[str]] = None,
+    mount_home: Optional[bool] = None,
+    shell: Optional[Shell] = None,
+    entrypoint: Optional[str] = None,
+    entrypoint_args: Optional[List[str]] = None,
+    **build_image_kwargs) -> None:
+  """Start a live shell in the terminal, with all dependencies installed and the
+  current working directory (and optionally the user's home directory) mounted.
+
+  Keyword args:
+
+  - job_mode: c.JobMode.
+  - image_id: ID of the image to run. Supplying this will skip an image build.
+  - dlvm: key of the base DLVM image to run. Supplying this perform an image
+    build using DLVM as the base image instead of blueshift
   - run_args: extra arguments to supply to `docker run`.
   - mount_home: if true, mounts the user's $HOME directory into the container
     to `/home/$USERNAME`. If False, nothing.
@@ -967,15 +1080,25 @@ def run_interactive(job_mode: c.JobMode,
   if entrypoint is None:
     entrypoint = SHELL_DICT[shell].executable
 
-  interactive_run_args = _interactive_opts(workdir) + [
-      "-it", \
-      "--entrypoint", entrypoint
-  ] + _home_mount_cmds(mount_home) + run_args
+  if dlvm is None:
+    # Run vanilla jupyter/jupyterlab notebook if not using DLVM
+    # Otherwise use the jupyterlab notebook from DLVM with the scheduler
+    # extension.
+    interactive_run_args = _interactive_opts(workdir) + [
+        "-it", \
+        "--entrypoint", entrypoint
+    ] + _home_mount_cmds(mount_home) + run_args
+  else:
+    interactive_run_args = _interactive_opts(workdir) + [
+        "-it", \
+      ] + _home_mount_cmds(mount_home) + run_args
+    entrypoint_args = []
 
   run(job_mode=job_mode,
       run_args=interactive_run_args,
       script_args=entrypoint_args,
       image_id=image_id,
+      dlvm=dlvm,
       shell=shell,
       workdir=workdir,
       **build_image_kwargs)
@@ -986,6 +1109,7 @@ def run_notebook(job_mode: c.JobMode,
                  lab: Optional[bool] = None,
                  version: Optional[bool] = None,
                  run_args: Optional[List[str]] = None,
+                 dlvm: Optional[str] = None,
                  **run_interactive_kwargs) -> None:
   """Start a notebook in the current working directory; the process will run
   inside of a Docker container that's identical to the environment available to
@@ -1024,7 +1148,8 @@ def run_notebook(job_mode: c.JobMode,
   ]
   docker_args = ["-p", "{}:{}".format(port, port)] + run_args
 
-  run_interactive(job_mode,
+  run_notebook_interactive(job_mode,
+                  dlvm=dlvm,
                   entrypoint="/opt/conda/envs/caliban/bin/python",
                   entrypoint_args=jupyter_args,
                   run_args=docker_args,

@@ -78,6 +78,33 @@ DEFAULT_ACCELERATOR_CONFIG = {
 }
 
 
+def extract_dlvm_image(job_mode: JobMode, dlvm_arg: str) -> str:
+  """Returns the DLVM image url for the job model and the comand line arg
+  or returns None if the key doesn't exist in the config.
+
+  """
+  return _dlvm_config(job_mode).get(dlvm_arg)
+
+
+def _dlvm_config(job_mode: JobMode) -> Dict[str, str]:
+  job_mode_str = job_mode.lower()
+  return {
+    "pytorch": f"gcr.io/deeplearning-platform-release/pytorch-{job_mode_str}",
+    "pytorch-1.0": f"gcr.io/deeplearning-platform-release/pytorch-{job_mode_str}.1-0",
+    "pytorch-1.1": f"gcr.io/deeplearning-platform-release/pytorch-{job_mode_str}.1-1",
+    "pytorch-1.2": f"gcr.io/deeplearning-platform-release/pytorch-{job_mode_str}.1-2",
+    "pytorch-1.3": f"gcr.io/deeplearning-platform-release/pytorch-{job_mode_str}.1-3",
+    "pytorch-1.4": f"gcr.io/deeplearning-platform-release/pytorch-{job_mode_str}.1-4",
+    "tf": f"gcr.io/deeplearning-platform-release/tf-{job_mode_str}",
+    "tf-1.13": f"gcr.io/deeplearning-platform-release/tf-{job_mode_str}.1-13",
+    "tf-1.14": f"gcr.io/deeplearning-platform-release/tf-{job_mode_str}.1-14",
+    "tf-1.15": f"gcr.io/deeplearning-platform-release/tf-{job_mode_str}.1-15",
+    "tf2": f"gcr.io/deeplearning-platform-release/tf2-{job_mode_str}",
+    "tf-2.0": f"gcr.io/deeplearning-platform-release/tf2-{job_mode_str}.2-0",
+    "tf-2.1": f"gcr.io/deeplearning-platform-release/tf2-{job_mode_str}.2-1",
+    "tf-2.2": f"gcr.io/deeplearning-platform-release/tf2-{job_mode_str}.2-2"
+  }
+
 def gpu(job_mode: JobMode) -> bool:
   """Returns True if the supplied JobMode is JobMode.GPU, False otherwise.
 
