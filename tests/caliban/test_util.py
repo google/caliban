@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import itertools
 import re
 import unittest
@@ -32,6 +33,23 @@ ne_text_set = st.sets(st.text(min_size=1), min_size=1)
 
 def non_empty_dict(vgen):
   return st.dictionaries(st.text(), vgen, min_size=1)
+
+
+def test_capture_stdout():
+  buf = io.StringIO()
+  ret_string, code = u.capture_stdout(["echo", "hello!"], file=buf)
+  assert code == 0
+
+  # Verify that the stdout is reported to the supplied file, and that it's
+  # captured by the function adn returned correctly.
+  assert ret_string == "hello!\n"
+  assert buf.getvalue() == ret_string
+
+
+def test_capture_stdout_input():
+  ret_string, code = u.capture_stdout(["cat"], input_str="hello!")
+  assert code == 0
+  assert ret_string.rstrip() == "hello!"
 
 
 class UtilTestSuite(unittest.TestCase):

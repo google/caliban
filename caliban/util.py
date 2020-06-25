@@ -397,11 +397,15 @@ def capture_stdout(cmd: List[str],
   - return code of the process
 
   """
+  if file is None:
+    file = sys.stdout
+
   buf = io.StringIO()
   ret_code = None
   with subprocess.Popen(cmd,
                         stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
                         bufsize=1,
                         encoding="utf-8") as p:
     if input_str:
@@ -411,6 +415,9 @@ def capture_stdout(cmd: List[str],
     for line in p.stdout:
       print(line, end='', file=file)
       buf.write(line)
+
+    # flush to force the contents to display.
+    file.flush()
 
     while p.poll() is None:
       # Process hasn't exited yet, let's wait some
@@ -677,6 +684,9 @@ class TqdmFile(object):
 
   def isatty(self):
     return getattr(self.file, "isatty", lambda: False)()
+
+  def close(self):
+    return getattr(self.file, "close", lambda: None)()
 
 
 def config_logging():
