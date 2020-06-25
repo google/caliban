@@ -41,7 +41,7 @@ def test_capture_stdout():
   assert code == 0
 
   # Verify that the stdout is reported to the supplied file, and that it's
-  # captured by the function adn returned correctly.
+  # captured by the function and returned correctly.
   assert ret_string == "hello!\n"
   assert buf.getvalue() == ret_string
 
