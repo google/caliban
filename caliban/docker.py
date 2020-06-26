@@ -670,7 +670,8 @@ def _run_cmd(job_mode: c.JobMode,
     run_args = []
 
   runtime = ["--runtime", "nvidia"] if c.gpu(job_mode) else []
-  return ["docker", "run"] + runtime + ["--ipc", "host"] + run_args
+  return ["docker", "run"
+         ] + runtime + ["--ipc", "host", "-e", "PYTHONUNBUFFERED=1"] + run_args
 
 
 def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
