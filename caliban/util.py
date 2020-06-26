@@ -38,6 +38,7 @@ from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
 import tqdm
 from absl import logging
 from blessings import Terminal
+from tqdm._utils import _term_move_up
 
 t = Terminal()
 
@@ -402,19 +403,23 @@ def capture_stdout(cmd: List[str],
 
   buf = io.StringIO()
   ret_code = None
+
   with subprocess.Popen(cmd,
                         stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
-                        bufsize=1,
-                        encoding="utf-8") as p:
+                        universal_newlines=False,
+                        bufsize=1) as p:
     if input_str:
-      p.stdin.write(input_str)
+      p.stdin.write(input_str.encode('utf-8'))
     p.stdin.close()
 
-    for line in p.stdout:
-      print(line, end='', file=file)
+    out = io.TextIOWrapper(p.stdout, newline='')
+
+    for line in out:
       buf.write(line)
+      file.write(line)
+      file.flush()
 
     # flush to force the contents to display.
     file.flush()
@@ -671,13 +676,22 @@ def validated_file(path: str) -> str:
 class TqdmFile(object):
   """Dummy file-like that will write to tqdm"""
   file = None
+  prefix = _term_move_up() + '\r'
 
   def __init__(self, file):
     self.file = file
+    self._carriage_pending = False
 
-  def write(self, x):
-    if len(x.rstrip()) > 0:
-      tqdm.tqdm.write(x, file=self.file, end='')
+  def write(self, line):
+    if self._carriage_pending:
+      line = self.prefix + line
+      self._carriage_pending = False
+
+    if line.endswith('\r'):
+      self._carriage_pending = True
+      line = line[:-1] + '\n'
+
+    tqdm.tqdm.write(line, file=self.file, end='')
 
   def flush(self):
     return getattr(self.file, "flush", lambda: None)()

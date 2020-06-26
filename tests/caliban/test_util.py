@@ -24,6 +24,7 @@ from typing import Union
 
 import hypothesis.strategies as st
 from hypothesis import given
+from tqdm._utils import _term_move_up
 
 import caliban.util as u
 
@@ -44,6 +45,32 @@ def test_capture_stdout():
   # captured by the function and returned correctly.
   assert ret_string == "hello!\n"
   assert buf.getvalue() == ret_string
+
+
+def test_carriage_return():
+
+  def through(xs):
+    buf = io.StringIO()
+    f = u.TqdmFile(file=buf)
+
+    for x in xs:
+      f.write(x)
+      f.flush()
+
+    return buf.getvalue()
+
+  # Strings pass through tqdmfile with no newline attached.
+  assert through(["Yo!"]) == "Yo!"
+
+  # Empty lines do nothing.
+  assert through(["", "", ""]) == ""
+
+  # A carriage return is converted to a newline, but the next line, if it's
+  # written, will have the proper prefix to trigger a carriage return.
+  assert through(["Yo!\r"]) == "Yo!\n"
+
+  # Boom, triggered.
+  assert through(["Yo!\r", "continue"]) == f"Yo!\n{_term_move_up()}\rcontinue"
 
 
 def test_capture_stdout_input():
