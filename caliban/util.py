@@ -403,7 +403,6 @@ def capture_stdout(cmd: List[str],
 
   buf = io.StringIO()
   ret_code = None
-  prefix = _term_move_up() + '\r'
 
   with subprocess.Popen(cmd,
                         stdin=subprocess.PIPE,
@@ -416,19 +415,9 @@ def capture_stdout(cmd: List[str],
     p.stdin.close()
 
     out = io.TextIOWrapper(p.stdout, newline='')
-    carriage_pending = False
 
     for line in out:
       buf.write(line)
-
-      if carriage_pending:
-        line = prefix + line
-        carriage_pending = False
-
-      if line.endswith('\r'):
-        carriage_pending = True
-        line = line[:-1] + '\n'
-
       file.write(line)
       file.flush()
 
@@ -684,12 +673,22 @@ def validated_file(path: str) -> str:
 class TqdmFile(object):
   """Dummy file-like that will write to tqdm"""
   file = None
+  prefix = _term_move_up() + '\r'
 
   def __init__(self, file):
     self.file = file
+    self._carriage_pending = False
 
-  def write(self, x):
-    tqdm.tqdm.write(x, file=self.file, end='')
+  def write(self, line):
+    if self._carriage_pending:
+      line = self.prefix + line
+      self._carriage_pending = False
+
+    if line.endswith('\r'):
+      self._carriage_pending = True
+      line = line[:-1] + '\n'
+
+    tqdm.tqdm.write(line, file=self.file, end='')
 
   def flush(self):
     return getattr(self.file, "flush", lambda: None)()

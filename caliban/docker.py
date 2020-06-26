@@ -32,15 +32,15 @@ from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, NewType,
 import tqdm
 from absl import logging
 from blessings import Terminal
+from tqdm.utils import _screen_shape_wrapper
 
 import caliban.config as c
 import caliban.util as u
-from caliban.history.utils import (get_sql_engine, get_mem_engine,
-                                   session_scope, generate_container_spec,
-                                   create_experiments)
+from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
+from caliban.history.utils import (create_experiments, generate_container_spec,
+                                   get_mem_engine, get_sql_engine,
+                                   session_scope)
 
-from caliban.history.types import (Experiment, JobSpec, Job, Platform,
-                                   JobStatus)
 t = Terminal()
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
@@ -670,8 +670,7 @@ def _run_cmd(job_mode: c.JobMode,
     run_args = []
 
   runtime = ["--runtime", "nvidia"] if c.gpu(job_mode) else []
-  return ["docker", "run"
-         ] + runtime + ["--ipc", "host", "-e", "PYTHONUNBUFFERED=1"] + run_args
+  return ["docker", "run"] + runtime + ["--ipc", "host"] + run_args
 
 
 def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
@@ -751,6 +750,24 @@ def local_callback(idx: int, job: Job) -> None:
     logging.error(t.red(f'Failing args for job {idx}: {args}'))
 
 
+def window_size_env_cmds():
+  """Returns a sequence of `docker run` arguments that will internally configure
+  the terminal columns and lines, so that progress bars and other terminal
+  interactions will work properly.
+
+  These aren't required for interactive Docker commands like those triggered by
+  `caliban shell`.
+
+  """
+  ret = []
+  cols, lines = _screen_shape_wrapper()(0)
+  if cols:
+    ret += ["-e", f"COLUMNS={cols}"]
+  if lines:
+    ret += ["-e", f"LINES={lines}"]
+  return ret
+
+
 # ----------------------------------------------------------------------------
 def _create_job_spec_dict(
     experiment: Experiment,
@@ -759,7 +776,12 @@ def _create_job_spec_dict(
     run_args: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
   '''creates a job spec dictionary for a local job'''
-  base_cmd = _run_cmd(job_mode, run_args) + [image_id]
+
+  # Without the unbuffered environment variable, stderr and stdout won't be
+  # emitted in the proper order from inside the container.
+  terminal_cmds = ["-e" "PYTHONUNBUFFERED=1"] + window_size_env_cmds()
+
+  base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
   command = base_cmd + c.experiment_to_args(experiment.kwargs, experiment.args)
   return {'command': command, 'container': image_id}
 

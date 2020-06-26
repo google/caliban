@@ -43,7 +43,7 @@ REQUIRED_PACKAGES = [
     'commentjson',
     'google-api-python-client',
     'pyyaml',
-    'tqdm',
+    'tqdm>=4.45.0',
     'kubernetes>=10.0.1',
     'google-auth>=1.18.0',
     'google-cloud-core>=1.0.3',

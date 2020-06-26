@@ -17,10 +17,12 @@
 https://www.tensorflow.org/tutorials/quickstart/beginner.
 
 """
+import warnings
 
 import tensorflow as tf
-
 from absl import app, flags
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 FLAGS = flags.FLAGS
 
@@ -58,7 +60,7 @@ def main(_):
   print(
       f'Training model with learning rate={FLAGS.learning_rate} for {FLAGS.epochs} epochs.'
   )
-  model.fit(x_train, y_train, epochs=FLAGS.epochs, verbose=2)
+  model.fit(x_train, y_train, epochs=FLAGS.epochs)
 
   print('Model performance: ')
   model.evaluate(x_test, y_test, verbose=2)
