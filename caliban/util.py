@@ -421,6 +421,9 @@ def capture_stdout(cmd: List[str],
       file.write(line)
       file.flush()
 
+    # flush to force the contents to display.
+    file.flush()
+
     while p.poll() is None:
       # Process hasn't exited yet, let's wait some
       time.sleep(0.5)
