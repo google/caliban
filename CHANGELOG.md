@@ -1,3 +1,29 @@
+# 0.2.6
+
+- Prepared for a variety of base images by setting up a cloud build matrix:
+  https://github.com/google/caliban/pull/25
+- Added better documentation for `gcloud auth configure-docker`
+  https://github.com/google/caliban/pull/26
+- Added `close()` to `TqdmFile`, preventing an error when piping `stdout`:
+  https://github.com/google/caliban/pull/30
+- `tqdm` progress bars and other interactive outputs now display correctly in
+  `caliban run` outputs. `stdout` flushes properly! Before these changes,
+  `stderr` would appear before any `stdout`, making it difficult to store the
+  logs in a text file. Now, by default, python processes launched by `caliban
+  run` won't buffer. https://github.com/google/caliban/pull/31
+
+![2020-06-26 09 48 50](https://user-images.githubusercontent.com/69635/85877300-2a3e7300-b794-11ea-9792-4cf3ae5e4263.gif)
+
+# 0.2.5
+
+- fixes the python binary that caliban notebook points to (now that we use
+  conda)
+- adds DEBIAN_FRONTEND=noninteractive to the apt-get command, so that packages
+  like texlive won't freeze and wait for you to specify a timezone.
+
+This makes it easy to add, for example, npm and latex support to your caliban
+notebook invocations.
+
 # 0.2.4
 
 - fixes a bug with `parse_region` not handling a lack of default.
