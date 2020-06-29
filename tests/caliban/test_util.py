@@ -302,22 +302,6 @@ class UtilTestSuite(unittest.TestCase):
       check_dictproduct(test)
       check_expansion(test)
 
-  @given(st.integers())
-  def test_compose(self, x):
-    """Functions should compose; the composed function accepts any arguments that the rightmost function accepts."""
-
-    def plus1(x):
-      return x + 1
-
-    def square(x):
-      return x * x
-
-    square_plus_one = u.compose(plus1, square)
-    times_plus_one = u.compose(plus1, lambda l, r: l * r)
-
-    self.assertEqual(square_plus_one(x), x * x + 1)
-    self.assertEqual(square_plus_one(x), times_plus_one(l=x, r=x))
-
   @given(st.dictionaries(st.text(), st.text()),
          st.dictionaries(st.text(), st.text()))
   def test_merge(self, m1, m2):

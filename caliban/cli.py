@@ -26,6 +26,7 @@ from blessings import Terminal
 
 import caliban.cloud.types as ct
 import caliban.config as conf
+import caliban.config.experiment as ce
 import caliban.docker as docker
 import caliban.gke as gke
 import caliban.gke.constants as gke_k
@@ -352,7 +353,7 @@ def job_name_arg(parser):
 def experiment_config_arg(parser):
   parser.add_argument(
       "--experiment_config",
-      type=conf.load_experiment_config,
+      type=ce.load_experiment_config,
       help="Path to an experiment config, or 'stdin' to read from stdin.")
 
 

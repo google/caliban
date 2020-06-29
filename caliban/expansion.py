@@ -24,7 +24,7 @@ from typing import List
 from absl import app, logging
 from absl.flags import argparse_flags
 
-import caliban.config as c
+import caliban.config.experiment as c
 from caliban import __version__
 
 ll.getLogger('caliban.expansion').setLevel(logging.ERROR)

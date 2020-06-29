@@ -13,23 +13,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Utilities for our job runner, for working with configs.
+"""Utilities for working with experiment.json files.
+
 """
 
 from __future__ import absolute_import, division, print_function
 
 import argparse
 import itertools
-import os
-import sys
-from enum import Enum
-from typing import Any, Dict, List, Union, Optional
 import re
-import commentjson
-import yaml
+import sys
+from collections import ChainMap
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import caliban.cloud.types as ct
+import commentjson
+
 import caliban.util as u
 
 # int, str and bool are allowed in a final experiment; lists are markers for
@@ -48,168 +46,97 @@ ExpConf = Union[Expansion, List[Expansion]]
 Experiment = Dict[str, ExpValue]
 
 
-# Mode
-class JobMode(str, Enum):
-  CPU = 'CPU'
-  GPU = 'GPU'
-
-
-# Special config for Caliban.
-CalibanConfig = Dict[str, Any]
-
-DRY_RUN_FLAG = "--dry_run"
-CALIBAN_CONFIG = ".calibanconfig.json"
-
-# Defaults for various input values that we can supply given some partial set
-# of info from the CLI.
-DEFAULT_REGION = ct.US.central1
-
-# : Dict[JobMode, ct.MachineType]
-DEFAULT_MACHINE_TYPE = {
-    JobMode.CPU: ct.MachineType.highcpu_32,
-    JobMode.GPU: ct.MachineType.standard_8
-}
-DEFAULT_GPU = ct.GPU.P100
-
-# Config to supply for CPU jobs.
-DEFAULT_ACCELERATOR_CONFIG = {
-    "count": 0,
-    "type": "ACCELERATOR_TYPE_UNSPECIFIED"
-}
-
-
-def gpu(job_mode: JobMode) -> bool:
-  """Returns True if the supplied JobMode is JobMode.GPU, False otherwise.
-
+def _is_compound_key(s: Any) -> bool:
+  """ compound key is defined as a string which uses square brackets to enclose
+  a comma-separated list, e.g. "[batch_size,learning_rate]" or "[a,b,c]"
   """
-  return job_mode == JobMode.GPU
 
-
-def load_yaml_config(path):
-  """returns the config parsed based on the info in the flags.
-
-  Grabs the config file, written in yaml, slurps it in.
-  """
-  with open(path) as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-
-  return config
-
-
-def load_config(path, mode='yaml'):
-  """Load a JSON or YAML config.
-
-  """
-  if mode == 'json':
-    with open(path) as f:
-      return commentjson.load(f)
-
-  return load_yaml_config(path)
-
-
-def valid_json(path: str) -> Dict[str, Any]:
-  """Loads JSON if the path points to a valid JSON file; otherwise, throws an
-  exception that's picked up by argparse.
-
-  """
-  try:
-    return load_config(path, mode='json')
-  except commentjson.JSONLibraryException:
-    raise argparse.ArgumentTypeError(
-        """File '{}' doesn't seem to contain valid JSON. Try again!""".format(
-            path))
-
-
-def extract_script_args(m: Dict[str, Any]) -> List[str]:
-  """Strip off the "--" argument if it was passed in as a separator."""
-  script_args = m.get("script_args")
-  if script_args is None or script_args == []:
-    return script_args
-
-  head, *tail = script_args
-
-  return tail if head == "--" else script_args
-
-
-def extract_project_id(m: Dict[str, Any]) -> str:
-  """Attempts to extract the project_id from the args; falls back to an
-  environment variable, or exits if this isn't available. There's no sensible
-  default available.
-
-  """
-  project_id = m.get("project_id") or os.environ.get("PROJECT_ID")
-
-  if project_id is None:
-    print()
-    print(
-        "\nNo project_id found. 'caliban cloud' requires that you either set a \n\
-$PROJECT_ID environment variable with the ID of your Cloud project, or pass one \n\
-explicitly via --project_id. Try again, please!")
-    print()
-
-    sys.exit(1)
-
-  return project_id
-
-
-def extract_region(m: Dict[str, Any]) -> ct.Region:
-  """Returns the region specified in the args; defaults to an environment
-  variable. If that's not supplied defaults to the default cloud provider from
-  caliban.cloud.
-
-  """
-  region = m.get("region") or os.environ.get("REGION")
-
-  if region:
-    return ct.parse_region(region)
-
-  return DEFAULT_REGION
-
-
-def extract_zone(m: Dict[str, Any]) -> str:
-  return "{}-a".format(extract_region(m))
-
-
-def extract_cloud_key(m: Dict[str, Any]) -> Optional[str]:
-  """Returns the Google service account key filepath specified in the args;
-  defaults to the $GOOGLE_APPLICATION_CREDENTIALS variable.
-
-  """
-  return m.get("cloud_key") or \
-    os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-
-
-def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
-  """Returns the list of aptitude packages that should be installed to satisfy
-  the requests in the config.
-
-  """
-  packages = conf.get("apt_packages") or {}
-
-  if isinstance(packages, dict):
-    k = "gpu" if gpu(mode) else "cpu"
-    return packages.get(k, [])
-
-  elif isinstance(packages, list):
-    return packages
-
+  if type(s) is not str or len(s) <= 2:
+    return False
   else:
-    raise argparse.ArgumentTypeError(
-        """{}'s "apt_packages" entry must be a dictionary or list, not '{}'""".
-        format(CALIBAN_CONFIG, packages))
+    return s[0] == '[' and s[-1] == ']'
 
 
-def caliban_config() -> CalibanConfig:
-  """Returns a dict that represents a `.calibanconfig.json` file if present,
-  empty dictionary otherwise.
+def _tupleize_compound_key(k: str) -> List[str]:
+  """ converts a JSON-input compound key into a tuple """
+  assert _is_compound_key(k), "{} must be a valid compound key".format(k)
+  return tuple([x.strip() for x in k.strip('][').split(',')])
 
+
+def _tupleize_compound_value(
+    v: Union[List, bool, str, int, float]) -> Union[List, Tuple]:
+  """ list of lists -> list of tuples
+      list of primitives -> tuple of primitives
+      single primitive -> length-1 tuple of that primitive
+
+  E.g., [[0,1],[3,4]] -> [(0,1),(3,4)]
+        [0,1] -> (0,1)
+        0 -> (0, )
   """
-  if not os.path.isfile(CALIBAN_CONFIG):
-    return {}
+  if isinstance(v, list):
+    if isinstance(v[0], list):
+      # v is list of lists
+      return [tuple(vi) for vi in v]
+    else:
+      # v is list of primitives
+      return tuple(v)
+  else:
+    # v is a single primitive (bool, str, int, float)
+    return tuple([v])
 
-  with open(CALIBAN_CONFIG) as f:
-    conf = commentjson.load(f)
-    return conf
+
+def _tupleize_compound_item(k: Union[Tuple, str], v: Any) -> Dict:
+  """ converts a JSON-input compound key/value pair into a dictionary of tuples """
+  if _is_compound_key(k):
+    return {_tupleize_compound_key(k): _tupleize_compound_value(v)}
+  else:
+    return {k: v}
+
+
+def tupleize_dict(m: Dict) -> Dict:
+  """ given a dictionary with compound keys, converts those keys to tuples, and
+  converts the corresponding values to a tuple or list of tuples
+
+  Compound key: a string which uses square brackets to enclose
+  a comma-separated list, e.g. "[batch_size,learning_rate]" or "[a,b,c]"
+  """
+
+  formatted_items = [_tupleize_compound_item(k, v) for k, v in m.items()]
+  return dict(ChainMap(*formatted_items))
+
+
+def _expand_compound_pair(k: Union[Tuple, str], v: Any) -> Dict:
+  """ given a key-value pair k v, where k is either:
+      a) a primitive representing a single, e.g. k = 'key', v = 'value', or
+      b) a tuple of primitives representing multiple keys, e.g. k = ('key1','key2'), v = ('value1', 'value2')
+      this function returns the corresponding dictionary without compound keys
+  """
+
+  if isinstance(k, tuple):
+    if not isinstance(v, tuple):
+      raise argparse.ArgumentTypeError(
+          """function _expand_compound_pair(k, v) requires that if type(k) is tuple,
+             type(v) must also be tuple.""")
+    else:
+      return dict(zip(k, v))
+  else:
+    return {k: v}
+
+
+def expand_compound_dict(m: Union[Dict, List]) -> Union[Dict, List]:
+  """ given a dictionary with some compound keys, aka tuples,
+  returns a dictionary which each compound key separated into primitives
+
+  given a list of such dictionaries, will apply the transformation
+  described above to each dictionary and return the list, maintaining
+  structure
+  """
+
+  if isinstance(m, list):
+    return [expand_compound_dict(mi) for mi in m]
+  else:
+    expanded_dicts = [_expand_compound_pair(k, v) for k, v in m.items()]
+    return dict(ChainMap(*expanded_dicts))
 
 
 def expand_experiment_config(items: ExpConf) -> List[Experiment]:
