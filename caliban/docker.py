@@ -22,6 +22,7 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import os
+import re
 import subprocess
 import sys
 from enum import Enum
@@ -33,6 +34,8 @@ import tqdm
 from absl import logging
 from blessings import Terminal
 from tqdm.utils import _screen_shape_wrapper
+import mlflow
+import traceback
 
 import caliban.config as c
 import caliban.util as u
@@ -787,6 +790,82 @@ def _create_job_spec_dict(
 
 
 # ----------------------------------------------------------------------------
+def _add_mlflow_env(
+    command: List[str],
+    run_id: str,
+    exp_name: str,
+    tracking_uri: str,
+) -> List[str]:
+  '''adds mlflow environment vars to docker run command
+    '''
+
+  assert command[0] == 'docker'
+  assert command[1] == 'run'
+
+  cmd = command[:2]
+
+  assert tracking_uri.startswith(
+      'file://'), 'only local mlflow tracking supported'
+
+  src_path = tracking_uri.replace('file://', '')
+  dst_path = os.path.join('/tmp', 'mlruns')
+  cmd += ['-v', f'{src_path}:{dst_path}']
+  tracking_uri = f'file://{dst_path}'
+
+  cmd += ['-e', f'MLFLOW_RUN_ID={run_id}']
+  cmd += ['-e', f'MLFLOW_EXPERIMENT_NAME={exp_name}']
+  cmd += ['-e', f'MLFLOW_TRACKING_URI={tracking_uri}']
+  cmd += command[2:]
+
+  return cmd
+
+
+# ----------------------------------------------------------------------------
+class MLFlowCfg(NamedTuple):
+  command: List[str]
+  mlflow_run_id: str
+
+
+# ----------------------------------------------------------------------------
+def _configure_mlflow(job_spec: JobSpec, command: List[str]) -> MLFlowCfg:
+  xname = job_spec.experiment.xgroup.name
+  mlflow.set_experiment(xname)
+  mlflow_experiment = mlflow.get_experiment_by_name(xname)
+  with mlflow.start_run(experiment_id=mlflow_experiment.experiment_id) as run:
+
+    exp = job_spec.experiment
+    mlflow.log_params(exp.kwargs)
+
+    pos_args = list(exp.args)
+    kwarg_re = re.compile('--(?P<key>[^\s]+)=(?P<value>.+)')
+
+    collected_args = []
+    for a in pos_args:
+      match = kwarg_re.match(a)
+      if match is None:
+        continue
+
+      collected_args.append(a)
+      gd = match.groupdict()
+      mlflow.log_param(gd['key'], gd['value'])
+
+    for a in collected_args:
+      pos_args.remove(a)
+
+    mlflow.log_param('other_args', pos_args)
+
+    mlflow_run_id = run.info.run_id
+    command = _add_mlflow_env(
+        command,
+        run_id=mlflow_run_id,
+        exp_name=mlflow_experiment.name,
+        tracking_uri=mlflow.get_tracking_uri(),
+    )
+
+  return MLFlowCfg(command=command, mlflow_run_id=mlflow_run_id)
+
+
+# ----------------------------------------------------------------------------
 def execute_jobs(
     job_specs: Iterable[JobSpec],
     dry_run: bool = False,
@@ -809,12 +888,19 @@ def execute_jobs(
       command = job_spec.spec['command']
       logging.info(f'Running command: {" ".join(command)}')
       if not dry_run:
-        _, ret_code = u.capture_stdout(command, "", u.TqdmFile(sys.stderr))
+        cfg = _configure_mlflow(job_spec=job_spec, command=command)
+        mlflow_run_id = cfg.mlflow_run_id
+        _, ret_code = u.capture_stdout(cfg.command, "", u.TqdmFile(sys.stderr))
       else:
         ret_code = 0
+        mlflow_run_id = None
+
       j = Job(spec=job_spec,
               container=job_spec.spec['container'],
-              details={'ret_code': ret_code},
+              details={
+                  'ret_code': ret_code,
+                  'mlflow_run_id': mlflow_run_id
+              },
               status=JobStatus.SUCCEEDED if ret_code == 0 else JobStatus.FAILED)
       local_callback(idx=idx, job=j)
 
@@ -905,6 +991,7 @@ def run_experiments(job_mode: c.JobMode,
       execute_jobs(job_specs=job_specs, dry_run=dry_run)
     except Exception as e:
       logging.error(f'exception: {e}')
+      logging.error(traceback.format_exc())
       session.commit()  # commit here, otherwise will be rolled back
 
 
