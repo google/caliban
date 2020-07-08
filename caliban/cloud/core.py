@@ -18,29 +18,51 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
-from pprint import pformat
-from typing import Any, Dict, Iterable, List, Optional, Tuple
 from copy import deepcopy
+from pprint import pformat
+from subprocess import CalledProcessError, check_output
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import tqdm
 from absl import logging
 from blessings import Terminal
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
-from sqlalchemy.orm import Session
 
 import caliban.cloud.types as ct
 import caliban.config as conf
 import caliban.docker as d
-import caliban.util as u
-
-from caliban.history.utils import (get_sql_engine, get_mem_engine,
-                                   session_scope, generate_container_spec,
-                                   create_experiments)
 import caliban.history.types as ht
+import caliban.util as u
+from caliban.history.utils import (create_experiments, generate_container_spec,
+                                   get_mem_engine, get_sql_engine,
+                                   session_scope)
 
 t = Terminal()
+
+
+def auth_access_token() -> Optional[str]:
+  """Attempts to fetch the local Oauth2 access token from the user's environment.
+  Returns the token if it exists, or None if not
+
+  """
+  try:
+    return check_output(['gcloud', 'auth', 'print-access-token'],
+                        encoding='utf8').rstrip()
+  except CalledProcessError:
+    return None
+
+
+def gcloud_auth_credentials() -> Optional[Credentials]:
+  """Attempt to generate credentials from the oauth2 workflow triggered by
+  `gcloud auth login`. Returns
+
+  """
+  token = auth_access_token()
+  if token:
+    return Credentials(token)
 
 
 def get_accelerator_config(gpu_spec: Optional[ct.GPUSpec]) -> Dict[str, Any]:
@@ -262,6 +284,11 @@ def ml_api(credentials_path: Optional[str] = None):
   if credentials_path is not None:
     credentials = service_account.Credentials.from_service_account_file(
         credentials_path)
+  else:
+    # attempt to fetch credentials acquired via `gcloud auth login`. If this
+    # fails, the following API object will attempt to use application default
+    # credentials.
+    credentials = gcloud_auth_credentials()
 
   return discovery.build('ml',
                          'v1',
