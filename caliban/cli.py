@@ -459,9 +459,9 @@ def _validate_machine_type(gpu_spec: Optional[ct.GPUSpec],
       # prefixes stick together.
       allowed = u.enum_vals(gpu_spec.allowed_machine_types())
       allowed.sort()
-      u.err("\n'{}' isn't a valid machine type ".format(machine_type.value) +
-            "for {} {} GPUs.\n\n".format(gpu_spec.count, gpu_spec.gpu.name))
-      u.err(ct.with_gpu_advice_suffix("Try one of these: {}".format(allowed)))
+      u.err(f"\n'{machine_type.value}' isn't a valid machine type " +
+            f"for {gpu_spec.count} {gpu_spec.gpu.name} GPUs.\n\n")
+      u.err(ct.with_advice_suffix("gpu", f"Try one of these: {allowed}"))
       u.err("\n")
       sys.exit(1)
 
