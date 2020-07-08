@@ -16,8 +16,8 @@ authentication within Docker containers.
 "Application Default Credentials", or ADC Credentials. See :doc:`../cloud/adc`
 for more information.
 
-.. NOTE:: to set up service account keys, visit the :ref:`service
-   account instructions <Service Account Key>`. To generate application default
+.. NOTE:: to set up service account keys, visit the :doc:`service
+   account instructions </cloud/service_account>`. To generate application default
    credentials on your machine, simply run ``gcloud auth application-default
    login`` at your terminal, as described `in the Google Cloud docs
    <https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login>`_.
@@ -55,10 +55,10 @@ able to use the GCloud Python API or the ``gsutil`` or ``gcloud`` commands insid
 the container.
 
 As noted above, if you don't have this variable set up yet and want to get it
-working, check out the :ref:`service account instructions <Service Account
-Key>`. To generate application default credentials on your machine, simply run
-``gcloud auth application-default login`` at your terminal, as described `in the
-Cloud docs
+working, check out the :doc:`service account instructions
+</cloud/service_account>`. To generate application default credentials on your
+machine, simply run ``gcloud auth application-default login`` at your terminal,
+as described `in the Cloud docs
 <https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login>`_.
 
 GCloud SDK

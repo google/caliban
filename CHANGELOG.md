@@ -1,3 +1,9 @@
+# 0.2.7
+
+- Caliban now authenticates AI Platform job submissions using the authentication
+  provided by `gcloud auth login`, rather than requiring a service account key.
+  This significantly simplifies the setup required for a first time user.
+
 # 0.2.6
 
 - Prepared for a variety of base images by setting up a cloud build matrix:
