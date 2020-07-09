@@ -110,73 +110,6 @@ Click `this link to Enable the AI Platform Jobs API
 <https://console.cloud.google.com/ai-platform/ml-enable-api/jobs>`_ by clicking
 "Enable API" and waiting for the spinner to stop.
 
-Create a Service Account Key
-----------------------------
-
-Next you'll need to create a `Service Account Key
-<https://www.google.com/search?q=service+account+key+google&oq=service+account+key+google&aqs=chrome..69i57j69i60l2.1592j0j4&sourceid=chrome&ie=UTF-8>`_.
-A service account key is a sort of "passport" that Caliban will use to
-authenticate your requests when submitting jobs to Google Cloud.
-
-To create your service account key, visit the `Service Accounts page
-  <https://console.cloud.google.com/iam-admin/serviceaccounts?_ga=2.94132893.1698699355.1592403366-805054138.1592403366>`_
-  and select the project you created earlier.
-
-Click "Create Service Account" at the top of the page:
-
-.. image:: /_static/img/cloud/activate.png
-  :width: 600
-  :align: center
-  :alt: Activate Billing
-
-At the next form, under **"Service Account Name"**, type something like
-**totoro_key** and click **"Create"**.
-
-This will bring up a page titled **"Service Account Permissions"**. Select
-**Project > Owner** from the list:
-
-.. image:: /_static/img/cloud/service_acct_permissions.png
-  :width: 600
-  :align: center
-  :alt: Service Account Permissions
-
-Then click **"Continue"** and **"Done"**. You now have a service account. You'll
-need to download it to your machine for Caliban to use it.
-
-Downloading the Service Account Key
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Click on the hyperlinked name of the key - something like
-``totoro-key@totoro-lives.iam.gserviceaccount.com`` - in the service accounts
-list.
-
-Near the bottom of the page, click "Add Key" > "Create New Key":
-
-.. image:: /_static/img/cloud/create_new_key.png
-  :width: 600
-  :align: center
-  :alt: Create New Key
-
-Select **"JSON"** for key type and click **"Create"**. This will download a file
-with a name like ``totoro-lives-3df07b8c97a0.json`` to your machine.
-
-Find the file in your terminal (probably in your Downloads folder) and run the
-following command to move it to a nice, easy to read location:
-
-.. code-block:: bash
-
-   mv [NEW_FILENAME].json ~/.config/service_key.json
-
-To make this key accessible to Caliban, you'll need to set a variable called
-``GOOGLE_APPLICATION_CREDENTIALS`` in your shell to the path of your new service
-account key. Add the following line to your `~/.bashrc`:
-
-.. code-block:: bash
-
-   export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/service_key.json
-
-One step remains before we can submit jobs to Cloud AI Platform.
-
 Install the Cloud SDK
 ---------------------
 
@@ -254,15 +187,13 @@ your terminal. You should see your email address listed as the active account:
    To set the active account, run:
        $ gcloud config set account `ACCOUNT`
 
-As a final step, confirm that you've set the following two or three environment
-variables. (If you set a custom region above, add it here as a ``$REGION``
-variable).
+As a final step, confirm that you've set the following environment variables.
+(If you set a custom region above, add it here as a ``$REGION`` variable).
 
 .. code-block:: bash
 
    export REGION="us-central1"
    export PROJECT_ID="research-3141"
-   export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/devkey.json"
 
 If you have all of this, you're set!
 
