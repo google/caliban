@@ -55,7 +55,7 @@ REQUIRED_PACKAGES = [
     # dep that commentjson brings in. Delete once this is merged:
     # https://github.com/vaidik/commentjson/pull/33/files
     'lark-parser>=0.7.1,<0.8.0',
-    'SQLAlchemy>=1.3.11',
+    'SQLAlchemy==1.3.11',
     'mlflow>=1.9.1',
 ]
 
