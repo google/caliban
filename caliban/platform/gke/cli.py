@@ -29,13 +29,12 @@ from kubernetes.client import V1Job
 import caliban.cli as cli
 import caliban.config as conf
 import caliban.gke.constants as k
-import caliban.gke.utils as utils
+import caliban.gke.util as util
 import caliban.util as u
 from caliban.cloud.core import generate_image_tag
 from caliban.gke.cluster import Cluster
-from caliban.history.utils import (create_experiments, generate_container_spec,
-                                   get_mem_engine, get_sql_engine,
-                                   session_scope)
+from caliban.history.util import (create_experiments, generate_container_spec,
+                                  get_mem_engine, get_sql_engine, session_scope)
 
 
 # ----------------------------------------------------------------------------
@@ -46,7 +45,7 @@ def _project_and_creds(fn):
     project_id = args.get('project_id')
     creds_file = args.get('cloud_key')
 
-    creds_data = utils.credentials(creds_file)
+    creds_data = util.credentials(creds_file)
     creds = creds_data.credentials
 
     if project_id is None:
@@ -105,8 +104,8 @@ def _check_for_existing_cluster(cluster_name: str, project_id: str,
   for c in clusters:
     logging.info(c)
 
-  return utils.user_verify('Do you really want to create a new cluster?',
-                           default=False)
+  return util.user_verify('Do you really want to create a new cluster?',
+                          default=False)
 
 
 # ----------------------------------------------------------------------------
@@ -126,11 +125,11 @@ def _export_jobs(export: str, jobs: List[V1Job]) -> bool:
   """
 
   if len(jobs) == 1:
-    return utils.export_job(jobs[0], export)
+    return util.export_job(jobs[0], export)
   else:
     base, ext = os.path.splitext(export)
     for i, j in enumerate(jobs):
-      if not utils.export_job(j, f'{base}_{i}{ext}'):
+      if not util.export_job(j, f'{base}_{i}{ext}'):
         return False
 
   return True
@@ -149,7 +148,7 @@ def _cluster_create(args: dict, project_id: str, creds: Credentials) -> None:
   dry_run = args['dry_run']
   cluster_name = args['cluster_name'] or k.DEFAULT_CLUSTER_NAME
   zone = args['zone']
-  dashboard_url = utils.dashboard_cluster_url(cluster_name, zone, project_id)
+  dashboard_url = util.dashboard_cluster_url(cluster_name, zone, project_id)
   release_channel = args['release_channel']
   single_zone = args['single_zone']
 
@@ -208,9 +207,9 @@ def _cluster_delete(args: dict, cluster: Cluster) -> None:
   None
   """
 
-  if utils.user_verify('Are you sure you want to delete {}?'.format(
+  if util.user_verify('Are you sure you want to delete {}?'.format(
       cluster.name),
-                       default=False):
+                      default=False):
     cluster.delete()
 
   return
@@ -433,7 +432,7 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
 
     specs = list(
         cluster.create_simple_experiment_job_specs(
-            name=utils.sanitize_job_name(job_name),
+            name=util.sanitize_job_name(job_name),
             image=image_tag,
             min_cpu=min_cpu,
             min_mem=min_mem,
@@ -483,7 +482,7 @@ def _job_submit_file(args: dict, cluster: Cluster) -> None:
 
   job_file = args['job_file']
 
-  job_spec = utils.parse_job_file(job_file)
+  job_spec = util.parse_job_file(job_file)
   if job_spec is None:
     logging.error('error parsing job file {}'.format(job_file))
     return

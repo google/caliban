@@ -39,11 +39,11 @@ from kubernetes.client.api_client import ApiClient
 
 import caliban.config as conf
 import caliban.gke.constants as k
-import caliban.gke.utils as utils
+import caliban.gke.util as util
 from caliban.cloud.types import (GPU, TPU, Accelerator, GPUSpec, MachineType,
                                  TPUSpec)
 from caliban.gke.types import NodeImage, OpStatus, ReleaseChannel
-from caliban.gke.utils import trap
+from caliban.gke.util import trap
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -265,8 +265,8 @@ class Cluster(object):
       logging.error('error getting cluster management client')
       return False
 
-    cluster_list = utils.get_gke_clusters(self._cluster_client, self.project_id,
-                                          self.zone)
+    cluster_list = util.get_gke_clusters(self._cluster_client, self.project_id,
+                                         self.zone)
     if cluster_list is None:
       return False
     if len(cluster_list) < 1:
@@ -313,7 +313,7 @@ class Cluster(object):
       logging.error('error getting cluster management client')
       return False
 
-    clusters = utils.get_gke_clusters(client, project_id, zone)
+    clusters = util.get_gke_clusters(client, project_id, zone)
     return [c.name for c in clusters] if clusters is not None else None
 
   # --------------------------------------------------------------------------
@@ -603,7 +603,7 @@ class Cluster(object):
   ) -> V1Job:
     '''creates a V1Job from a JobSpec, a job name, and an optional set of labels'''
 
-    name = utils.sanitize_job_name(name)
+    name = util.sanitize_job_name(name)
     job_metadata = V1ObjectMeta(generate_name=name + '-', labels=labels)
 
     return V1Job(api_version=k.BATCH_V1_VERSION,
@@ -861,7 +861,7 @@ class Cluster(object):
   @connected(None)
   def dashboard_url(self) -> str:
     """returns gke dashboard url for this cluster"""
-    return utils.dashboard_cluster_url(self.name, self.zone, self.project_id)
+    return util.dashboard_cluster_url(self.name, self.zone, self.project_id)
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -891,7 +891,7 @@ class Cluster(object):
     list of supported tpu types on success, None otherwise
     """
 
-    return utils.get_zone_tpu_types(self._tpu_api, self.project_id, self.zone)
+    return util.get_zone_tpu_types(self._tpu_api, self.project_id, self.zone)
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -958,14 +958,13 @@ class Cluster(object):
                                                   credentials=self.credentials,
                                                   cache_discovery=False)
 
-    zone_gpus = utils.get_zone_gpu_types(compute_api, self.project_id,
-                                         self.zone)
+    zone_gpus = util.get_zone_gpu_types(compute_api, self.project_id, self.zone)
 
     if zone_gpus is None:
       return False
 
     gpu_limits = dict([(x.gpu, x.count) for x in zone_gpus])
-    if not utils.validate_gpu_spec_against_limits(gpu_spec, gpu_limits, 'zone'):
+    if not util.validate_gpu_spec_against_limits(gpu_spec, gpu_limits, 'zone'):
       return False
 
     # ------------------------------------------------------------------------
@@ -975,8 +974,8 @@ class Cluster(object):
       return False
 
     gpu_limits = dict([(x.gpu, x.count) for x in available_gpu])
-    if not utils.validate_gpu_spec_against_limits(gpu_spec, gpu_limits,
-                                                  'cluster'):
+    if not util.validate_gpu_spec_against_limits(gpu_spec, gpu_limits,
+                                                 'cluster'):
       return False
 
     return True
@@ -1061,7 +1060,7 @@ class Cluster(object):
     list of supported tpu drivers on success, None otherwise
     """
 
-    return utils.get_tpu_drivers(self._tpu_api, self.project_id, self.zone)
+    return util.get_tpu_drivers(self._tpu_api, self.project_id, self.zone)
 
   # --------------------------------------------------------------------------
   @connected(None)
@@ -1125,8 +1124,8 @@ class Cluster(object):
                                   credentials=creds,
                                   cache_discovery=False)
 
-    resource_limits = utils.generate_resource_limits(compute_api, project_id,
-                                                     region)
+    resource_limits = util.generate_resource_limits(compute_api, project_id,
+                                                    region)
 
     if resource_limits is None:
       logging.error('error generating resource limits')
@@ -1135,7 +1134,7 @@ class Cluster(object):
     if single_zone:
       node_zones = [zone]
     else:
-      node_zones = utils.get_zones_in_region(compute_api, project_id, region)
+      node_zones = util.get_zones_in_region(compute_api, project_id, region)
 
     if node_zones is None:
       logging.error('error getting zones for region {}'.format(region))
@@ -1170,7 +1169,7 @@ class Cluster(object):
     Cluster instance on success, None otherwise
     '''
 
-    daemonset_url = utils.nvidia_daemonset_url(NodeImage.COS)
+    daemonset_url = util.nvidia_daemonset_url(NodeImage.COS)
     body = json.loads(request.body)
     zone = body['cluster']['zone']
     cluster_name = body['cluster']['name']
@@ -1184,7 +1183,7 @@ class Cluster(object):
 
     # wait for creation operation to complete
     operation_name = rsp['name']
-    rsp = utils.wait_for_operation(
+    rsp = util.wait_for_operation(
         cluster_api,
         'projects/{}/locations/{}/operations/{}'.format(project_id, zone,
                                                         operation_name))

@@ -24,13 +24,13 @@ from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 
 from caliban.util import current_user, Package
-from caliban.history.utils import (get_sql_engine, session_scope,
-                                   update_job_status, get_gke_job_name,
-                                   stop_job, replace_job_spec_image)
+from caliban.history.util import (get_sql_engine, session_scope,
+                                  update_job_status, get_gke_job_name, stop_job,
+                                  replace_job_spec_image)
 from caliban.history.submit import submit_job_specs
 from caliban.history.types import (ContainerSpec, ExperimentGroup, Experiment,
                                    JobSpec, Job, Platform, JobStatus, Platform)
-from caliban.gke.utils import user_verify, credentials
+from caliban.gke.util import user_verify, credentials
 
 from caliban.docker import build_image, push_uuid_tag, execute_jobs
 

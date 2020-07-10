@@ -31,7 +31,7 @@ import caliban.docker as docker
 import caliban.gke as gke
 import caliban.gke.constants as gke_k
 import caliban.gke.types as gke_t
-import caliban.gke.utils as gke_u
+import caliban.gke.util as gke_u
 import caliban.util as u
 from caliban import __version__
 

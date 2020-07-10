@@ -17,25 +17,24 @@
 import os
 import sys
 from contextlib import contextmanager
-from typing import Optional, Dict, Any, List
 from copy import deepcopy
+from typing import Any, Dict, List, Optional
+
 from absl import logging
 from blessings import Terminal
 from googleapiclient import discovery
-
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 import caliban.config as conf
-from caliban.gke.cluster import Cluster
-from caliban.gke.utils import default_credentials
-from caliban.gke.types import JobStatus as GkeStatus
 from caliban.cloud.types import JobStatus as CloudStatus
-from caliban.history.types import (init_db, Job, JobStatus, Platform,
-                                   ContainerSpec, Experiment, ExperimentGroup,
-                                   JobSpec)
+from caliban.gke.cluster import Cluster
+from caliban.gke.types import JobStatus as GkeStatus
+from caliban.gke.util import default_credentials
+from caliban.history.types import (ContainerSpec, Experiment, ExperimentGroup,
+                                   Job, JobSpec, JobStatus, Platform, init_db)
 
 DB_URL_ENV = 'CALIBAN_DB_URL'
 MEMORY_DB_URL = 'sqlite:///:memory:'

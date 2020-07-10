@@ -14,23 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """unit tests for gke utilities"""
-import unittest
-from unittest import mock
 import random
+import unittest
+from typing import List
+from unittest import mock
 
 import hypothesis.strategies as st
 from hypothesis import given, settings
-from typing import Dict, List, Any
-import re
-import random
-import pprint as pp
 
 import caliban.cloud.types as ct
-import caliban.gke
-import caliban.gke.utils as utils
 import caliban.gke.constants as k
+import caliban.gke.utils as utils
+from caliban.gke.types import NodeImage, OpStatus
 from caliban.gke.utils import trap
-from caliban.gke.types import NodeImage, OpStatus, ReleaseChannel
 
 
 # ----------------------------------------------------------------------------
@@ -622,5 +618,3 @@ class UtilsTestSuite(unittest.TestCase):
     # normal execution
     api.execute = _normal
     self.assertEqual(zones, utils.get_zones_in_region(api, 'p', region))
-
-    return

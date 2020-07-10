@@ -37,9 +37,8 @@ from tqdm.utils import _screen_shape_wrapper
 import caliban.config as c
 import caliban.util as u
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
-from caliban.history.utils import (create_experiments, generate_container_spec,
-                                   get_mem_engine, get_sql_engine,
-                                   session_scope)
+from caliban.history.util import (create_experiments, generate_container_spec,
+                                  get_mem_engine, get_sql_engine, session_scope)
 
 t = Terminal()
 

@@ -36,9 +36,8 @@ import caliban.config as conf
 import caliban.docker as d
 import caliban.history.types as ht
 import caliban.util as u
-from caliban.history.utils import (create_experiments, generate_container_spec,
-                                   get_mem_engine, get_sql_engine,
-                                   session_scope)
+from caliban.history.util import (create_experiments, generate_container_spec,
+                                  get_mem_engine, get_sql_engine, session_scope)
 
 t = Terminal()
 
