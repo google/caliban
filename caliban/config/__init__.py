@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 import commentjson
 import yaml
 
-import caliban.cloud.types as ct
+import caliban.platform.cloud.types as ct
 
 
 class JobMode(str, Enum):

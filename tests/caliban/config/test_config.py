@@ -17,7 +17,7 @@
 import os
 from argparse import ArgumentTypeError
 
-import caliban.cloud.types as ct
+import caliban.platform.cloud.types as ct
 import caliban.config as c
 import pytest
 

@@ -17,6 +17,7 @@
 from argparse import ArgumentTypeError
 
 import caliban.config.experiment as c
+import caliban.util as u
 import pytest
 
 
@@ -101,6 +102,11 @@ def test_expand_experiment_config():
 
 
 def test_compound_key_handling():
+  """tests the full assembly line transforming a configuration dictionary
+    including compound keys into a list of dictionaries for passing to the
+    script
+
+  """
   tests = [{
       'input': {
           '[a,b]': [['c', 'd'], ['e', 'f']]
@@ -226,4 +232,9 @@ def test_compound_key_handling():
   }]
 
   for test in tests:
+    assert test['after_tupleization'] == c.tupleize_dict(test['input'])
+    assert test['after_expansion'] == list(
+        c.expand_compound_dict(test['after_dictproduct']))
     assert test['after_expansion'] == c.expand_experiment_config(test['input'])
+    assert test['after_dictproduct'] == list(
+        u.dict_product(test['after_tupleization']))

@@ -148,8 +148,8 @@ def expand_experiment_config(items: ExpConf) -> List[Experiment]:
         itertools.chain.from_iterable(
             [expand_experiment_config(m) for m in items]))
 
-  tupleized_items = u.tupleize_dict(items)
-  return [u.expand_compound_dict(d) for d in u.dict_product(tupleized_items)]
+  tupleized_items = tupleize_dict(items)
+  return [expand_compound_dict(d) for d in u.dict_product(tupleized_items)]
 
 
 def validate_compound_keys(m: ExpConf) -> ExpConf:
