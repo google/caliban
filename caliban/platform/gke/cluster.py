@@ -38,12 +38,12 @@ from kubernetes.client import (V1Container, V1DaemonSet, V1EnvVar, V1Job,
 from kubernetes.client.api_client import ApiClient
 
 import caliban.config as conf
-import caliban.gke.constants as k
-import caliban.gke.util as util
-from caliban.cloud.types import (GPU, TPU, Accelerator, GPUSpec, MachineType,
-                                 TPUSpec)
-from caliban.gke.types import NodeImage, OpStatus, ReleaseChannel
-from caliban.gke.util import trap
+import caliban.platform.gke.constants as k
+import caliban.platform.gke.util as util
+from caliban.platform.cloud.types import (GPU, TPU, Accelerator, GPUSpec,
+                                          MachineType, TPUSpec)
+from caliban.platform.gke.types import NodeImage, OpStatus, ReleaseChannel
+from caliban.platform.gke.util import trap
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

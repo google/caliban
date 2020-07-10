@@ -20,8 +20,8 @@ from typing import Optional, Iterable, List
 from caliban.history.types import JobSpec, Job, Platform
 
 import caliban.docker as docker
-import caliban.cloud.core as cloud
-import caliban.gke.cli as gke_cli
+import caliban.platform.cloud.core as cloud
+import caliban.platform.gke.cli as gke_cli
 
 
 # ----------------------------------------------------------------------------

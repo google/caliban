@@ -29,10 +29,10 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 import caliban.config as conf
-from caliban.cloud.types import JobStatus as CloudStatus
-from caliban.gke.cluster import Cluster
-from caliban.gke.types import JobStatus as GkeStatus
-from caliban.gke.util import default_credentials
+from caliban.platform.cloud.types import JobStatus as CloudStatus
+from caliban.platform.gke.cluster import Cluster
+from caliban.platform.gke.types import JobStatus as GkeStatus
+from caliban.platform.gke.util import default_credentials
 from caliban.history.types import (ContainerSpec, Experiment, ExperimentGroup,
                                    Job, JobSpec, JobStatus, Platform, init_db)
 

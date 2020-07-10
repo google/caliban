@@ -31,7 +31,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 
-import caliban.cloud.types as ct
+import caliban.platform.cloud.types as ct
 import caliban.config as conf
 import caliban.docker as d
 import caliban.history.types as ht

@@ -22,11 +22,11 @@ from unittest import mock
 import hypothesis.strategies as st
 from hypothesis import given, settings
 
-import caliban.cloud.types as ct
-import caliban.gke.constants as k
-import caliban.gke.utils as utils
-from caliban.gke.types import NodeImage, OpStatus
-from caliban.gke.utils import trap
+import caliban.platform.cloud.types as ct
+import caliban.platform.gke.constants as k
+import caliban.platform.gke.utils as utils
+from caliban.platform.gke.types import NodeImage, OpStatus
+from caliban.platform.gke.utils import trap
 
 
 # ----------------------------------------------------------------------------
@@ -43,7 +43,7 @@ def everything_except(excluded_types):
 
 # ----------------------------------------------------------------------------
 class UtilsTestSuite(unittest.TestCase):
-  """tests for caliban.gke.utils"""
+  """tests for caliban.platform.gke.utils"""
 
   # --------------------------------------------------------------------------
   @given(
@@ -89,7 +89,7 @@ class UtilsTestSuite(unittest.TestCase):
     return
 
   # --------------------------------------------------------------------------
-  @mock.patch('caliban.gke.utils.input', create=True)
+  @mock.patch('caliban.platform.gke.utils.input', create=True)
   @given(st.lists(st.from_regex('^[^yYnN]+$'), min_size=0, max_size=8))
   def test_user_verify(
       self,

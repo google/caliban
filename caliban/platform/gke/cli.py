@@ -28,11 +28,11 @@ from kubernetes.client import V1Job
 
 import caliban.cli as cli
 import caliban.config as conf
-import caliban.gke.constants as k
-import caliban.gke.util as util
+import caliban.platform.gke.constants as k
+import caliban.platform.gke.util as util
 import caliban.util as u
-from caliban.cloud.core import generate_image_tag
-from caliban.gke.cluster import Cluster
+from caliban.platform.cloud.core import generate_image_tag
+from caliban.platform.gke.cluster import Cluster
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
 

@@ -24,14 +24,14 @@ import google.auth._cloud_sdk as csdk
 from absl.flags import argparse_flags
 from blessings import Terminal
 
-import caliban.cloud.types as ct
+import caliban.platform.cloud.types as ct
 import caliban.config as conf
 import caliban.config.experiment as ce
 import caliban.docker as docker
-import caliban.gke as gke
-import caliban.gke.constants as gke_k
-import caliban.gke.types as gke_t
-import caliban.gke.util as gke_u
+import caliban.platform.gke as gke
+import caliban.platform.gke.constants as gke_k
+import caliban.platform.gke.types as gke_t
+import caliban.platform.gke.util as gke_u
 import caliban.util as u
 from caliban import __version__
 

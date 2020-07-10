@@ -25,11 +25,11 @@ from absl import app, logging
 from blessings import Terminal
 
 import caliban.cli as cli
-import caliban.cloud.core as cloud
+import caliban.platform.cloud.core as cloud
 import caliban.config as c
 import caliban.docker as docker
-import caliban.gke as gke
-import caliban.gke.cli
+import caliban.platform.gke as gke
+import caliban.platform.gke.cli
 import caliban.util as u
 import caliban.history.cli
 

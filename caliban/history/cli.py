@@ -30,7 +30,7 @@ from caliban.history.util import (get_sql_engine, session_scope,
 from caliban.history.submit import submit_job_specs
 from caliban.history.types import (ContainerSpec, ExperimentGroup, Experiment,
                                    JobSpec, Job, Platform, JobStatus, Platform)
-from caliban.gke.util import user_verify, credentials
+from caliban.platform.gke.util import user_verify, credentials
 
 from caliban.docker import build_image, push_uuid_tag, execute_jobs
 

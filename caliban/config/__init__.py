@@ -137,7 +137,7 @@ explicitly via --project_id. Try again, please!")
 def extract_region(m: Dict[str, Any]) -> ct.Region:
   """Returns the region specified in the args; defaults to an environment
   variable. If that's not supplied defaults to the default cloud provider from
-  caliban.cloud.
+  caliban.platform.cloud.
 
   """
   region = m.get("region") or os.environ.get("REGION")

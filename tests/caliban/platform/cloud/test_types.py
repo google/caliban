@@ -20,11 +20,11 @@ from argparse import ArgumentTypeError
 import hypothesis.strategies as st
 from hypothesis import given
 
-import caliban.cloud.types as ct
+import caliban.platform.cloud.types as ct
 
 
 class TypesTestSuite(unittest.TestCase):
-  """Tests for caliban.cloud.types."""
+  """Tests for caliban.platform.cloud.types."""
 
   @given(st.integers(min_value=0, max_value=40),
          st.sampled_from(list(ct.GPU) + list(ct.TPU)))

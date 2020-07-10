@@ -17,7 +17,7 @@
 import unittest
 
 import caliban.cli as c
-import caliban.cloud.types as ct
+import caliban.platform.cloud.types as ct
 from caliban.config import JobMode
 
 

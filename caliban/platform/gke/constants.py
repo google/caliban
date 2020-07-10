@@ -17,9 +17,9 @@
 
 import re
 
-from caliban.cloud.types import GPU, GPUSpec
+from caliban.platform.cloud.types import GPU, GPUSpec
 from caliban.config import DEFAULT_MACHINE_TYPE, JobMode
-from caliban.gke.types import ReleaseChannel
+from caliban.platform.gke.types import ReleaseChannel
 
 COMPUTE_SCOPE_URL = 'https://www.googleapis.com/auth/compute'
 COMPUTE_READONLY_SCOPE_URL = 'https://www.googleapis.com/auth/compute.readonly'

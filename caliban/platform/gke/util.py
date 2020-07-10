@@ -41,9 +41,9 @@ from kubernetes.client.api_client import ApiClient
 from yaspin import yaspin
 from yaspin.spinners import Spinners
 
-import caliban.gke.constants as k
-from caliban.cloud.types import GPU, TPU, GPUSpec, TPUSpec
-from caliban.gke.types import (CredentialsData, NodeImage, OpStatus)
+import caliban.platform.gke.constants as k
+from caliban.platform.cloud.types import GPU, TPU, GPUSpec, TPUSpec
+from caliban.platform.gke.types import (CredentialsData, NodeImage, OpStatus)
 
 
 # ----------------------------------------------------------------------------

@@ -19,12 +19,12 @@ import unittest
 import hypothesis.strategies as st
 from hypothesis import given
 
-from caliban.gke.types import ReleaseChannel
+from caliban.platform.gke.types import ReleaseChannel
 
 
 # ----------------------------------------------------------------------------
 class TypesTestSuite(unittest.TestCase):
-  """tests for caliban.gke.types"""
+  """tests for caliban.platform.gke.types"""
 
   # --------------------------------------------------------------------------
   @given(st.from_regex('\A(?!UNSPECIFIED\Z|RAPID\Z|REGULAR\Z|STABLE\Z).*\Z'),

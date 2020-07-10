@@ -593,9 +593,9 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
-  with u.TempCopy(credentials_path,
-                  tmp_name=".caliban_default_creds.json") as creds:
-    with u.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
+  with ufs.TempCopy(credentials_path,
+                    tmp_name=".caliban_default_creds.json") as creds:
+    with ufs.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
       cache_args = ["--no-cache"] if no_cache else []
       cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
