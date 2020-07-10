@@ -1,1 +1,5 @@
+git+https://github.com/google/uv-metrics.git@sritchie/mlflow#egg=uv-metrics
+mlflow
 tensorflow-cpu
+matplotlib
+tensorflow_datasets
