@@ -36,6 +36,7 @@ from blessings import Terminal
 from tqdm.utils import _screen_shape_wrapper
 import mlflow
 import traceback
+from datetime import datetime
 
 import caliban.config as c
 import caliban.util as u
@@ -827,11 +828,26 @@ class MLFlowCfg(NamedTuple):
 
 
 # ----------------------------------------------------------------------------
-def _configure_mlflow(job_spec: JobSpec, command: List[str]) -> MLFlowCfg:
+def _mlflow_job_name(index: int, user: str = None) -> str:
+  '''returns mlflow job name for local caliban job'''
+  user = user or u.current_user()
+  timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+  return f'{user}-{timestamp}-{index}'
+
+
+# ----------------------------------------------------------------------------
+def _configure_mlflow(
+    job_spec: JobSpec,
+    command: List[str],
+    index: int,
+) -> MLFlowCfg:
   xname = job_spec.experiment.xgroup.name
   mlflow.set_experiment(xname)
   mlflow_experiment = mlflow.get_experiment_by_name(xname)
-  with mlflow.start_run(experiment_id=mlflow_experiment.experiment_id) as run:
+  with mlflow.start_run(
+      experiment_id=mlflow_experiment.experiment_id,
+      run_name=_mlflow_job_name(index=index),
+  ) as run:
 
     exp = job_spec.experiment
     mlflow.log_params(exp.kwargs)
@@ -888,7 +904,7 @@ def execute_jobs(
       command = job_spec.spec['command']
       logging.info(f'Running command: {" ".join(command)}')
       if not dry_run:
-        cfg = _configure_mlflow(job_spec=job_spec, command=command)
+        cfg = _configure_mlflow(job_spec=job_spec, command=command, index=idx)
         mlflow_run_id = cfg.mlflow_run_id
         _, ret_code = u.capture_stdout(cfg.command, "", u.TqdmFile(sys.stderr))
       else:
