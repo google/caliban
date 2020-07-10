@@ -23,22 +23,18 @@ from __future__ import absolute_import, division, print_function
 import json
 import os
 import subprocess
-import sys
 from enum import Enum
 from pathlib import Path
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, NewType,
                     Optional, Union)
 
-import tqdm
 from absl import logging
 from blessings import Terminal
-from tqdm.utils import _screen_shape_wrapper
 
 import caliban.config as c
 import caliban.util as u
-from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
-from caliban.history.util import (create_experiments, generate_container_spec,
-                                  get_mem_engine, get_sql_engine, session_scope)
+import caliban.util.fs as ufs
+from caliban.history.types import JobSpec
 
 t = Terminal()
 
@@ -598,9 +594,9 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
-  with u.TempCopy(credentials_path,
-                  tmp_name=".caliban_default_creds.json") as creds:
-    with u.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
+  with ufs.TempCopy(credentials_path,
+                    tmp_name=".caliban_default_creds.json") as creds:
+    with ufs.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
       cache_args = ["--no-cache"] if no_cache else []
       cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
@@ -613,7 +609,7 @@ def build_image(job_mode: c.JobMode,
       logging.info("Running command: {}".format(joined_cmd))
 
       try:
-        output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
+        output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
         if ret_code == 0:
           return docker_image_id(output)
         else:

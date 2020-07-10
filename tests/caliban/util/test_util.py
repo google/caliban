@@ -36,17 +36,6 @@ def non_empty_dict(vgen):
   return st.dictionaries(st.text(), vgen, min_size=1)
 
 
-def test_capture_stdout():
-  buf = io.StringIO()
-  ret_string, code = u.capture_stdout(["echo", "hello!"], file=buf)
-  assert code == 0
-
-  # Verify that the stdout is reported to the supplied file, and that it's
-  # captured by the function and returned correctly.
-  assert ret_string == "hello!\n"
-  assert buf.getvalue() == ret_string
-
-
 def test_carriage_return():
 
   def through(xs):
@@ -71,12 +60,6 @@ def test_carriage_return():
 
   # Boom, triggered.
   assert through(["Yo!\r", "continue"]) == f"Yo!\n{_term_move_up()}\rcontinue"
-
-
-def test_capture_stdout_input():
-  ret_string, code = u.capture_stdout(["cat"], input_str="hello!")
-  assert code == 0
-  assert ret_string.rstrip() == "hello!"
 
 
 class UtilTestSuite(unittest.TestCase):

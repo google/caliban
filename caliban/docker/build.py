@@ -33,6 +33,7 @@ from blessings import Terminal
 
 import caliban.config as c
 import caliban.util as u
+import caliban.util.fs as ufs
 
 t = Terminal()
 
@@ -607,7 +608,7 @@ def build_image(job_mode: c.JobMode,
       logging.info("Running command: {}".format(joined_cmd))
 
       try:
-        output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
+        output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
         if ret_code == 0:
           return docker_image_id(output)
         else:

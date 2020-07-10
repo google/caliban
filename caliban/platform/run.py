@@ -36,6 +36,7 @@ from tqdm.utils import _screen_shape_wrapper
 
 import caliban.config as c
 import caliban.util as u
+import caliban.util.fs as ufs
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
@@ -613,7 +614,7 @@ def build_image(job_mode: c.JobMode,
       logging.info("Running command: {}".format(joined_cmd))
 
       try:
-        output, ret_code = u.capture_stdout(cmd, input_str=dockerfile)
+        output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
         if ret_code == 0:
           return docker_image_id(output)
         else:
@@ -808,7 +809,7 @@ def execute_jobs(
       command = job_spec.spec['command']
       logging.info(f'Running command: {" ".join(command)}')
       if not dry_run:
-        _, ret_code = u.capture_stdout(command, "", u.TqdmFile(sys.stderr))
+        _, ret_code = ufs.capture_stdout(command, "", u.TqdmFile(sys.stderr))
       else:
         ret_code = 0
       j = Job(spec=job_spec,
@@ -939,117 +940,3 @@ def run(job_mode: c.JobMode,
   logging.info("Running command: {}".format(' '.join(command)))
   subprocess.call(command)
   return None
-
-
-def run_interactive(job_mode: c.JobMode,
-                    workdir: Optional[str] = None,
-                    image_id: Optional[str] = None,
-                    run_args: Optional[List[str]] = None,
-                    mount_home: Optional[bool] = None,
-                    shell: Optional[Shell] = None,
-                    entrypoint: Optional[str] = None,
-                    entrypoint_args: Optional[List[str]] = None,
-                    **build_image_kwargs) -> None:
-  """Start a live shell in the terminal, with all dependencies installed and the
-  current working directory (and optionally the user's home directory) mounted.
-
-  Keyword args:
-
-  - job_mode: c.JobMode.
-  - image_id: ID of the image to run. Supplying this will skip an image build.
-  - run_args: extra arguments to supply to `docker run`.
-  - mount_home: if true, mounts the user's $HOME directory into the container
-    to `/home/$USERNAME`. If False, nothing.
-  - shell: name of the shell to install into the container. Also configures the
-    entrypoint if that's not supplied.
-  - entrypoint: command to run. Defaults to the executable command for the
-    supplied shell.
-  - entrypoint_args: extra arguments to supply to the entrypoint.
-
-  any extra kwargs supplied are passed through to build_image.
-
-  """
-  if workdir is None:
-    workdir = DEFAULT_WORKDIR
-
-  if run_args is None:
-    run_args = []
-
-  if entrypoint_args is None:
-    entrypoint_args = []
-
-  if mount_home is None:
-    mount_home = True
-
-  if shell is None:
-    # Only set a default shell if we're also mounting the home volume.
-    # Otherwise a custom shell won't have access to the user's profile.
-    shell = default_shell() if mount_home else Shell.bash
-
-  if entrypoint is None:
-    entrypoint = SHELL_DICT[shell].executable
-
-  interactive_run_args = _interactive_opts(workdir) + [
-      "-it", \
-      "--entrypoint", entrypoint
-  ] + _home_mount_cmds(mount_home) + run_args
-
-  run(job_mode=job_mode,
-      run_args=interactive_run_args,
-      script_args=entrypoint_args,
-      image_id=image_id,
-      shell=shell,
-      workdir=workdir,
-      **build_image_kwargs)
-
-
-def run_notebook(job_mode: c.JobMode,
-                 port: Optional[int] = None,
-                 lab: Optional[bool] = None,
-                 version: Optional[bool] = None,
-                 run_args: Optional[List[str]] = None,
-                 **run_interactive_kwargs) -> None:
-  """Start a notebook in the current working directory; the process will run
-  inside of a Docker container that's identical to the environment available to
-  Cloud jobs that are submitted by `caliban cloud`, or local jobs run with
-  `caliban run.`
-
-  if you pass mount_home=True your jupyter settings will persist across calls.
-
-  Keyword args:
-
-  - port: the port to pass to Jupyter when it boots, useful if you have
-    multiple instances running on one machine.
-  - lab: if True, starts jupyter lab, else jupyter notebook.
-  - version: explicit Jupyter version to install.
-
-  run_interactive_kwargs are all extra arguments taken by run_interactive.
-
-  """
-
-  if port is None:
-    port = u.next_free_port(8888)
-
-  if lab is None:
-    lab = False
-
-  if run_args is None:
-    run_args = []
-
-  inject_arg = NotebookInstall.lab if lab else NotebookInstall.jupyter
-  jupyter_cmd = "lab" if lab else "notebook"
-  jupyter_args = [
-    "-m", "jupyter", jupyter_cmd, \
-    "--ip=0.0.0.0", \
-    "--port={}".format(port), \
-    "--no-browser"
-  ]
-  docker_args = ["-p", "{}:{}".format(port, port)] + run_args
-
-  run_interactive(job_mode,
-                  entrypoint="/opt/conda/envs/caliban/bin/python",
-                  entrypoint_args=jupyter_args,
-                  run_args=docker_args,
-                  inject_notebook=inject_arg,
-                  jupyter_version=version,
-                  **run_interactive_kwargs)
