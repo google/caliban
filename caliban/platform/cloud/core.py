@@ -39,33 +39,12 @@ import caliban.history.types as ht
 import caliban.platform.cloud.types as ct
 import caliban.platform.cloud.util as cu
 import caliban.util as u
+import caliban.util.auth as ua
 import caliban.util.tqdm as ut
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
 
 t = Terminal()
-
-
-def auth_access_token() -> Optional[str]:
-  """Attempts to fetch the local Oauth2 access token from the user's environment.
-  Returns the token if it exists, or None if not
-
-  """
-  try:
-    return check_output(['gcloud', 'auth', 'print-access-token'],
-                        encoding='utf8').rstrip()
-  except CalledProcessError:
-    return None
-
-
-def gcloud_auth_credentials() -> Optional[Credentials]:
-  """Attempt to generate credentials from the oauth2 workflow triggered by
-  `gcloud auth login`. Returns
-
-  """
-  token = auth_access_token()
-  if token:
-    return Credentials(token)
 
 
 def get_accelerator_config(gpu_spec: Optional[ct.GPUSpec]) -> Dict[str, Any]:
@@ -282,17 +261,7 @@ def ml_api(credentials_path: Optional[str] = None):
   The actual details are a little byzantine.
 
   """
-  credentials = None
-
-  if credentials_path is not None:
-    credentials = service_account.Credentials.from_service_account_file(
-        credentials_path)
-  else:
-    # attempt to fetch credentials acquired via `gcloud auth login`. If this
-    # fails, the following API object will attempt to use application default
-    # credentials.
-    credentials = gcloud_auth_credentials()
-
+  credentials = ua.gcloud_credentials(credentials_path)
   return discovery.build('ml',
                          'v1',
                          cache_discovery=False,

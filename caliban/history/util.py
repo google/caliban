@@ -29,6 +29,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 import caliban.config.experiment as ce
+import caliban.util.auth as ua
 from caliban.history.types import (ContainerSpec, Experiment, ExperimentGroup,
                                    Job, JobSpec, JobStatus, Platform, init_db)
 from caliban.platform.cloud.types import JobStatus as CloudStatus
@@ -243,8 +244,12 @@ def _get_caip_job_name(j: Job) -> str:
 
 
 # ----------------------------------------------------------------------------
-def _get_caip_job_api() -> Any:
-  return discovery.build('ml', 'v1', cache_discovery=False).projects().jobs()
+def _get_caip_job_api(credentials_path: Optional[str] = None) -> Any:
+  credentials = ua.gcloud_credentials(credentials_path)
+  return discovery.build('ml',
+                         'v1',
+                         cache_discovery=False,
+                         credentials=credentials).projects().jobs()
 
 
 # ----------------------------------------------------------------------------
