@@ -178,3 +178,24 @@ def split_by(items: List[str],
     return items[0:idx], items[idx + 1:]
   except ValueError:
     return (items, [])
+
+
+def n_chunks(items: List[Any], n_groups: int) -> List[List[Any]]:
+  """Returns a list of `n_groups` slices of the original list, guaranteed to
+  contain all of the original items.
+  """
+  return [items[i::n_groups] for i in range(n_groups)]
+
+
+def chunks_below_limit(items: List[Any], limit: int) -> List[List[Any]]:
+  """Breaks the input list into a series of chunks guaranteed to be less than"""
+  quot, _ = divmod(len(items), limit)
+  return n_chunks(items, quot + 1)
+
+
+def partition(seq: List[str], n: int) -> List[List[str]]:
+  """Generate groups of n items from seq by scanning across the sequence and
+  taking chunks of n, offset by 1.
+  """
+  for i in range(0, max(1, len(seq) - n + 1), 1):
+    yield seq[i:i + n]

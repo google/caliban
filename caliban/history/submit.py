@@ -15,13 +15,12 @@
 # limitations under the License.
 '''caliban utilities for job re-submission'''
 
-from typing import Optional, Iterable, List
+from typing import List, Optional
 
-from caliban.history.types import JobSpec, Job, Platform
-
-import caliban.docker as docker
 import caliban.platform.cloud.core as cloud
 import caliban.platform.gke.cli as gke_cli
+import caliban.platform.run as r
+from caliban.history.types import JobSpec, Platform
 
 
 # ----------------------------------------------------------------------------
@@ -37,7 +36,7 @@ def submit_job_specs(
     return
 
   if platform == Platform.LOCAL:
-    return docker.execute_jobs(job_specs=specs)
+    return r.execute_jobs(job_specs=specs)
 
   if platform == Platform.CAIP:
     return cloud.submit_job_specs(

@@ -179,3 +179,15 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
     raise argparse.ArgumentTypeError(
         """{}'s "apt_packages" entry must be a dictionary or list, not '{}'""".
         format(CALIBAN_CONFIG, packages))
+
+
+def caliban_config() -> CalibanConfig:
+  """Returns a dict that represents a `.calibanconfig.json` file if present,
+  empty dictionary otherwise.
+  """
+  if not os.path.isfile(CALIBAN_CONFIG):
+    return {}
+
+  with open(CALIBAN_CONFIG) as f:
+    conf = commentjson.load(f)
+    return conf

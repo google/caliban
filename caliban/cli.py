@@ -24,10 +24,10 @@ import google.auth._cloud_sdk as csdk
 from absl.flags import argparse_flags
 from blessings import Terminal
 
-import caliban.platform.cloud.types as ct
 import caliban.config as conf
 import caliban.config.experiment as ce
-import caliban.docker as docker
+import caliban.docker.build as docker
+import caliban.platform.cloud.types as ct
 import caliban.platform.gke as gke
 import caliban.platform.gke.constants as gke_k
 import caliban.platform.gke.types as gke_t
@@ -540,7 +540,8 @@ def generate_docker_args(job_mode: conf.JobMode,
 
   # Get extra dependencies in case you want to install your requirements via a
   # setup.py file.
-  setup_extras = docker.base_extras(job_mode, "setup.py", args.get("extras"))
+  setup_extras = docker.build.base_extras(job_mode, "setup.py",
+                                          args.get("extras"))
 
   # Google application credentials, from the CLI or from an env variable.
   creds_path = conf.extract_cloud_key(args)
@@ -553,7 +554,7 @@ def generate_docker_args(job_mode: conf.JobMode,
   reqs = "requirements.txt"
   conda_env = "environment.yml"
 
-  # Arguments that make their way down to caliban.docker.build_image.
+  # Arguments that make their way down to caliban.docker.build.build_image.
   docker_args = {
       "extra_dirs": args.get("dir"),
       "requirements_path": reqs if os.path.exists(reqs) else None,

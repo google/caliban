@@ -37,14 +37,14 @@ from kubernetes.client import (V1Container, V1DaemonSet, V1EnvVar, V1Job,
                                V1Toleration)
 from kubernetes.client.api_client import ApiClient
 
-import caliban.config as conf
+import caliban.config.experiment as ce
 import caliban.platform.gke.constants as k
 import caliban.platform.gke.util as util
+from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 from caliban.platform.cloud.types import (GPU, TPU, Accelerator, GPUSpec,
                                           MachineType, TPUSpec)
 from caliban.platform.gke.types import NodeImage, OpStatus, ReleaseChannel
 from caliban.platform.gke.util import trap
-from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -697,7 +697,7 @@ class Cluster(object):
     JobSpec on success, None otherwise
     """
 
-    args = conf.experiment_to_args(experiment.kwargs, experiment.args)
+    args = ce.experiment_to_args(experiment.kwargs, experiment.args)
 
     # ------------------------------------------------------------------------
     # container

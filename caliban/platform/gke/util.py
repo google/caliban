@@ -43,7 +43,7 @@ from yaspin.spinners import Spinners
 
 import caliban.platform.gke.constants as k
 from caliban.platform.cloud.types import GPU, TPU, GPUSpec, TPUSpec
-from caliban.platform.gke.types import (CredentialsData, NodeImage, OpStatus)
+from caliban.platform.gke.types import CredentialsData, NodeImage, OpStatus
 
 
 # ----------------------------------------------------------------------------

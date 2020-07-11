@@ -35,6 +35,7 @@ from blessings import Terminal
 from tqdm.utils import _screen_shape_wrapper
 
 import caliban.config as c
+import caliban.config.experiment as ce
 import caliban.util as u
 import caliban.util.fs as ufs
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
@@ -831,7 +832,7 @@ def run_experiments(job_mode: c.JobMode,
                     script_args: Optional[List[str]] = None,
                     image_id: Optional[str] = None,
                     dry_run: bool = False,
-                    experiment_config: Optional[c.ExpConf] = None,
+                    experiment_config: Optional[ce.ExpConf] = None,
                     xgroup: Optional[str] = None,
                     **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker

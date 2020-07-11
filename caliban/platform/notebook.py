@@ -35,9 +35,10 @@ from blessings import Terminal
 from tqdm.utils import _screen_shape_wrapper
 
 import caliban.config as c
+import caliban.config.experiment as ce
+import caliban.platform.shell as ps
 import caliban.util as u
 import caliban.util.fs as ufs
-import caliban.platform.shell as ps
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
@@ -703,8 +704,8 @@ def log_job_spec_instance(job_spec: JobSpec, i: int) -> JobSpec:
   generated from an experiment definition; returns the input job spec.
 
   """
-  args = c.experiment_to_args(job_spec.experiment.kwargs,
-                              job_spec.experiment.args)
+  args = ce.experiment_to_args(job_spec.experiment.kwargs,
+                               job_spec.experiment.args)
   logging.info("")
   logging.info("Job {} - Experiment args: {}".format(i, t.yellow(str(args))))
   return job_spec
@@ -746,8 +747,8 @@ def local_callback(idx: int, job: Job) -> None:
   else:
     logging.error(
         t.red(f'Job {idx} failed with return code {job.details["ret_code"]}.'))
-    args = c.experiment_to_args(job.spec.experiment.kwargs,
-                                job.spec.experiment.args)
+    args = ce.experiment_to_args(job.spec.experiment.kwargs,
+                                 job.spec.experiment.args)
     logging.error(t.red(f'Failing args for job {idx}: {args}'))
 
 
@@ -783,7 +784,7 @@ def _create_job_spec_dict(
   terminal_cmds = ["-e" "PYTHONUNBUFFERED=1"] + window_size_env_cmds()
 
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
-  command = base_cmd + c.experiment_to_args(experiment.kwargs, experiment.args)
+  command = base_cmd + ce.experiment_to_args(experiment.kwargs, experiment.args)
   return {'command': command, 'container': image_id}
 
 
@@ -832,7 +833,7 @@ def run_experiments(job_mode: c.JobMode,
                     script_args: Optional[List[str]] = None,
                     image_id: Optional[str] = None,
                     dry_run: bool = False,
-                    experiment_config: Optional[c.ExpConf] = None,
+                    experiment_config: Optional[ce.ExpConf] = None,
                     xgroup: Optional[str] = None,
                     **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker

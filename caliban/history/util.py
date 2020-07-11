@@ -28,13 +28,13 @@ from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-import caliban.config as conf
+import caliban.config.experiment as ce
+from caliban.history.types import (ContainerSpec, Experiment, ExperimentGroup,
+                                   Job, JobSpec, JobStatus, Platform, init_db)
 from caliban.platform.cloud.types import JobStatus as CloudStatus
 from caliban.platform.gke.cluster import Cluster
 from caliban.platform.gke.types import JobStatus as GkeStatus
 from caliban.platform.gke.util import default_credentials
-from caliban.history.types import (ContainerSpec, Experiment, ExperimentGroup,
-                                   Job, JobSpec, JobStatus, Platform, init_db)
 
 DB_URL_ENV = 'CALIBAN_DB_URL'
 MEMORY_DB_URL = 'sqlite:///:memory:'
@@ -203,7 +203,7 @@ def create_experiments(
     session: Session,
     container_spec: ContainerSpec,
     script_args: List[str],
-    experiment_config: conf.ExpConf,
+    experiment_config: ce.ExpConf,
     xgroup: Optional[str] = None,
 ) -> List[Experiment]:
   '''create experiment instances
@@ -230,7 +230,7 @@ def create_experiments(
           container_spec=container_spec,
           args=script_args,
           kwargs=kwargs,
-      ) for kwargs in conf.expand_experiment_config(experiment_config)
+      ) for kwargs in ce.expand_experiment_config(experiment_config)
   ]
 
 

@@ -16,7 +16,7 @@
 
 import io
 
-from tqdm._utils import _term_move_up
+from tqdm.utils import _term_move_up
 
 import caliban.util.tqdm as ut
 

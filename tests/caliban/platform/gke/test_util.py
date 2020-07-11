@@ -24,9 +24,9 @@ from hypothesis import given, settings
 
 import caliban.platform.cloud.types as ct
 import caliban.platform.gke.constants as k
-import caliban.platform.gke.utils as utils
+import caliban.platform.gke.util as util
 from caliban.platform.gke.types import NodeImage, OpStatus
-from caliban.platform.gke.utils import trap
+from caliban.platform.gke.util import trap
 
 
 # ----------------------------------------------------------------------------
@@ -42,8 +42,8 @@ def everything_except(excluded_types):
 
 
 # ----------------------------------------------------------------------------
-class UtilsTestSuite(unittest.TestCase):
-  """tests for caliban.platform.gke.utils"""
+class UtilTestSuite(unittest.TestCase):
+  """tests for caliban.platform.gke.util"""
 
   # --------------------------------------------------------------------------
   @given(
@@ -64,7 +64,7 @@ class UtilsTestSuite(unittest.TestCase):
         (gpu_list[i], limits[i]) for i in range(len(limits)) if limits[i]
     ])
     spec = ct.GPUSpec(gpu_type, count)
-    valid = utils.validate_gpu_spec_against_limits(spec, gpu_limits, 'test')
+    valid = util.validate_gpu_spec_against_limits(spec, gpu_limits, 'test')
 
     if spec.gpu not in gpu_limits:
       self.assertFalse(valid)
@@ -79,7 +79,7 @@ class UtilsTestSuite(unittest.TestCase):
     VALID_NODE_IMAGES = [NodeImage.COS, NodeImage.UBUNTU]
 
     for n in NodeImage:
-      url = utils.nvidia_daemonset_url(n)
+      url = util.nvidia_daemonset_url(n)
 
       if n in VALID_NODE_IMAGES:
         self.assertIsNotNone(url)
@@ -89,7 +89,7 @@ class UtilsTestSuite(unittest.TestCase):
     return
 
   # --------------------------------------------------------------------------
-  @mock.patch('caliban.platform.gke.utils.input', create=True)
+  @mock.patch('caliban.platform.gke.util.input', create=True)
   @given(st.lists(st.from_regex('^[^yYnN]+$'), min_size=0, max_size=8))
   def test_user_verify(
       self,
@@ -103,18 +103,18 @@ class UtilsTestSuite(unittest.TestCase):
 
       # default input
       mocked_input.side_effect = ['']
-      self.assertEqual(utils.user_verify('test default', default=default),
+      self.assertEqual(util.user_verify('test default', default=default),
                        default)
 
       # upper/lower true input
       for x in ['y', 'Y']:
         mocked_input.side_effect = invalid_strings + [x]
-        self.assertTrue(utils.user_verify('y input', default=default))
+        self.assertTrue(util.user_verify('y input', default=default))
 
       # upper/lower false input
       for x in ['n', 'N']:
         mocked_input.side_effect = invalid_strings + [x]
-        self.assertFalse(utils.user_verify('n input', default=default))
+        self.assertFalse(util.user_verify('n input', default=default))
 
     return
 
@@ -204,11 +204,11 @@ class UtilsTestSuite(unittest.TestCase):
     # to take about a factor of 100 longer
 
     # empty condition list
-    self.assertIsNone(utils.wait_for_operation(api, 'name', [], spinner=False))
+    self.assertIsNone(util.wait_for_operation(api, 'name', [], spinner=False))
 
     # exception
     self.assertIsNone(
-        utils.wait_for_operation(api, 'name', list(conds), 0, spinner=False))
+        util.wait_for_operation(api, 'name', list(conds), 0, spinner=False))
 
     # normal operation
     rsp_generator = _return_results()
@@ -222,14 +222,14 @@ class UtilsTestSuite(unittest.TestCase):
 
     if expected_response is not None:
       self.assertEqual({'status': expected_response},
-                       utils.wait_for_operation(api,
-                                                'name',
-                                                list(conds),
-                                                0,
-                                                spinner=False))
+                       util.wait_for_operation(api,
+                                               'name',
+                                               list(conds),
+                                               0,
+                                               spinner=False))
     else:
       self.assertIsNone(
-          utils.wait_for_operation(api, 'name', list(conds), 0, spinner=False))
+          util.wait_for_operation(api, 'name', list(conds), 0, spinner=False))
 
     return
 
@@ -277,11 +277,11 @@ class UtilsTestSuite(unittest.TestCase):
 
     # exception handling
     api.execute = _raises
-    self.assertIsNone(utils.get_zone_tpu_types(api, 'p', 'z'))
+    self.assertIsNone(util.get_zone_tpu_types(api, 'p', 'z'))
 
     # invalid response
     api.execute = _invalid_response
-    self.assertIsNone(utils.get_zone_tpu_types(api, 'p', 'z'))
+    self.assertIsNone(util.get_zone_tpu_types(api, 'p', 'z'))
 
     # normal mode
     api.execute = _response
@@ -289,7 +289,7 @@ class UtilsTestSuite(unittest.TestCase):
         sorted(tpus),
         sorted([
             '{}-{}'.format(x.name.lower(), x.count)
-            for x in utils.get_zone_tpu_types(api, 'p', 'z')
+            for x in util.get_zone_tpu_types(api, 'p', 'z')
         ]))
 
     return
@@ -302,7 +302,7 @@ class UtilsTestSuite(unittest.TestCase):
     def valid(x):
       return k.DNS_1123_RE.match(x) is not None
 
-    sanitized = utils.sanitize_job_name(job_name)
+    sanitized = util.sanitize_job_name(job_name)
 
     if valid(job_name):
       self.assertEqual(job_name, sanitized)
@@ -310,7 +310,7 @@ class UtilsTestSuite(unittest.TestCase):
       self.assertTrue(valid(sanitized))
 
     # idempotency check
-    self.assertEqual(sanitized, utils.sanitize_job_name(sanitized))
+    self.assertEqual(sanitized, util.sanitize_job_name(sanitized))
 
     return
 
@@ -359,11 +359,11 @@ class UtilsTestSuite(unittest.TestCase):
 
     # exception handling
     api.execute = _raises
-    self.assertIsNone(utils.get_zone_gpu_types(api, 'p', 'z'))
+    self.assertIsNone(util.get_zone_gpu_types(api, 'p', 'z'))
 
     # invalid response
     api.execute = _invalid_response
-    self.assertIsNone(utils.get_zone_gpu_types(api, 'p', 'z'))
+    self.assertIsNone(util.get_zone_gpu_types(api, 'p', 'z'))
 
     # normal execution
     api.execute = _response
@@ -374,7 +374,7 @@ class UtilsTestSuite(unittest.TestCase):
         ]),
         sorted([
             'nvidia-tesla-{}-{}'.format(x.gpu.name.lower(), x.count)
-            for x in utils.get_zone_gpu_types(api, 'p', 'z')
+            for x in util.get_zone_gpu_types(api, 'p', 'z')
         ]))
 
     return
@@ -414,16 +414,15 @@ class UtilsTestSuite(unittest.TestCase):
 
     # exception handling
     api.execute = _raises
-    self.assertIsNone(utils.get_region_quotas(api, 'p', 'r'))
+    self.assertIsNone(util.get_region_quotas(api, 'p', 'r'))
 
     # invalid return
     api.execute = _invalid
-    self.assertEqual([], utils.get_region_quotas(api, 'p', 'r'))
+    self.assertEqual([], util.get_region_quotas(api, 'p', 'r'))
 
     # normal execution
     api.execute = _normal
-    self.assertEqual(_normal()['quotas'],
-                     utils.get_region_quotas(api, 'p', 'r'))
+    self.assertEqual(_normal()['quotas'], util.get_region_quotas(api, 'p', 'r'))
 
     return
 
@@ -462,11 +461,11 @@ class UtilsTestSuite(unittest.TestCase):
 
     # exception handling
     api.execute = _raises
-    self.assertIsNone(utils.generate_resource_limits(api, 'p', 'r'))
+    self.assertIsNone(util.generate_resource_limits(api, 'p', 'r'))
 
     # invalid return
     api.execute = _invalid
-    self.assertEqual([], utils.generate_resource_limits(api, 'p', 'r'))
+    self.assertEqual([], util.generate_resource_limits(api, 'p', 'r'))
 
     # normal execution
     api.execute = _normal
@@ -482,7 +481,7 @@ class UtilsTestSuite(unittest.TestCase):
         'maximum': str(quotas[1]['limit'])
     }])
 
-    self.assertEqual(expected, utils.generate_resource_limits(api, 'p', 'r'))
+    self.assertEqual(expected, util.generate_resource_limits(api, 'p', 'r'))
 
     return
 
@@ -516,16 +515,16 @@ class UtilsTestSuite(unittest.TestCase):
     api.throws = True
 
     # exception handling
-    self.assertIsNone(utils.get_gke_cluster(api, 'foo', 'p'))
+    self.assertIsNone(util.get_gke_cluster(api, 'foo', 'p'))
 
     api.throws = False
     # single cluster
     if len(names) > 0:
       cname = names[random.randint(0, len(names) - 1)]
-      self.assertEqual(cname, utils.get_gke_cluster(api, cname, 'p').name)
+      self.assertEqual(cname, util.get_gke_cluster(api, cname, 'p').name)
 
     # name not in name list
-    self.assertIsNone(utils.get_gke_cluster(api, invalid, 'p'))
+    self.assertIsNone(util.get_gke_cluster(api, invalid, 'p'))
 
     return
 
@@ -568,13 +567,13 @@ class UtilsTestSuite(unittest.TestCase):
       values=everything(),
   ))
   def test_nonnull_dict(self, input_dict):
-    self._validate_nonnull_dict(utils.nonnull_dict(input_dict), input_dict)
+    self._validate_nonnull_dict(util.nonnull_dict(input_dict), input_dict)
     return
 
   # --------------------------------------------------------------------------
   @given(st.lists(everything()))
   def test_nonnull_list(self, input_list):
-    self._validate_nonnull_list(utils.nonnull_list(input_list), input_list)
+    self._validate_nonnull_list(util.nonnull_list(input_list), input_list)
     return
 
   # --------------------------------------------------------------------------
@@ -609,12 +608,12 @@ class UtilsTestSuite(unittest.TestCase):
 
     # exception handling
     api.execute = _raises
-    self.assertIsNone(utils.get_zones_in_region(api, 'p', region))
+    self.assertIsNone(util.get_zones_in_region(api, 'p', region))
 
     # invalid return
     api.execute = _invalid
-    self.assertIsNone(utils.get_zones_in_region(api, 'p', region))
+    self.assertIsNone(util.get_zones_in_region(api, 'p', region))
 
     # normal execution
     api.execute = _normal
-    self.assertEqual(zones, utils.get_zones_in_region(api, 'p', region))
+    self.assertEqual(zones, util.get_zones_in_region(api, 'p', region))

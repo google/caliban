@@ -31,10 +31,12 @@ from google.oauth2.credentials import Credentials
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 
-import caliban.platform.cloud.types as ct
 import caliban.config as conf
-import caliban.docker as d
+import caliban.config.experiment as ce
+import caliban.docker.build as db
+import caliban.docker.push as dp
 import caliban.history.types as ht
+import caliban.platform.cloud.types as ct
 import caliban.util as u
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
@@ -459,7 +461,7 @@ def _job_specs(
 
   """
   for idx, m in enumerate(experiments, 1):
-    args = conf.experiment_to_args(m.kwargs, m.args)
+    args = ce.experiment_to_args(m.kwargs, m.args)
     yield _job_spec(job_name=job_name,
                     idx=idx,
                     training_input={
@@ -527,8 +529,8 @@ def generate_image_tag(project_id, docker_args, dry_run: bool = False):
     logging.info("Dry run - skipping actual 'docker build' and 'docker push'.")
     image_tag = "dry_run_tag"
   else:
-    image_id = d.build_image(**docker_args)
-    image_tag = d.push_uuid_tag(project_id, image_id)
+    image_id = db.build_image(**docker_args)
+    image_tag = dp.push_uuid_tag(project_id, image_id)
 
   return image_tag
 
@@ -582,7 +584,7 @@ def submit_ml_job(job_mode: conf.JobMode,
                   tpu_spec: Optional[ct.TPUSpec] = None,
                   image_tag: Optional[str] = None,
                   labels: Optional[Dict[str, str]] = None,
-                  experiment_config: Optional[conf.ExpConf] = None,
+                  experiment_config: Optional[ce.ExpConf] = None,
                   script_args: Optional[List[str]] = None,
                   request_retries: Optional[int] = None,
                   xgroup: Optional[str] = None) -> None:
@@ -599,7 +601,7 @@ def submit_ml_job(job_mode: conf.JobMode,
 
   - job_mode: caliban.config.JobMode.
   - docker_args: these arguments are passed through to
-    caliban.docker.build_image.
+    caliban.docker.build.build_image.
   - region: the region to use for AI Platform job submission. Different regions
     support different GPUs.
   - project_id: GCloud project ID for container storage and job submission.
