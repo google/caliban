@@ -28,6 +28,7 @@ from kubernetes.client import V1Job
 
 import caliban.cli as cli
 import caliban.config as conf
+import caliban.platform.cloud.util as cu
 import caliban.platform.gke.constants as k
 import caliban.platform.gke.util as util
 import caliban.util as u
@@ -361,7 +362,7 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
 
   labels = args.get('label')
   if labels is not None:
-    labels = dict(u.sanitize_labels(args.get('label')))
+    labels = dict(cu.sanitize_labels(args.get('label')))
 
   # Arguments to internally build the image required to submit to Cloud.
   docker_m = {'job_mode': job_mode, 'package': package, **docker_args}

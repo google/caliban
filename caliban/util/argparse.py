@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 from blessings import Terminal
 
 import caliban.util as u
+import caliban.util.fs as ufs
 
 t = Terminal()
 
@@ -43,7 +44,7 @@ def validated_package(path: str) -> u.Package:
   don't actually exist in the filesystem.
 
   """
-  p = u.generate_package(path)
+  p = ufs.generate_package(path)
 
   if not os.path.isdir(p.package_path):
     raise argparse.ArgumentTypeError(
@@ -52,7 +53,7 @@ nested in a folder that exists in the current directory.""".format(
             p.package_path))
 
   filename = p.script_path
-  if not file_exists_in_cwd(filename):
+  if not ufs.file_exists_in_cwd(filename):
     raise argparse.ArgumentTypeError(
         """File '{}' doesn't exist locally as a script or python module; code
 must live inside the current directory.""".format(filename))

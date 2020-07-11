@@ -32,8 +32,8 @@ from tqdm.utils import _screen_shape_wrapper
 import caliban.config as c
 import caliban.config.experiment as ce
 import caliban.docker.build as b
-import caliban.util as u
 import caliban.util.fs as ufs
+import caliban.util.tqdm as ut
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
@@ -63,8 +63,8 @@ def log_job_spec_instance(job_spec: JobSpec, i: int) -> JobSpec:
   generated from an experiment definition; returns the input job spec.
 
   """
-  args = c.experiment_to_args(job_spec.experiment.kwargs,
-                              job_spec.experiment.args)
+  args = ce.experiment_to_args(job_spec.experiment.kwargs,
+                               job_spec.experiment.args)
   logging.info("")
   logging.info("Job {} - Experiment args: {}".format(i, t.yellow(str(args))))
   return job_spec
@@ -106,8 +106,8 @@ def local_callback(idx: int, job: Job) -> None:
   else:
     logging.error(
         t.red(f'Job {idx} failed with return code {job.details["ret_code"]}.'))
-    args = c.experiment_to_args(job.spec.experiment.kwargs,
-                                job.spec.experiment.args)
+    args = ce.experiment_to_args(job.spec.experiment.kwargs,
+                                 job.spec.experiment.args)
     logging.error(t.red(f'Failing args for job {idx}: {args}'))
 
 
@@ -143,7 +143,7 @@ def _create_job_spec_dict(
   terminal_cmds = ["-e" "PYTHONUNBUFFERED=1"] + window_size_env_cmds()
 
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
-  command = base_cmd + c.experiment_to_args(experiment.kwargs, experiment.args)
+  command = base_cmd + ce.experiment_to_args(experiment.kwargs, experiment.args)
   return {'command': command, 'container': image_id}
 
 
@@ -159,7 +159,7 @@ def execute_jobs(
   dry_run: if True, only print what would be done
   '''
 
-  with u.tqdm_logging() as orig_stream:
+  with ut.tqdm_logging() as orig_stream:
     pbar = tqdm.tqdm(logged_job_specs(job_specs),
                      file=orig_stream,
                      total=len(job_specs),
@@ -170,7 +170,7 @@ def execute_jobs(
       command = job_spec.spec['command']
       logging.info(f'Running command: {" ".join(command)}')
       if not dry_run:
-        _, ret_code = ufs.capture_stdout(command, "", u.TqdmFile(sys.stderr))
+        _, ret_code = ufs.capture_stdout(command, "", ut.TqdmFile(sys.stderr))
       else:
         ret_code = 0
       j = Job(spec=job_spec,

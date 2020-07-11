@@ -28,12 +28,12 @@ import caliban.config as c
 import caliban.docker.build as b
 import caliban.history.cli
 import caliban.platform.cloud.core as cloud
+import caliban.platform.cloud.util as cu
 import caliban.platform.gke as gke
 import caliban.platform.gke.cli
 import caliban.platform.notebook as pn
 import caliban.platform.run as pr
 import caliban.platform.shell as ps
-import caliban.util as u
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 t = Terminal()
@@ -123,7 +123,7 @@ def run_app(arg_input):
     image_tag = args.get("image_tag")
     machine_type = args.get("machine_type")
     exp_config = args.get("experiment_config")
-    labels = u.sanitize_labels(args.get("label") or [])
+    labels = cu.sanitize_labels(args.get("label") or [])
     xgroup = args.get('xgroup')
 
     # Arguments to internally build the image required to submit to Cloud.

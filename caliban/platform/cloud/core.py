@@ -37,7 +37,9 @@ import caliban.docker.build as db
 import caliban.docker.push as dp
 import caliban.history.types as ht
 import caliban.platform.cloud.types as ct
+import caliban.platform.cloud.util as cu
 import caliban.util as u
+import caliban.util.tqdm as ut
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
 
@@ -368,7 +370,7 @@ def execute_requests(
   generated handle any response or exception.
 
   """
-  with u.tqdm_logging() as orig_stream:
+  with ut.tqdm_logging() as orig_stream:
     pbar = tqdm.tqdm(
         requests,
         file=orig_stream,
@@ -437,8 +439,8 @@ def _job_spec(
           "jobId": job_id,
           "trainingInput": training_input,
           "labels": {
-              **u.sanitize_labels(labels),
-              **u.script_args_to_labels(job_args)
+              **cu.sanitize_labels(labels),
+              **cu.script_args_to_labels(job_args)
           }
       },
       platform=ht.Platform.CAIP,
