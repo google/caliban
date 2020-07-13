@@ -67,4 +67,3 @@ def test_missing_gcloud_auth_credentials(fake_process):
   """
   register_auth(fake_process, callback=fail_process)
   assert a.gcloud_auth_credentials() is None
-  assert a.gcloud_credentials("temp.json") is None
