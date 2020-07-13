@@ -24,7 +24,7 @@ from typing import List
 from absl import app, logging
 from absl.flags import argparse_flags
 
-import caliban.config as c
+import caliban.config.experiment as ce
 from caliban import __version__
 
 ll.getLogger('caliban.expansion').setLevel(logging.ERROR)
@@ -54,7 +54,7 @@ def expansion_parser():
 one per line.")
   parser.add_argument(
       "experiment_config",
-      type=c.load_experiment_config,
+      type=ce.load_experiment_config,
       help="Path to an experiment config, or 'stdin' to read from stdin.")
 
   return parser
@@ -69,17 +69,17 @@ def parse_flags(argv):
   return expansion_parser().parse_args(args)
 
 
-def _print_flags(expanded: List[c.Experiment]) -> None:
+def _print_flags(expanded: List[ce.Experiment]) -> None:
   """Print the flags associated with each experiment in the supplied expansion
   list.
 
   """
   for m in expanded:
-    flags = c.experiment_to_args(m)
+    flags = ce.experiment_to_args(m)
     print(' '.join(flags))
 
 
-def _print_json(expanded: List[c.Experiment], pprint: bool = False) -> None:
+def _print_json(expanded: List[ce.Experiment], pprint: bool = False) -> None:
   """Print the list of expanded experiments to stdout; if pprint is true,
   pretty-prints each JSON dict using an indent of 2, else prints the list with
   no newlines.
@@ -95,7 +95,7 @@ def run_app(args):
 
   """
   conf = args.experiment_config
-  expanded = c.expand_experiment_config(conf)
+  expanded = ce.expand_experiment_config(conf)
 
   if args.print_flags:
     _print_flags(expanded)

@@ -18,20 +18,22 @@
 from __future__ import absolute_import, division, print_function
 
 import logging as ll
-import os
 import sys
 
 from absl import app, logging
 from blessings import Terminal
 
 import caliban.cli as cli
-import caliban.cloud.core as cloud
 import caliban.config as c
-import caliban.docker as docker
-import caliban.gke as gke
-import caliban.gke.cli
-import caliban.util as u
+import caliban.docker.build as b
 import caliban.history.cli
+import caliban.platform.cloud.core as cloud
+import caliban.platform.cloud.util as cu
+import caliban.platform.gke as gke
+import caliban.platform.gke.cli
+import caliban.platform.notebook as pn
+import caliban.platform.run as pr
+import caliban.platform.shell as ps
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 t = Terminal()
@@ -58,29 +60,29 @@ def run_app(arg_input):
     mount_home = not args['bare']
     image_id = args.get("image_id")
     shell = args['shell']
-    docker.run_interactive(job_mode,
-                           image_id=image_id,
-                           run_args=docker_run_args,
-                           mount_home=mount_home,
-                           shell=shell,
-                           **docker_args)
+    ps.run_interactive(job_mode,
+                       image_id=image_id,
+                       run_args=docker_run_args,
+                       mount_home=mount_home,
+                       shell=shell,
+                       **docker_args)
 
   elif command == "notebook":
     port = args.get("port")
     lab = args.get("lab")
     version = args.get("jupyter_version")
     mount_home = not args['bare']
-    docker.run_notebook(job_mode,
-                        port=port,
-                        lab=lab,
-                        version=version,
-                        run_args=docker_run_args,
-                        mount_home=mount_home,
-                        **docker_args)
+    pn.run_notebook(job_mode,
+                    port=port,
+                    lab=lab,
+                    version=version,
+                    run_args=docker_run_args,
+                    mount_home=mount_home,
+                    **docker_args)
 
   elif command == "build":
     package = args["module"]
-    docker.build_image(job_mode, package=package, **docker_args)
+    b.build_image(job_mode, package=package, **docker_args)
 
   elif command == 'status':
     caliban.history.cli.get_status(args)
@@ -98,15 +100,15 @@ def run_app(arg_input):
     exp_config = args.get("experiment_config")
     xgroup = args.get('xgroup')
 
-    docker.run_experiments(job_mode,
-                           run_args=docker_run_args,
-                           script_args=script_args,
-                           image_id=image_id,
-                           experiment_config=exp_config,
-                           dry_run=dry_run,
-                           package=package,
-                           xgroup=xgroup,
-                           **docker_args)
+    pr.run_experiments(job_mode,
+                       run_args=docker_run_args,
+                       script_args=script_args,
+                       image_id=image_id,
+                       experiment_config=exp_config,
+                       dry_run=dry_run,
+                       package=package,
+                       xgroup=xgroup,
+                       **docker_args)
 
   elif command == "cloud":
     project_id = c.extract_project_id(args)
@@ -121,7 +123,7 @@ def run_app(arg_input):
     image_tag = args.get("image_tag")
     machine_type = args.get("machine_type")
     exp_config = args.get("experiment_config")
-    labels = u.sanitize_labels(args.get("label") or [])
+    labels = cu.sanitize_labels(args.get("label") or [])
     xgroup = args.get('xgroup')
 
     # Arguments to internally build the image required to submit to Cloud.
@@ -156,7 +158,7 @@ def main():
   except KeyboardInterrupt:
     logging.info('Shutting down.')
     sys.exit(0)
-  except docker.DockerError as e:
+  except b.DockerError as e:
     # Handle a failed Docker command.
     logging.error(t.red(e.message))
     logging.error(t.red("Original command: {}".format(e.command)))

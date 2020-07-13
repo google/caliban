@@ -15,24 +15,23 @@
 # limitations under the License.
 '''caliban history cli support'''
 
-import os
 import logging
-import pprint as pp
-from typing import Optional, Iterable, Dict, Any, List
+import os
+from typing import Any, Dict, Iterable, List, Optional
 
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from caliban.util import current_user, Package
-from caliban.history.utils import (get_sql_engine, session_scope,
-                                   update_job_status, get_gke_job_name,
-                                   stop_job, replace_job_spec_image)
+from caliban.docker.build import build_image
+from caliban.docker.push import push_uuid_tag
 from caliban.history.submit import submit_job_specs
-from caliban.history.types import (ContainerSpec, ExperimentGroup, Experiment,
-                                   JobSpec, Job, Platform, JobStatus, Platform)
-from caliban.gke.utils import user_verify, credentials
-
-from caliban.docker import build_image, push_uuid_tag, execute_jobs
+from caliban.history.types import (ContainerSpec, Experiment, ExperimentGroup,
+                                   Job, JobStatus, Platform)
+from caliban.history.util import (get_gke_job_name, get_sql_engine,
+                                  replace_job_spec_image, session_scope,
+                                  stop_job, update_job_status)
+from caliban.platform.gke.util import credentials, user_verify
+from caliban.util import Package, current_user
 
 # default max jobs to return for status command
 _DEFAULT_STATUS_MAX_JOBS = 8

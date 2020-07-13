@@ -24,14 +24,16 @@ import google.auth._cloud_sdk as csdk
 from absl.flags import argparse_flags
 from blessings import Terminal
 
-import caliban.cloud.types as ct
 import caliban.config as conf
-import caliban.docker as docker
-import caliban.gke as gke
-import caliban.gke.constants as gke_k
-import caliban.gke.types as gke_t
-import caliban.gke.utils as gke_u
+import caliban.config.experiment as ce
+import caliban.docker.build as b
+import caliban.platform.cloud.types as ct
+import caliban.platform.gke as gke
+import caliban.platform.gke.constants as gke_k
+import caliban.platform.gke.types as gke_t
+import caliban.platform.gke.util as gke_u
 import caliban.util as u
+import caliban.util.argparse as ua
 from caliban import __version__
 
 t = Terminal()
@@ -126,7 +128,7 @@ any arguments after '--' will pass through.""")
 def require_module(parser):
   parser.add_argument(
       "module",
-      type=u.validated_package,
+      type=ua.validated_package,
       help=
       "Code to execute, in either trainer.train' or 'trainer/train.py' format. "
       "Accepts python scripts, modules or a path to an arbitrary script.")
@@ -157,7 +159,7 @@ def extra_dirs(parser):
       "-d",
       "--dir",
       action="append",
-      type=u.validated_directory,
+      type=ua.validated_directory,
       help="Extra directories to include. List these from large to small "
       "to take full advantage of Docker's build cache.")
 
@@ -189,7 +191,7 @@ def region_arg(parser):
 
 def cloud_key_arg(parser):
   parser.add_argument("--cloud_key",
-                      type=u.validated_file,
+                      type=ua.validated_file,
                       help="Path to GCloud service account key. "
                       "(Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)")
 
@@ -263,8 +265,8 @@ def shell_parser(base):
   docker_run_arg(parser)
   parser.add_argument(
       "--shell",
-      choices=docker.Shell,
-      type=docker.Shell,
+      choices=b.Shell,
+      type=b.Shell,
       help=
       """This argument sets the shell used inside the container to one of Caliban's
 supported shells. Defaults to the shell specified by the $SHELL environment
@@ -352,7 +354,7 @@ def job_name_arg(parser):
 def experiment_config_arg(parser):
   parser.add_argument(
       "--experiment_config",
-      type=conf.load_experiment_config,
+      type=ce.load_experiment_config,
       help="Path to an experiment config, or 'stdin' to read from stdin.")
 
 
@@ -361,7 +363,7 @@ def label_arg(parser):
                       "--label",
                       metavar="KEY=VALUE",
                       action="append",
-                      type=u.parse_kv_pair,
+                      type=ua.parse_kv_pair,
                       help="Extra label k=v pair to submit to Cloud.")
 
 
@@ -539,7 +541,7 @@ def generate_docker_args(job_mode: conf.JobMode,
 
   # Get extra dependencies in case you want to install your requirements via a
   # setup.py file.
-  setup_extras = docker.base_extras(job_mode, "setup.py", args.get("extras"))
+  setup_extras = b.base_extras(job_mode, "setup.py", args.get("extras"))
 
   # Google application credentials, from the CLI or from an env variable.
   creds_path = conf.extract_cloud_key(args)
@@ -552,7 +554,7 @@ def generate_docker_args(job_mode: conf.JobMode,
   reqs = "requirements.txt"
   conda_env = "environment.yml"
 
-  # Arguments that make their way down to caliban.docker.build_image.
+  # Arguments that make their way down to caliban.docker.build.build_image.
   docker_args = {
       "extra_dirs": args.get("dir"),
       "requirements_path": reqs if os.path.exists(reqs) else None,
