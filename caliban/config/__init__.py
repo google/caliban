@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional
 
 import commentjson
 import yaml
+from schema import And, Optional, Or, Schema, Use
 
 import caliban.platform.cloud.types as ct
 
@@ -58,6 +59,24 @@ DEFAULT_ACCELERATOR_CONFIG = {
     "count": 0,
     "type": "ACCELERATOR_TYPE_UNSPECIFIED"
 }
+
+# Schema for Caliban Config
+
+AptPackages = Schema(
+    Or([str], {
+        Optional("gpu", default=list): [str],
+        Optional("cpu", default=list): [str]
+    }))
+
+CalibanConfig = Schema({
+    Optional("project_id"): And(str, len),
+    Optional("cloud_key"): And(str, len),
+    Optional("base_image"): str,
+    Optional("apt_packages", default=dict): AptPackages,
+    Optional(str): str,
+})
+
+# Accessors
 
 
 def gpu(job_mode: JobMode) -> bool:
