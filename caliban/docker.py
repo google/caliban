@@ -833,6 +833,7 @@ def run_experiments(job_mode: c.JobMode,
                     dry_run: bool = False,
                     experiment_config: Optional[c.ExpConf] = None,
                     xgroup: Optional[str] = None,
+                    strict_db: bool = False,
                     **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker
   run` on the resulting image using sensible defaults.
@@ -853,6 +854,8 @@ def run_experiments(job_mode: c.JobMode,
   - dry_run: if True, no actual jobs will be executed and docker won't
     actually build; logging side effects will show the user what will happen
     without dry_run=True.
+  - xgroup: experiment group for this command
+  - strict_db: if database specified by the CALIBAN_DB_URL is not found, exit
 
   any extra kwargs supplied are passed through to build_image.
   """
@@ -868,7 +871,7 @@ def run_experiments(job_mode: c.JobMode,
   docker_args = {k: v for k, v in build_image_kwargs.items()}
   docker_args['job_mode'] = job_mode
 
-  engine = get_mem_engine() if dry_run else get_sql_engine()
+  engine = get_mem_engine() if dry_run else get_sql_engine(strict=strict_db)
 
   with session_scope(engine) as session:
     container_spec = generate_container_spec(session, docker_args, image_id)
