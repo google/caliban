@@ -17,6 +17,13 @@
 import caliban.docker.push as p
 
 
+def register_list_tags(process, project_id, tag, **kwargs):
+  process.register_subprocess([
+      "gcloud", "container", "images", "list-tags", f"--project={project_id}",
+      "--format=json", tag
+  ], **kwargs)
+
+
 def test_image_tag_for_project():
   """Tests that we generate a valid image tag for domain-scoped and modern
     project IDs.
@@ -51,9 +58,10 @@ def test_already_pushed_uuid_tag(fake_process):
   base_tag = p._image_tag_for_project(project_id, image_id, include_tag=False)
   tag = p._image_tag_for_project(project_id, image_id)
 
-  fake_process.register_subprocess(
-      ["gcloud", "container", "images", "list-tags", "--format=json", base_tag],
-      stdout="[{\"metadata\": []}]")
+  register_list_tags(fake_process,
+                     project_id,
+                     base_tag,
+                     stdout="[{\"metadata\": []}]")
 
   assert p.push_uuid_tag(project_id, image_id) == tag
 
@@ -69,9 +77,7 @@ def test_push_uuid_tag_if_no_remote_image(fake_process):
   base_tag = p._image_tag_for_project(project_id, image_id, include_tag=False)
   tag = p._image_tag_for_project(project_id, image_id)
 
-  fake_process.register_subprocess(
-      ["gcloud", "container", "images", "list-tags", "--format=json", base_tag],
-      stdout="[]")
+  register_list_tags(fake_process, project_id, base_tag, stdout="[]")
 
   fake_process.register_subprocess(["docker", "tag", image_id, tag])
   fake_process.register_subprocess(["docker", "push", tag])

@@ -47,7 +47,8 @@ def _gcr_list_tags(project_id: str, image_id: str):
   """
   image_tag = _image_tag_for_project(project_id, image_id, include_tag=False)
   cmd = [
-      "gcloud", "container", "images", "list-tags", "--format=json", image_tag
+      "gcloud", "container", "images", "list-tags", f"--project={project_id}",
+      "--format=json", image_tag
   ]
   return json.loads(subprocess.check_output(cmd))
 
