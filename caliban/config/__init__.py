@@ -17,24 +17,30 @@
 Utilities for our job runner, for working with configs.
 """
 
-from __future__ import absolute_import, division, print_function
-
 import argparse
 import os
 import sys
+from contextlib import contextmanager
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import commentjson
+import schema as s
 import yaml
-from schema import And, Optional, Or, Schema, Use
 
 import caliban.platform.cloud.types as ct
+import caliban.util as u
 
 
 class JobMode(str, Enum):
+  """Represents the two modes that you can use to execute a Caliban job."""
   CPU = 'CPU'
   GPU = 'GPU'
+
+  @staticmethod
+  def parse(label):
+
+    return JobMode(label.upper())
 
 
 # Special config for Caliban.
@@ -62,18 +68,31 @@ DEFAULT_ACCELERATOR_CONFIG = {
 
 # Schema for Caliban Config
 
-AptPackages = Schema(
-    Or([str], {
-        Optional("gpu", default=list): [str],
-        Optional("cpu", default=list): [str]
-    }))
+AptPackages = s.Schema(
+    s.Or(
+        [str], {
+            s.Optional("gpu", default=list): [str],
+            s.Optional("cpu", default=list): [str]
+        }))
 
-CalibanConfig = Schema({
-    Optional("project_id"): And(str, len),
-    Optional("cloud_key"): And(str, len),
-    Optional("base_image"): str,
-    Optional("apt_packages", default=dict): AptPackages,
-    Optional(str): str,
+CCSchema = s.Schema({
+    s.Optional("build_time_credentials", default=False):
+        bool,
+    s.Optional("default_mode", default=JobMode.CPU):
+        s.Use(JobMode.parse),
+    s.Optional("project_id"):
+        s.And(str, len),
+    s.Optional("cloud_key"):
+        s.And(str, len),
+    s.Optional("base_image"):
+        str,
+    s.Optional("apt_packages", default=dict):
+        AptPackages,
+
+    # Allow extra entries without killing the schema to allow for backwards
+    # compatibility.
+    s.Optional(str):
+        str,
 })
 
 # Accessors
@@ -200,13 +219,35 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
         format(CALIBAN_CONFIG, packages))
 
 
-def caliban_config() -> CalibanConfig:
+def caliban_config(conf_path: str = CALIBAN_CONFIG) -> CalibanConfig:
   """Returns a dict that represents a `.calibanconfig.json` file if present,
   empty dictionary otherwise.
+
   """
-  if not os.path.isfile(CALIBAN_CONFIG):
+  if not os.path.isfile(conf_path):
     return {}
 
-  with open(CALIBAN_CONFIG) as f:
-    conf = commentjson.load(f)
-    return conf
+  conf = load_config(conf_path, mode='json')
+  return CCSchema.validate(conf)
+
+
+@contextmanager
+def argparse_schema(*args, **kwds):
+  """This function should work as a context manager that will trap a SchemaError
+  and return an argparse.ArgumentTypeError instead.
+
+  TODO move to util.argparse
+
+  """
+  try:
+    yield
+  except s.SchemaError as e:
+    raise argparse.ArgumentTypeError(e.code) from None
+
+
+@contextmanager
+def error_schema(*args, **kwds):
+  try:
+    yield
+  except s.SchemaError as e:
+    u.err(e.code)

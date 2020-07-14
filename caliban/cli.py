@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import google.auth._cloud_sdk as csdk
 from absl.flags import argparse_flags
-from blessings import Terminal
 
 import caliban.config as conf
 import caliban.config.experiment as ce
@@ -35,8 +34,6 @@ import caliban.platform.gke.util as gke_u
 import caliban.util as u
 import caliban.util.argparse as ua
 from caliban import __version__
-
-t = Terminal()
 
 
 def _job_mode(use_gpu: bool, gpu_spec: Optional[ct.GPUSpec],

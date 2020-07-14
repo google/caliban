@@ -154,7 +154,8 @@ def run_app(arg_input):
 def main():
   logging.use_python_logging()
   try:
-    app.run(run_app, flags_parser=cli.parse_flags)
+    with c.argparse_schema():
+      app.run(run_app, flags_parser=cli.parse_flags)
   except KeyboardInterrupt:
     logging.info('Shutting down.')
     sys.exit(0)
