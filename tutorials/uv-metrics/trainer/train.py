@@ -420,8 +420,6 @@ def model_main(activation='relu', width=1000, depth=2, lr=0.5, **kwargs):
   model = build_model(activation, width, depth)
   optimizer = tf.optimizers.SGD(lr)
 
-  train_and_log(model, optimizer, **kwargs)
-
   with r.start_run():
     r.log_params({
         **kwargs,
