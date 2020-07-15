@@ -100,41 +100,6 @@ def gpu(job_mode: JobMode) -> bool:
   return job_mode == JobMode.GPU
 
 
-def load_yaml_config(path):
-  """returns the config parsed based on the info in the flags.
-
-  Grabs the config file, written in yaml, slurps it in.
-  """
-  with open(path) as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-
-  return config
-
-
-def load_config(path, mode='yaml'):
-  """Load a JSON or YAML config.
-
-  """
-  if mode == 'json':
-    with open(path) as f:
-      return commentjson.load(f)
-
-  return load_yaml_config(path)
-
-
-def valid_json(path: str) -> Dict[str, Any]:
-  """Loads JSON if the path points to a valid JSON file; otherwise, throws an
-  exception that's picked up by argparse.
-
-  """
-  try:
-    return load_config(path, mode='json')
-  except commentjson.JSONLibraryException:
-    raise argparse.ArgumentTypeError(
-        """File '{}' doesn't seem to contain valid JSON. Try again!""".format(
-            path))
-
-
 def extract_script_args(m: Dict[str, Any]) -> List[str]:
   """Strip off the "--" argument if it was passed in as a separator."""
   script_args = m.get("script_args")
@@ -199,11 +164,11 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
   the requests in the config.
 
   """
-  packages = conf.get("apt_packages") or {}
+  packages = conf["apt_packages"]
 
   if isinstance(packages, dict):
     k = "gpu" if gpu(mode) else "cpu"
-    return packages.get(k, [])
+    return packages.get[k]
 
   return packages
 
@@ -219,6 +184,5 @@ def caliban_config(conf_path: str = CALIBAN_CONFIG) -> CalibanConfig:
   if not os.path.isfile(conf_path):
     return {}
 
-  conf = load_config(conf_path, mode='json')
-  with us.error_schema(f"{conf_path}"):
-    return CalibanConfig.validate(conf)
+  with us.error_schema(conf_path):
+    return s.And(us.Json, CalibanConfig).validate(conf_path)

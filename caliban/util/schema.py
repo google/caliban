@@ -19,7 +19,9 @@ Useful shared schemas.
 import os
 import sys
 from contextlib import contextmanager
-from typing import Any, Dict, Optional
+from typing import Optional
+
+import commentjson
 
 import caliban.util as u
 import schema as s
@@ -67,6 +69,11 @@ def fatal_errors():
     sys.exit(1)
 
 
+def load_json(path):
+  with open(path) as f:
+    return commentjson.load(f)
+
+
 # TODO Once a release with this patch happens:
 # https://github.com/keleshev/schema/pull/238,, Change `Or` to `Schema`. This
 # problem only occurs for callable validators.
@@ -79,3 +86,8 @@ Directory = s.Or(
 File = s.Or(lambda path: os.path.isfile(os.path.expanduser(path)),
             False,
             error="""File '{}' isn't a valid file on your system. Try again!""")
+
+Json = s.And(
+    File,
+    s.Use(load_json,
+          error="""File '{}' doesn't seem to contain valid JSON. Try again!"""))

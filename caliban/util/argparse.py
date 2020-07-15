@@ -55,7 +55,8 @@ def argparse_schema(schema):
   return check
 
 
-# TODO: Now that we use schema, these should all be converted to schema instances.
+# TODO: Now that we use schema, validated_package and parse_kv_pair should be
+# converted to schema instances.
 
 
 def validated_package(path: str) -> u.Package:
