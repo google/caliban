@@ -20,7 +20,7 @@ Utilities for our job runner, for working with configs.
 import os
 import sys
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import schema as s
 
@@ -58,7 +58,47 @@ DEFAULT_ACCELERATOR_CONFIG = {
     "type": "ACCELERATOR_TYPE_UNSPECIFIED"
 }
 
+DLVMS = {
+    "pytorch": [None, "1.0", "1.1", "1.2", "1.3", "1.4"],
+    "tf": [None, "1.0", "1.13", "1.14", "1.15"],
+    "tf2": [None, "2.0", "2.1", "2.2"],
+}
+
 # Schema for Caliban Config
+
+
+def _dlvm_config(job_mode: JobMode) -> Dict[str, str]:
+  """Generates a dict of custom DLVM image identifier -> the actual image ID
+  available from GCR.
+
+  """
+  mode = job_mode.lower()
+
+  def with_version(s: str, version: Optional[str]) -> Tuple[str, str]:
+    return f"{s}-{version}" if version else s
+
+  def image(lib: str, version: Optional[str]) -> str:
+    base = f"gcr.io/deeplearning-platform-release/{lib}-{mode}"
+    k = with_version(f"dlvm:{lib}-{mode}", version)
+    v = with_version(base, version.replace('.', '_') if version else None)
+    return (k, v)
+
+  return dict(
+      [image(lib, v) for lib, versions in DLVMS.items() for v in versions])
+
+
+DLVM_CONFIG = {
+    **_dlvm_config(JobMode.CPU),
+    **_dlvm_config(JobMode.GPU),
+}
+
+
+def expand_image(image: str) -> str:
+  """Returns the DLVM image url for the job model and the comand line arg
+  or returns None if the key doesn't exist in the config.
+  """
+  return DLVM_CONFIG.get(image, image)
+
 
 AptPackages = s.Or(
     [str], {
@@ -67,24 +107,24 @@ AptPackages = s.Or(
     },
     error=""""apt_packages" entry must be a dictionary or list, not '{}'""")
 
-CalibanConfig = s.Schema({
-    s.Optional("build_time_credentials", default=False):
-        bool,
-    s.Optional("default_mode", default=JobMode.CPU):
-        s.Use(JobMode.parse),
-    s.Optional("project_id"):
-        s.And(str, len),
-    s.Optional("cloud_key"):
-        s.And(str, len),
-    s.Optional("base_image"):
-        str,
-    s.Optional("apt_packages", default=dict):
-        AptPackages,
+Image = s.And(str, s.Use(expand_image))
 
-    # Allow extra entries without killing the schema to allow for backwards
-    # compatibility.
-    s.Optional(str):
-        str,
+BaseImage = s.Or(
+    Image, {
+        s.Optional("gpu", default=None): Image,
+        s.Optional("cpu", default=None): Image
+    },
+    error=
+    """"base_image" entry must be a string OR dict with 'cpu' and 'gpu' keys, not '{}'"""
+)
+
+CalibanConfig = s.Schema({
+    s.Optional("build_time_credentials", default=False): bool,
+    s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
+    s.Optional("project_id"): s.And(str, len),
+    s.Optional("cloud_key"): s.And(str, len),
+    s.Optional("base_image", default=None): BaseImage,
+    s.Optional("apt_packages", default=AptPackages.validate({})): AptPackages
 })
 
 # Accessors
@@ -168,6 +208,22 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
     return packages[k]
 
   return packages
+
+
+def base_image(conf: CalibanConfig, mode: JobMode) -> Optional[str]:
+  """Returns a custom base image, if the user has supplied one in the
+  calibanconfig.
+
+  """
+  image = conf.get("base_image")
+  if image is None:
+    return None
+
+  elif isinstance(image, str):
+    return image
+
+  # dictionary case.
+  return image[mode.lower()]
 
 
 def caliban_config(conf_path: str = CALIBAN_CONFIG) -> CalibanConfig:

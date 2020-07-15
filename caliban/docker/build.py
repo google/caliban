@@ -25,8 +25,7 @@ import os
 import subprocess
 from enum import Enum
 from pathlib import Path
-from typing import (Any, Callable, Dict, List, NamedTuple, NewType, Optional,
-                    Union)
+from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
 
 from absl import logging
 from blessings import Terminal
@@ -458,7 +457,6 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
 def _dockerfile_template(
     job_mode: c.JobMode,
     workdir: Optional[str] = None,
-    base_image_fn: Optional[Callable[[c.JobMode], str]] = None,
     package: Optional[Union[List, u.Package]] = None,
     requirements_path: Optional[str] = None,
     conda_env_path: Optional[str] = None,
@@ -486,11 +484,6 @@ def _dockerfile_template(
   Most functions that call _dockerfile_template pass along any kwargs that they
   receive. It should be enough to add kwargs here, then rely on that mechanism
   to pass them along, vs adding kwargs all the way down the call chain.
-
-  Supply a custom base_image_fn (function from job_mode -> image ID) to inject
-  more complex Docker commands into the Caliban environments by, for example,
-  building your own image on top of the TF base images, then using that.
-
   """
   uid = os.getuid()
   gid = os.getgid()
@@ -502,10 +495,7 @@ def _dockerfile_template(
   if workdir is None:
     workdir = DEFAULT_WORKDIR
 
-  if base_image_fn is None:
-    base_image_fn = base_image_id
-
-  base_image = base_image_fn(job_mode)
+  base_image = c.base_image(caliban_config, job_mode) or base_image_id(job_mode)
 
   dockerfile = """
 FROM {base_image}
