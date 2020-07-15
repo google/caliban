@@ -161,7 +161,7 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
   the requests in the config.
 
   """
-  packages = conf["apt_packages"]
+  packages = conf.get("apt_packages", [])
 
   if isinstance(packages, dict):
     k = "gpu" if gpu(mode) else "cpu"
