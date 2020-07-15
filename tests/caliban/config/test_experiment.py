@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from argparse import ArgumentTypeError
 
 import caliban.config.experiment as c
 import caliban.util as u
+import caliban.util.schema as us
 import pytest
 
 
@@ -238,3 +240,27 @@ def test_compound_key_handling():
     assert test['after_expansion'] == c.expand_experiment_config(test['input'])
     assert test['after_dictproduct'] == list(
         u.dict_product(test['after_tupleization']))
+
+
+def test_load_experiment_config(tmpdir):
+  valid = {"key": ['a', 'b'], "random": [True, False]}
+  valid_path = tmpdir.join('valid.json')
+
+  with open(valid_path, 'w') as f:
+    json.dump(valid, f)
+
+  invalid_path = tmpdir.join('invalid.json')
+
+  with open(invalid_path, 'w') as f:
+    f.write("{{{I am not JSON!\n")
+
+  # Failing the schema with invalid json raises an ARGPARSE error, not a schema
+  # error. We haven't converted experimentconfig to schema yet.
+  #
+  # We use schema to validate, but the ua.argparse_schema wrapper converts the
+  # error internally.
+  with pytest.raises(ArgumentTypeError):
+    c.load_experiment_config(invalid_path)
+
+  # A valid config should round trip.
+  assert c.load_experiment_config(valid_path) == valid

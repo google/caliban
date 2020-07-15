@@ -168,7 +168,7 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
 
   if isinstance(packages, dict):
     k = "gpu" if gpu(mode) else "cpu"
-    return packages.get[k]
+    return packages[k]
 
   return packages
 

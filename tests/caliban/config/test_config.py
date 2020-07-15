@@ -14,12 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 from argparse import ArgumentTypeError
 
-import caliban.platform.cloud.types as ct
 import caliban.config as c
+import caliban.platform.cloud.types as ct
+import caliban.util.schema as us
 import pytest
+
+
+def test_gpu():
+  assert c.gpu(c.JobMode.GPU)
+  assert not c.gpu(c.JobMode.CPU)
+  assert not c.gpu("face")
 
 
 def test_extract_region(monkeypatch):
@@ -42,3 +50,33 @@ def test_extract_region(monkeypatch):
   assert c.extract_region({}) == c.DEFAULT_REGION
 
   assert c.extract_region({"region": "us-west1"}) == ct.US.west1
+
+
+def test_caliban_config(tmpdir):
+  """Tests validation of the CalibanConfig schema and the method that returns the
+  parsed config.
+
+  """
+  valid = {"apt_packages": {"cpu": ["face"]}, "random": "entry"}
+  valid_path = tmpdir.join('valid.json')
+
+  with open(valid_path, 'w') as f:
+    json.dump(valid, f)
+
+  invalid = {"apt_packages": "face"}
+  invalid_path = tmpdir.join('invalid.json')
+
+  with open(invalid_path, 'w') as f:
+    json.dump(invalid, f)
+
+  # Failing the schema raises an error.
+  with pytest.raises(us.FatalSchemaError):
+    c.caliban_config(invalid_path)
+
+  # paths that don't exist return an empty map:
+  assert c.caliban_config('random_path') == {}
+
+  # If the config is valid, c.apt_packages can fetch the packages we specified.
+  config = c.caliban_config(valid_path)
+  assert c.apt_packages(config, c.JobMode.GPU) == []
+  assert c.apt_packages(config, c.JobMode.CPU) == ["face"]

@@ -265,12 +265,10 @@ def validate_experiment_config(items: ExpConf) -> ExpConf:
 
 
 def load_experiment_config(s):
-  if s.lower() == 'stdin':
+  if isinstance(s, str) and s.lower() == 'stdin':
     json = commentjson.load(sys.stdin)
   else:
-    with ua.argparse_schema():
-      with open(us.File.validate(s)) as f:
-        json = commentjson.load(f)
+    json = ua.argparse_schema(us.Json)(s)
 
   return validate_experiment_config(json)
 
