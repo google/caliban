@@ -33,6 +33,7 @@ import caliban.platform.gke.types as gke_t
 import caliban.platform.gke.util as gke_u
 import caliban.util as u
 import caliban.util.argparse as ua
+import caliban.util.schema as us
 from caliban import __version__
 
 
@@ -156,7 +157,7 @@ def extra_dirs(parser):
       "-d",
       "--dir",
       action="append",
-      type=ua.validated_directory,
+      type=ua.argparse_schema(us.Directory),
       help="Extra directories to include. List these from large to small "
       "to take full advantage of Docker's build cache.")
 
@@ -188,7 +189,7 @@ def region_arg(parser):
 
 def cloud_key_arg(parser):
   parser.add_argument("--cloud_key",
-                      type=ua.validated_file,
+                      type=ua.argparse_schema(us.File),
                       help="Path to GCloud service account key. "
                       "(Defaults to $GOOGLE_APPLICATION_CREDENTIALS.)")
 

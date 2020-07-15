@@ -20,7 +20,6 @@ Utilities for our job runner, for working with configs.
 import argparse
 import os
 import sys
-from contextlib import contextmanager
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -29,7 +28,7 @@ import schema as s
 import yaml
 
 import caliban.platform.cloud.types as ct
-import caliban.util as u
+import caliban.util.schema as us
 
 
 class JobMode(str, Enum):
@@ -39,12 +38,8 @@ class JobMode(str, Enum):
 
   @staticmethod
   def parse(label):
-
     return JobMode(label.upper())
 
-
-# Special config for Caliban.
-CalibanConfig = Dict[str, Any]
 
 DRY_RUN_FLAG = "--dry_run"
 CALIBAN_CONFIG = ".calibanconfig.json"
@@ -68,14 +63,14 @@ DEFAULT_ACCELERATOR_CONFIG = {
 
 # Schema for Caliban Config
 
-AptPackages = s.Schema(
-    s.Or(
-        [str], {
-            s.Optional("gpu", default=list): [str],
-            s.Optional("cpu", default=list): [str]
-        }))
+AptPackages = s.Or(
+    [str], {
+        s.Optional("gpu", default=list): [str],
+        s.Optional("cpu", default=list): [str]
+    },
+    error=""""apt_packages" entry must be a dictionary or list, not '{}'""")
 
-CCSchema = s.Schema({
+CalibanConfig = s.Schema({
     s.Optional("build_time_credentials", default=False):
         bool,
     s.Optional("default_mode", default=JobMode.CPU):
@@ -210,44 +205,20 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
     k = "gpu" if gpu(mode) else "cpu"
     return packages.get(k, [])
 
-  elif isinstance(packages, list):
-    return packages
-
-  else:
-    raise argparse.ArgumentTypeError(
-        """{}'s "apt_packages" entry must be a dictionary or list, not '{}'""".
-        format(CALIBAN_CONFIG, packages))
+  return packages
 
 
 def caliban_config(conf_path: str = CALIBAN_CONFIG) -> CalibanConfig:
   """Returns a dict that represents a `.calibanconfig.json` file if present,
   empty dictionary otherwise.
 
+  If the supplied conf_path is present, but doesn't pass the supplied schema,
+  errors and kills the program.
+
   """
   if not os.path.isfile(conf_path):
     return {}
 
   conf = load_config(conf_path, mode='json')
-  return CCSchema.validate(conf)
-
-
-@contextmanager
-def argparse_schema(*args, **kwds):
-  """This function should work as a context manager that will trap a SchemaError
-  and return an argparse.ArgumentTypeError instead.
-
-  TODO move to util.argparse
-
-  """
-  try:
-    yield
-  except s.SchemaError as e:
-    raise argparse.ArgumentTypeError(e.code) from None
-
-
-@contextmanager
-def error_schema(*args, **kwds):
-  try:
-    yield
-  except s.SchemaError as e:
-    u.err(e.code)
+  with us.error_schema(f"{conf_path}"):
+    return CalibanConfig.validate(conf)

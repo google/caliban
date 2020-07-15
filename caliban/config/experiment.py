@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import commentjson
 
 import caliban.util as u
+import caliban.util.argparse as ua
+import caliban.util.schema as us
 
 # int, str and bool are allowed in a final experiment; lists are markers for
 # expansion.
@@ -266,8 +268,9 @@ def load_experiment_config(s):
   if s.lower() == 'stdin':
     json = commentjson.load(sys.stdin)
   else:
-    with open(u.validated_file(s)) as f:
-      json = commentjson.load(f)
+    with ua.argparse_schema():
+      with open(us.File.validate(s)) as f:
+        json = commentjson.load(f)
 
   return validate_experiment_config(json)
 
