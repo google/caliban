@@ -7,11 +7,9 @@ it again after the run for analysis.
 from __future__ import division, print_function
 
 import getpass
-import os
 from typing import Dict, Optional
 
 import fs
-import mlflow
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import tqdm
@@ -424,8 +422,8 @@ def model_main(activation='relu', width=1000, depth=2, lr=0.5, **kwargs):
 
   train_and_log(model, optimizer, **kwargs)
 
-  with mlflow.start_run():
-    mlflow.log_params({
+  with r.start_run():
+    r.log_params({
         **kwargs,
         **{
             "depth": depth,
