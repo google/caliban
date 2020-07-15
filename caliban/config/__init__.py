@@ -17,27 +17,26 @@
 Utilities for our job runner, for working with configs.
 """
 
-from __future__ import absolute_import, division, print_function
-
-import argparse
 import os
 import sys
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import commentjson
-import yaml
+import schema as s
 
 import caliban.platform.cloud.types as ct
+import caliban.util.schema as us
 
 
 class JobMode(str, Enum):
+  """Represents the two modes that you can use to execute a Caliban job."""
   CPU = 'CPU'
   GPU = 'GPU'
 
+  @staticmethod
+  def parse(label):
+    return JobMode(label.upper())
 
-# Special config for Caliban.
-CalibanConfig = Dict[str, Any]
 
 DRY_RUN_FLAG = "--dry_run"
 CALIBAN_CONFIG = ".calibanconfig.json"
@@ -59,47 +58,43 @@ DEFAULT_ACCELERATOR_CONFIG = {
     "type": "ACCELERATOR_TYPE_UNSPECIFIED"
 }
 
+# Schema for Caliban Config
+
+AptPackages = s.Or(
+    [str], {
+        s.Optional("gpu", default=list): [str],
+        s.Optional("cpu", default=list): [str]
+    },
+    error=""""apt_packages" entry must be a dictionary or list, not '{}'""")
+
+CalibanConfig = s.Schema({
+    s.Optional("build_time_credentials", default=False):
+        bool,
+    s.Optional("default_mode", default=JobMode.CPU):
+        s.Use(JobMode.parse),
+    s.Optional("project_id"):
+        s.And(str, len),
+    s.Optional("cloud_key"):
+        s.And(str, len),
+    s.Optional("base_image"):
+        str,
+    s.Optional("apt_packages", default=dict):
+        AptPackages,
+
+    # Allow extra entries without killing the schema to allow for backwards
+    # compatibility.
+    s.Optional(str):
+        str,
+})
+
+# Accessors
+
 
 def gpu(job_mode: JobMode) -> bool:
   """Returns True if the supplied JobMode is JobMode.GPU, False otherwise.
 
   """
   return job_mode == JobMode.GPU
-
-
-def load_yaml_config(path):
-  """returns the config parsed based on the info in the flags.
-
-  Grabs the config file, written in yaml, slurps it in.
-  """
-  with open(path) as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-
-  return config
-
-
-def load_config(path, mode='yaml'):
-  """Load a JSON or YAML config.
-
-  """
-  if mode == 'json':
-    with open(path) as f:
-      return commentjson.load(f)
-
-  return load_yaml_config(path)
-
-
-def valid_json(path: str) -> Dict[str, Any]:
-  """Loads JSON if the path points to a valid JSON file; otherwise, throws an
-  exception that's picked up by argparse.
-
-  """
-  try:
-    return load_config(path, mode='json')
-  except commentjson.JSONLibraryException:
-    raise argparse.ArgumentTypeError(
-        """File '{}' doesn't seem to contain valid JSON. Try again!""".format(
-            path))
 
 
 def extract_script_args(m: Dict[str, Any]) -> List[str]:
@@ -166,28 +161,25 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
   the requests in the config.
 
   """
-  packages = conf.get("apt_packages") or {}
+  packages = conf["apt_packages"]
 
   if isinstance(packages, dict):
     k = "gpu" if gpu(mode) else "cpu"
-    return packages.get(k, [])
+    return packages[k]
 
-  elif isinstance(packages, list):
-    return packages
-
-  else:
-    raise argparse.ArgumentTypeError(
-        """{}'s "apt_packages" entry must be a dictionary or list, not '{}'""".
-        format(CALIBAN_CONFIG, packages))
+  return packages
 
 
-def caliban_config() -> CalibanConfig:
+def caliban_config(conf_path: str = CALIBAN_CONFIG) -> CalibanConfig:
   """Returns a dict that represents a `.calibanconfig.json` file if present,
   empty dictionary otherwise.
+
+  If the supplied conf_path is present, but doesn't pass the supplied schema,
+  errors and kills the program.
+
   """
-  if not os.path.isfile(CALIBAN_CONFIG):
+  if not os.path.isfile(conf_path):
     return {}
 
-  with open(CALIBAN_CONFIG) as f:
-    conf = commentjson.load(f)
-    return conf
+  with us.error_schema(conf_path):
+    return s.And(us.Json, CalibanConfig).validate(conf_path)
