@@ -212,12 +212,14 @@ def _dependency_entries(workdir: str,
                         user_group: int,
                         requirements_path: Optional[str] = None,
                         conda_env_path: Optional[str] = None,
-                        setup_extras: Optional[List[str]] = None) -> str:
+                        setup_extras: Optional[List[str]] = None,
+                        julia_url: Optional[str] = None) -> str:
   """Returns the Dockerfile entries required to install dependencies from either:
 
   - a requirements.txt file, path supplied by requirements_path
   - a conda environment.yml file, path supplied by conda_env_path.
   - a setup.py file, if some sequence of dependencies is supplied.
+  - a Julia version, specified as url
 
   An empty list for setup_extras means, run `pip install -c .` with no extras.
   None for this argument means do nothing. If a list of strings is supplied,
@@ -244,6 +246,25 @@ RUN /bin/bash -c "{CONDA_BIN} env update \
     ret += f"""
 COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
+"""
+
+  julia_url = "https://julialang-s3.julialang.org/bin/linux/x64/1.5/julia-1.5.0-rc1-linux-x86_64.tar.gz"
+  if julia_url is not None:
+    # e.g. "https://julialang-s3.julialang.org/bin/linux/x64/1.5/julia-1.5.0-rc1-linux-x86_64.tar.gz"
+    ret += f"""
+COPY --chown={user_id}:{user_group} *.toml {workdir}/
+COPY --chown={user_id}:{user_group} src {workdir}/src
+# TODO: Use /usr/local instead of /tmp
+ENV JULIA_LOC /tmp/julia
+ENV JULIA_DEPOT_PATH /tmp/var/julia_depot
+ENV JULIA_PROJECT {workdir}
+ENV PATH $PATH:$JULIA_LOC/bin
+RUN /bin/bash -c "mkdir -p $JULIA_LOC && \
+                  wget -nv {julia_url} && \
+                  tar xzf $(basename {julia_url}) -C $JULIA_LOC --strip-components 1 && \
+                  rm -f $(basename {julia_url}) && \
+                  mkdir -p $JULIA_DEPOT_PATH && \
+                  julia --eval 'using Pkg; Pkg.instantiate()'"
 """
 
   return ret
@@ -463,6 +484,7 @@ def _dockerfile_template(
     requirements_path: Optional[str] = None,
     conda_env_path: Optional[str] = None,
     setup_extras: Optional[List[str]] = None,
+    julia_url: Optional[str] = None,
     adc_path: Optional[str] = None,
     credentials_path: Optional[str] = None,
     jupyter_version: Optional[str] = None,
@@ -545,7 +567,8 @@ USER {uid}:{gid}
                                     gid,
                                     requirements_path=requirements_path,
                                     conda_env_path=conda_env_path,
-                                    setup_extras=setup_extras)
+                                    setup_extras=setup_extras,
+                                    julia_url=julia_url)
 
   if inject_notebook.value != 'none':
     install_lab = inject_notebook == NotebookInstall.lab
