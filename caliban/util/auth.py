@@ -30,8 +30,9 @@ def auth_access_token() -> Optional[str]:
 
   """
   try:
-    return check_output(['gcloud', 'auth', 'print-access-token'],
-                        encoding='utf8').rstrip()
+    ret = check_output(['gcloud', 'auth', 'print-access-token'],
+                       encoding='utf8').rstrip()
+    return ret if len(ret) > 0 else None
   except CalledProcessError:
     return None
 

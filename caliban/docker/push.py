@@ -18,10 +18,15 @@ and notebooks in a Docker environment.
 
 """
 
+import json
 import subprocess
 
+from absl import logging
 
-def _image_tag_for_project(project_id: str, image_id: str) -> str:
+
+def _image_tag_for_project(project_id: str,
+                           image_id: str,
+                           include_tag: bool = True) -> str:
   """Generate the GCR Docker image tag for the supplied pair of project_id and
   image_id.
 
@@ -31,21 +36,48 @@ def _image_tag_for_project(project_id: str, image_id: str) -> str:
 
   """
   project_s = project_id.replace(":", "/")
-  return "gcr.io/{}/{}:latest".format(project_s, image_id)
+  base = f"gcr.io/{project_s}/{image_id}"
+  return f"{base}:latest" if include_tag else base
 
 
-def push_uuid_tag(project_id: str, image_id: str) -> str:
+def _gcr_list_tags(project_id: str, image_id: str):
+  """Returns a sequence of metadata for all tags of the supplied image_id in the
+  supplied project.
+
+  """
+  image_tag = _image_tag_for_project(project_id, image_id, include_tag=False)
+  cmd = [
+      "gcloud", "container", "images", "list-tags", f"--project={project_id}",
+      "--format=json", image_tag
+  ]
+  return json.loads(subprocess.check_output(cmd))
+
+
+def gcr_image_pushed(project_id: str, image_id: str) -> bool:
+  """Returns true if the supplied image has been pushed to the container registry
+  for the supplied project, false otherwise.
+
+  """
+  return len(_gcr_list_tags(project_id, image_id)) > 0
+
+
+def push_uuid_tag(project_id: str, image_id: str, force: bool = False) -> str:
   """Takes a base image and tags it for upload, then pushes it to a remote Google
   Container Registry.
 
   Returns the tag on a successful push.
-
-  TODO should this just check first before attempting to push if the image
-  exists? Immutable names means that if the tag is up there, we're done.
-  Potentially use docker-py for this.
-
   """
   image_tag = _image_tag_for_project(project_id, image_id)
-  subprocess.run(["docker", "tag", image_id, image_tag], check=True)
-  subprocess.run(["docker", "push", image_tag], check=True)
+
+  def missing_remotely():
+    missing = not gcr_image_pushed(project_id, image_id)
+    if not missing:
+      logging.info(
+          f"Skipping docker push, as {image_tag} already exists remotely.")
+    return missing
+
+  if force or missing_remotely():
+    subprocess.run(["docker", "tag", image_id, image_tag], check=True)
+    subprocess.run(["docker", "push", image_tag], check=True)
+
   return image_tag

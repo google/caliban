@@ -3,6 +3,11 @@
 - Caliban now authenticates AI Platform job submissions using the authentication
   provided by `gcloud auth login`, rather than requiring a service account key.
   This significantly simplifies the setup required for a first time user.
+- `caliban cloud` now checks if the image exists remotely before issuing a
+  `docker push` command on the newly built image
+  (https://github.com/google/caliban/pull/36)
+- Big internal refactor to make it easier to work on code, increase test
+  coverage, add new backends (https://github.com/google/caliban/pull/32)
 
 # 0.2.6
 

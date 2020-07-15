@@ -20,14 +20,11 @@ from __future__ import absolute_import, division, print_function
 import datetime
 from copy import deepcopy
 from pprint import pformat
-from subprocess import CalledProcessError, check_output
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import tqdm
 from absl import logging
 from blessings import Terminal
-from google.oauth2 import service_account
-from google.oauth2.credentials import Credentials
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 
