@@ -1,13 +1,74 @@
-# 0.2.7
+# 0.3.0
 
 - Caliban now authenticates AI Platform job submissions using the authentication
   provided by `gcloud auth login`, rather than requiring a service account key.
   This significantly simplifies the setup required for a first time user.
+
 - `caliban cloud` now checks if the image exists remotely before issuing a
   `docker push` command on the newly built image
   (https://github.com/google/caliban/pull/36)
+
 - Big internal refactor to make it easier to work on code, increase test
   coverage, add new backends (https://github.com/google/caliban/pull/32)
+
+- add `schema` validation for `.calibanconfig.json`. This makes it much easier
+  to add configuration knobs: https://github.com/google/caliban/pull/37
+
+- Custom base image support (https://github.com/google/caliban/pull/39).
+  `.calibanconfig.json` now supports a `"base_image"` key. For the value, can
+  supply:
+  - a Docker base image of your own
+  - a dict of the form `{"cpu": "base_image", "gpu": "base_image"}` with both
+    entries optional, of course.
+
+  Two more cool features.
+
+  First, if you use a format string, like `"my_image-{}:latest"`, the format
+  block `{}` will be filled in with either `cpu` or `gpu`, depending on the mode
+  Caliban is using.
+
+  Second, we now have native support for [Google's Deep Learning
+  VMs](https://cloud.google.com/ai-platform/deep-learning-vm/docs/introduction)
+  as base images. The actual VM containers [live
+  here](https://console.cloud.google.com/gcr/images/deeplearning-platform-release/GLOBAL).
+  If you provide any of the following strings, Caliban will expand them out to
+  the actual base image location:
+
+```
+dlvm:pytorch-cpu
+dlvm:pytorch-cpu-1.0
+dlvm:pytorch-cpu-1.1
+dlvm:pytorch-cpu-1.2
+dlvm:pytorch-cpu-1.3
+dlvm:pytorch-cpu-1.4
+dlvm:pytorch-gpu
+dlvm:pytorch-gpu-1.0
+dlvm:pytorch-gpu-1.1
+dlvm:pytorch-gpu-1.2
+dlvm:pytorch-gpu-1.3
+dlvm:pytorch-gpu-1.4
+dlvm:tf-cpu
+dlvm:tf-cpu-1.0
+dlvm:tf-cpu-1.13
+dlvm:tf-cpu-1.14
+dlvm:tf-cpu-1.15
+dlvm:tf-gpu
+dlvm:tf-gpu-1.0
+dlvm:tf-gpu-1.13
+dlvm:tf-gpu-1.14
+dlvm:tf-gpu-1.15
+dlvm:tf2-cpu
+dlvm:tf2-cpu-2.0
+dlvm:tf2-cpu-2.1
+dlvm:tf2-cpu-2.2
+dlvm:tf2-gpu
+dlvm:tf2-gpu-2.0
+dlvm:tf2-gpu-2.1
+dlvm:tf2-gpu-2.2
+```
+
+Format strings work here as well! So, `"dlvm:pytorch-{}-1.4"` is a totally valid
+base image.
 
 # 0.2.6
 

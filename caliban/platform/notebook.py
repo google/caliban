@@ -74,7 +74,7 @@ def run_notebook(job_mode: c.JobMode,
   docker_args = ["-p", "{}:{}".format(port, port)] + run_args
 
   ps.run_interactive(job_mode,
-                     entrypoint="/opt/conda/envs/caliban/bin/python",
+                     entrypoint="python",
                      entrypoint_args=jupyter_args,
                      run_args=docker_args,
                      inject_notebook=inject_arg,

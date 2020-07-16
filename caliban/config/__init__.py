@@ -35,7 +35,7 @@ class JobMode(str, Enum):
 
   @staticmethod
   def parse(label):
-    return JobMode(label.upper())
+    return JobMode(label.upper().strip())
 
 
 DRY_RUN_FLAG = "--dry_run"
@@ -58,6 +58,9 @@ DEFAULT_ACCELERATOR_CONFIG = {
     "type": "ACCELERATOR_TYPE_UNSPECIFIED"
 }
 
+# Dictionary of the DLVM "Platform" to a sequence of versions that are
+# currently available as DLVMs. The full list of images is here:
+# https://console.cloud.google.com/gcr/images/deeplearning-platform-release/GLOBAL/
 DLVMS = {
     "pytorch": [None, "1.0", "1.1", "1.2", "1.3", "1.4"],
     "tf": [None, "1.0", "1.13", "1.14", "1.15"],
@@ -74,19 +77,21 @@ def _dlvm_config(job_mode: JobMode) -> Dict[str, str]:
   """
   mode = job_mode.lower()
 
-  def with_version(s: str, version: Optional[str]) -> Tuple[str, str]:
-    return f"{s}-{version}" if version else s
+  def with_version(s: str, version: Optional[str], sep: str) -> Tuple[str, str]:
+    return f"{s}{sep}{version}" if version else s
 
   def image(lib: str, version: Optional[str]) -> str:
     base = f"gcr.io/deeplearning-platform-release/{lib}-{mode}"
-    k = with_version(f"dlvm:{lib}-{mode}", version)
-    v = with_version(base, version.replace('.', '_') if version else None)
+    k = with_version(f"dlvm:{lib}-{mode}", version, "-")
+    v = with_version(base, version.replace('.', '-') if version else None, ".")
     return (k, v)
 
   return dict(
       [image(lib, v) for lib, versions in DLVMS.items() for v in versions])
 
 
+# This is a dictionary of some identifier like 'dlvm:pytorch-1.0' to the actual
+# Docker image ID.
 DLVM_CONFIG = {
     **_dlvm_config(JobMode.CPU),
     **_dlvm_config(JobMode.GPU),
@@ -94,8 +99,9 @@ DLVM_CONFIG = {
 
 
 def expand_image(image: str) -> str:
-  """Returns the DLVM image url for the job model and the comand line arg
-  or returns None if the key doesn't exist in the config.
+  """If the supplied image is one of our special prefixed identifiers, returns
+  the expanded Docker image ID. Else, returns the input.
+
   """
   return DLVM_CONFIG.get(image, image)
 
@@ -183,10 +189,6 @@ def extract_region(m: Dict[str, Any]) -> ct.Region:
   return DEFAULT_REGION
 
 
-def extract_zone(m: Dict[str, Any]) -> str:
-  return "{}-a".format(extract_region(m))
-
-
 def extract_cloud_key(m: Dict[str, Any]) -> Optional[str]:
   """Returns the Google service account key filepath specified in the args;
   defaults to the $GOOGLE_APPLICATION_CREDENTIALS variable.
@@ -214,16 +216,27 @@ def base_image(conf: CalibanConfig, mode: JobMode) -> Optional[str]:
   """Returns a custom base image, if the user has supplied one in the
   calibanconfig.
 
+  If the custom base image has a marker for a format string, like 'pytorch-{}',
+  this method will fill it in with the current mode (cpu or gpu).
+
   """
+  ret = None
+  mode_s = mode.lower()
+
   image = conf.get("base_image")
   if image is None:
-    return None
+    return ret
 
   elif isinstance(image, str):
-    return image
+    ret = image
 
-  # dictionary case.
-  return image[mode.lower()]
+  else:
+    # dictionary case.
+    ret = image[mode_s]
+
+  # we run expand_image again in case the user has included a format {} in the
+  # string.
+  return expand_image(ret.format(mode_s))
 
 
 def caliban_config(conf_path: str = CALIBAN_CONFIG) -> CalibanConfig:
