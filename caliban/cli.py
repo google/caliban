@@ -373,7 +373,6 @@ def dry_run_arg(parser):
 
 
 def container_parser(parser):
-
   executing_parser(parser)
 
   image_tag_arg(parser)
