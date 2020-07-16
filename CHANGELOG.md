@@ -14,7 +14,8 @@
 - add `schema` validation for `.calibanconfig.json`. This makes it much easier
   to add configuration knobs: https://github.com/google/caliban/pull/37
 
-- Custom base image support (https://github.com/google/caliban/pull/39).
+- Custom base image support (https://github.com/google/caliban/pull/39), thanks
+  to https://github.com/google/caliban/pull/20 from @sagravat.
   `.calibanconfig.json` now supports a `"base_image"` key. For the value, can
   supply:
   - a Docker base image of your own
