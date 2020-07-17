@@ -109,9 +109,10 @@ def _job_submit(args: dict) -> None:
 
   script = """\
 #!/bin/bash
-echo 'Hello, World!'
-echo Date: $(date)
-echo Hostname: $(hostname)
+# echo 'Hello, World!'
+# echo Date: $(date)
+# echo Hostname: $(hostname)
+/cm/shared/apps/singularity/3.3.0/bin/singularity run docker://godlovedc/lolcow
 """
 
   logging.info("Submitting job...")
@@ -143,4 +144,5 @@ def _with_ssh(args: [str]) -> [str]:
   for arg in args:
     qargs.append(shlex.quote(arg))
   # Add ssh command prefix
+  assert _hostname[0] != '-'
   return ['ssh', '-l', _username, _hostname] + qargs
