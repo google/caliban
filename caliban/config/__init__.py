@@ -17,27 +17,26 @@
 Utilities for our job runner, for working with configs.
 """
 
-from __future__ import absolute_import, division, print_function
-
-import argparse
 import os
 import sys
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-import commentjson
-import yaml
+import schema as s
 
 import caliban.platform.cloud.types as ct
+import caliban.util.schema as us
 
 
 class JobMode(str, Enum):
+  """Represents the two modes that you can use to execute a Caliban job."""
   CPU = 'CPU'
   GPU = 'GPU'
 
+  @staticmethod
+  def parse(label):
+    return JobMode(label.upper().strip())
 
-# Special config for Caliban.
-CalibanConfig = Dict[str, Any]
 
 DRY_RUN_FLAG = "--dry_run"
 CALIBAN_CONFIG = ".calibanconfig.json"
@@ -59,47 +58,89 @@ DEFAULT_ACCELERATOR_CONFIG = {
     "type": "ACCELERATOR_TYPE_UNSPECIFIED"
 }
 
+# Dictionary of the DLVM "Platform" to a sequence of versions that are
+# currently available as DLVMs. The full list of images is here:
+# https://console.cloud.google.com/gcr/images/deeplearning-platform-release/GLOBAL/
+DLVMS = {
+    "pytorch": [None, "1.0", "1.1", "1.2", "1.3", "1.4"],
+    "tf": [None, "1.0", "1.13", "1.14", "1.15"],
+    "tf2": [None, "2.0", "2.1", "2.2"],
+}
+
+# Schema for Caliban Config
+
+
+def _dlvm_config(job_mode: JobMode) -> Dict[str, str]:
+  """Generates a dict of custom DLVM image identifier -> the actual image ID
+  available from GCR.
+
+  """
+  mode = job_mode.lower()
+
+  def with_version(s: str, version: Optional[str], sep: str) -> Tuple[str, str]:
+    return f"{s}{sep}{version}" if version else s
+
+  def image(lib: str, version: Optional[str]) -> str:
+    base = f"gcr.io/deeplearning-platform-release/{lib}-{mode}"
+    k = with_version(f"dlvm:{lib}-{mode}", version, "-")
+    v = with_version(base, version.replace('.', '-') if version else None, ".")
+    return (k, v)
+
+  return dict(
+      [image(lib, v) for lib, versions in DLVMS.items() for v in versions])
+
+
+# This is a dictionary of some identifier like 'dlvm:pytorch-1.0' to the actual
+# Docker image ID.
+DLVM_CONFIG = {
+    **_dlvm_config(JobMode.CPU),
+    **_dlvm_config(JobMode.GPU),
+}
+
+
+def expand_image(image: str) -> str:
+  """If the supplied image is one of our special prefixed identifiers, returns
+  the expanded Docker image ID. Else, returns the input.
+
+  """
+  return DLVM_CONFIG.get(image, image)
+
+
+AptPackages = s.Or(
+    [str], {
+        s.Optional("gpu", default=list): [str],
+        s.Optional("cpu", default=list): [str]
+    },
+    error=""""apt_packages" entry must be a dictionary or list, not '{}'""")
+
+Image = s.And(str, s.Use(expand_image))
+
+BaseImage = s.Or(
+    Image, {
+        s.Optional("gpu", default=None): Image,
+        s.Optional("cpu", default=None): Image
+    },
+    error=
+    """"base_image" entry must be a string OR dict with 'cpu' and 'gpu' keys, not '{}'"""
+)
+
+CalibanConfig = s.Schema({
+    s.Optional("build_time_credentials", default=False): bool,
+    s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
+    s.Optional("project_id"): s.And(str, len),
+    s.Optional("cloud_key"): s.And(str, len),
+    s.Optional("base_image", default=None): BaseImage,
+    s.Optional("apt_packages", default=AptPackages.validate({})): AptPackages
+})
+
+# Accessors
+
 
 def gpu(job_mode: JobMode) -> bool:
   """Returns True if the supplied JobMode is JobMode.GPU, False otherwise.
 
   """
   return job_mode == JobMode.GPU
-
-
-def load_yaml_config(path):
-  """returns the config parsed based on the info in the flags.
-
-  Grabs the config file, written in yaml, slurps it in.
-  """
-  with open(path) as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-
-  return config
-
-
-def load_config(path, mode='yaml'):
-  """Load a JSON or YAML config.
-
-  """
-  if mode == 'json':
-    with open(path) as f:
-      return commentjson.load(f)
-
-  return load_yaml_config(path)
-
-
-def valid_json(path: str) -> Dict[str, Any]:
-  """Loads JSON if the path points to a valid JSON file; otherwise, throws an
-  exception that's picked up by argparse.
-
-  """
-  try:
-    return load_config(path, mode='json')
-  except commentjson.JSONLibraryException:
-    raise argparse.ArgumentTypeError(
-        """File '{}' doesn't seem to contain valid JSON. Try again!""".format(
-            path))
 
 
 def extract_script_args(m: Dict[str, Any]) -> List[str]:
@@ -148,10 +189,6 @@ def extract_region(m: Dict[str, Any]) -> ct.Region:
   return DEFAULT_REGION
 
 
-def extract_zone(m: Dict[str, Any]) -> str:
-  return "{}-a".format(extract_region(m))
-
-
 def extract_cloud_key(m: Dict[str, Any]) -> Optional[str]:
   """Returns the Google service account key filepath specified in the args;
   defaults to the $GOOGLE_APPLICATION_CREDENTIALS variable.
@@ -166,28 +203,52 @@ def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:
   the requests in the config.
 
   """
-  packages = conf.get("apt_packages") or {}
+  packages = conf.get("apt_packages", [])
 
   if isinstance(packages, dict):
     k = "gpu" if gpu(mode) else "cpu"
-    return packages.get(k, [])
+    return packages[k]
 
-  elif isinstance(packages, list):
-    return packages
+  return packages
+
+
+def base_image(conf: CalibanConfig, mode: JobMode) -> Optional[str]:
+  """Returns a custom base image, if the user has supplied one in the
+  calibanconfig.
+
+  If the custom base image has a marker for a format string, like 'pytorch-{}',
+  this method will fill it in with the current mode (cpu or gpu).
+
+  """
+  ret = None
+  mode_s = mode.lower()
+
+  image = conf.get("base_image")
+  if image is None:
+    return ret
+
+  elif isinstance(image, str):
+    ret = image
 
   else:
-    raise argparse.ArgumentTypeError(
-        """{}'s "apt_packages" entry must be a dictionary or list, not '{}'""".
-        format(CALIBAN_CONFIG, packages))
+    # dictionary case.
+    ret = image[mode_s]
+
+  # we run expand_image again in case the user has included a format {} in the
+  # string.
+  return expand_image(ret.format(mode_s))
 
 
-def caliban_config() -> CalibanConfig:
+def caliban_config(conf_path: str = CALIBAN_CONFIG) -> CalibanConfig:
   """Returns a dict that represents a `.calibanconfig.json` file if present,
   empty dictionary otherwise.
+
+  If the supplied conf_path is present, but doesn't pass the supplied schema,
+  errors and kills the program.
+
   """
-  if not os.path.isfile(CALIBAN_CONFIG):
+  if not os.path.isfile(conf_path):
     return {}
 
-  with open(CALIBAN_CONFIG) as f:
-    conf = commentjson.load(f)
-    return conf
+  with us.error_schema(conf_path):
+    return s.And(us.Json, CalibanConfig).validate(conf_path)

@@ -25,6 +25,7 @@ from blessings import Terminal
 
 import caliban.util as u
 import caliban.util.fs as ufs
+import schema as s
 
 t = Terminal()
 
@@ -37,6 +38,25 @@ def expand_args(items: Dict[str, str]) -> List[str]:
   """
   pairs = [[k, v] if v is not None else [k] for k, v in items.items()]
   return list(it.chain.from_iterable(pairs))
+
+
+def argparse_schema(schema):
+  """Wrapper that performs validation and converts SchemaErrors into
+  ArgumentTypeErrors for better argument error reporting.
+
+  """
+
+  def check(x):
+    try:
+      return schema.validate(x)
+    except s.SchemaError as e:
+      raise argparse.ArgumentTypeError(e.code) from None
+
+  return check
+
+
+# TODO: Now that we use schema, validated_package and parse_kv_pair should be
+# converted to schema instances.
 
 
 def validated_package(path: str) -> u.Package:
@@ -89,26 +109,3 @@ def is_key(k: Optional[str]) -> bool:
 
   """
   return k is not None and len(k) > 0 and k[0] == "-"
-
-
-def validated_directory(path: str) -> str:
-  """This validates that the supplied directory exists locally.
-
-  """
-  if not os.path.isdir(path):
-    raise argparse.ArgumentTypeError(
-        """Directory '{}' doesn't exist in this directory. Check yourself!""".
-        format(path))
-  return path
-
-
-def validated_file(path: str) -> str:
-  """This validates that the supplied file exists. Tilde expansion is supported.
-
-  """
-  expanded = os.path.expanduser(path)
-  if not os.path.isfile(expanded):
-    raise argparse.ArgumentTypeError(
-        """File '{}' isn't a valid file on your system. Try again!""".format(
-            path))
-  return path

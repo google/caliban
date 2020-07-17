@@ -34,6 +34,7 @@ import caliban.platform.gke.cli
 import caliban.platform.notebook as pn
 import caliban.platform.run as pr
 import caliban.platform.shell as ps
+import caliban.util.schema as cs
 
 ll.getLogger('caliban.main').setLevel(logging.ERROR)
 t = Terminal()
@@ -154,7 +155,8 @@ def run_app(arg_input):
 def main():
   logging.use_python_logging()
   try:
-    app.run(run_app, flags_parser=cli.parse_flags)
+    with cs.fatal_errors():
+      app.run(run_app, flags_parser=cli.parse_flags)
   except KeyboardInterrupt:
     logging.info('Shutting down.')
     sys.exit(0)
