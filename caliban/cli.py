@@ -31,6 +31,7 @@ import caliban.platform.gke as gke
 import caliban.platform.gke.constants as gke_k
 import caliban.platform.gke.types as gke_t
 import caliban.platform.gke.util as gke_u
+import caliban.platform.slurm as slurm
 import caliban.util as u
 import caliban.util.argparse as ua
 import caliban.util.schema as us
@@ -413,6 +414,7 @@ def caliban_parser():
   local_run_parser(subparser)
   cloud_parser(subparser)
   cluster_parser(subparser)
+  slurm_parser(subparser)
   status_parser(subparser)
   stop_parser(subparser)
   resubmit_parser(subparser)
@@ -946,3 +948,59 @@ def max_jobs_arg(parser):
             f'then this specifies the total number of jobs to return, ordered '
             f'by creation date, or all jobs if max_jobs==0.'),
   )
+
+
+# ----------------------------------------------------------------------------
+def slurm_parser(base):
+  """cli parser for slurm commands"""
+
+  parser = base.add_parser("slurm",
+                           description="slurm commands",
+                           help="slurm-related commands")
+
+  subparser = parser.add_subparsers(dest="slurm_cmd")
+  slurm_ls_cmd(subparser)
+  slurm_job_parser(subparser)
+
+
+# ----------------------------------------------------------------------------
+def slurm_ls_cmd(base):
+  """caliban slurm ls"""
+
+  parser = base.add_parser(
+      "ls",
+      description="list partitions",
+      help="list partitions",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+
+# ----------------------------------------------------------------------------
+def slurm_job_parser(base):
+  parser = base.add_parser(
+      "job",
+      description="job commands",
+      help="job commands",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  subparser = parser.add_subparsers(dest="job_cmd")
+  slurm_job_ls_cmd(subparser)
+  cluster_job_submit_cmd(subparser)
+  #TODO cluster_job_submit_file_cmd(subparser)
+
+
+# ----------------------------------------------------------------------------
+def slurm_job_ls_cmd(base):
+  parser = base.add_parser(
+      "ls",
+      description="list Slurm jobs",
+      help="list Slurm jobs",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+
+# ----------------------------------------------------------------------------
+def slurm_job_submit_cmd(base):
+  parser = base.add_parser(
+      "submit",
+      description="submit Slurm job(s)",
+      help="submit Slurm job(s)",
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
