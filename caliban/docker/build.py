@@ -22,6 +22,7 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import os
+import os.path
 import subprocess
 from enum import Enum
 from pathlib import Path
@@ -247,17 +248,18 @@ COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
 
-  julia_url = "https://julialang-s3.julialang.org/bin/linux/x64/1.5/julia-1.5.0-rc1-linux-x86_64.tar.gz"
   if julia_url is not None:
-    # e.g. "https://julialang-s3.julialang.org/bin/linux/x64/1.5/julia-1.5.0-rc1-linux-x86_64.tar.gz"
-    ret += f"""
+    if os.path.exists("Project.toml"):
+      ret += f"""
 COPY --chown={user_id}:{user_group} *.toml {workdir}/
+"""
+    # TODO: Use /usr/local instead of /tmp for Julia directories
+    ret += f"""
 COPY --chown={user_id}:{user_group} src {workdir}/src
-# TODO: Use /usr/local instead of /tmp
-ENV JULIA_LOC /tmp/julia
-ENV JULIA_DEPOT_PATH /tmp/var/julia_depot
-ENV JULIA_PROJECT {workdir}
-ENV PATH $PATH:$JULIA_LOC/bin
+ENV JULIA_LOC=/tmp/julia
+ENV JULIA_DEPOT_PATH=/tmp/var/julia_depot
+ENV JULIA_PROJECT={workdir}
+ENV PATH=$PATH:$JULIA_LOC/bin
 RUN /bin/bash -c "mkdir -p $JULIA_LOC && \
                   wget -nv {julia_url} && \
                   tar xzf $(basename {julia_url}) -C $JULIA_LOC --strip-components 1 && \

@@ -130,7 +130,8 @@ CalibanConfig = s.Schema({
     s.Optional("project_id"): s.And(str, len),
     s.Optional("cloud_key"): s.And(str, len),
     s.Optional("base_image", default=None): BaseImage,
-    s.Optional("apt_packages", default=AptPackages.validate({})): AptPackages
+    s.Optional("apt_packages", default=AptPackages.validate({})): AptPackages,
+    s.Optional("julia_url", default=None): str
 })
 
 # Accessors
