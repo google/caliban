@@ -103,11 +103,15 @@ def _job_submit(args: dict) -> None:
   args: argument dictionary
   """
 
+  dt = datetime.now().astimezone()
+  job_prefix = f'caliban-{dt.strftime("%Y%m%d-%H%M%S")}'
   job_name = args.get('name')
+  # TODO: Sanitize job_name
   if job_name is None:
-    dt = datetime.now().astimezone()
-    job_name = f'caliban-{dt.strftime("%Y%m%d-%H%M%S")}'
-  output_filename = job_name + ".log"
+    job_name = job_prefix
+    output_filename = job_name + ".log"
+  else:
+    output_filename = job_prefix + "-" + job_name + ".log"
 
   script = """\
 #!/bin/bash
