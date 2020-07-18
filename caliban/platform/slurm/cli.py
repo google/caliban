@@ -103,9 +103,11 @@ def _job_submit(args: dict) -> None:
   args: argument dictionary
   """
 
-  dt = datetime.now().astimezone()
-  jobname = f'caliban-{dt.strftime("%Y%m%d-%H%M%S")}'
-  outputname = jobname + ".log"
+  job_name = args.get('name')
+  if job_name is None:
+    dt = datetime.now().astimezone()
+    job_name = f'caliban-{dt.strftime("%Y%m%d-%H%M%S")}'
+  output_filename = job_name + ".log"
 
   script = """\
 #!/bin/bash
@@ -117,9 +119,9 @@ def _job_submit(args: dict) -> None:
 
   logging.info("Submitting job...")
   cmd = [_sbatch,
-         "--job-name", jobname,
+         "--job-name", job_name,
          "--nodes", "1",
-         "--output", outputname,
+         "--output", output_filename,
          "--partition", _partition,
          "--time", _timelimit]
   process = subprocess.run(_with_ssh(cmd),

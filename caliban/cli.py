@@ -985,7 +985,6 @@ def slurm_job_parser(base):
   subparser = parser.add_subparsers(dest="job_cmd")
   slurm_job_ls_cmd(subparser)
   cluster_job_submit_cmd(subparser)
-  #TODO cluster_job_submit_file_cmd(subparser)
 
 
 # ----------------------------------------------------------------------------
@@ -1004,3 +1003,5 @@ def slurm_job_submit_cmd(base):
       description="submit Slurm job(s)",
       help="submit Slurm job(s)",
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  job_name_arg(parser)
