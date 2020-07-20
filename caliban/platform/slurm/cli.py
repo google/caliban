@@ -35,9 +35,7 @@ from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
 from caliban.platform.cloud.core import generate_image_tag
 
-
 t = Terminal()
-
 
 # ----------------------------------------------------------------------------
 # Remote access via ssh
@@ -46,8 +44,7 @@ _hostname = "symmetry.pi.local"
 _username = "eschnetter"
 
 # Environment modules
-_setup_cmds = [["source", "/etc/profile"],
-               ["module", "load", "slurm"]]
+_setup_cmds = [["source", "/etc/profile"], ["module", "load", "slurm"]]
 
 # Job management via Slurm
 _sbatch = "sbatch"
@@ -85,9 +82,9 @@ def _partition_ls(args: dict) -> None:
 def _job_commands(args: dict) -> None:
   """job commands"""
   JOB_CMDS = {
-    'ls': _job_ls,
-    'submit': _job_submit,
-    #TODO 'submit_file': _job_submit_file
+      'ls': _job_ls,
+      'submit': _job_submit,
+      #TODO 'submit_file': _job_submit_file
   }
   JOB_CMDS[args['job_cmd']](args)
 
@@ -162,7 +159,8 @@ def _job_submit(args: dict) -> None:
       logging.info(t.yellow(pformat(docker_args)))
 
       if dry_run:
-        logging.info("Dry run - skipping actual 'docker build' and 'docker push'.")
+        logging.info(
+            "Dry run - skipping actual 'docker build' and 'docker push'.")
         image_tag = "dry_run_tag"
       else:
         image_id = db.build_image(**docker_m)
@@ -201,12 +199,11 @@ env PYTHONUNBUFFERED=1 singularity run --tmpdir /gpfs/eschnetter/singularity/tmp
       logging.info(f"Script is {script}")
 
       logging.info("Submitting job...")
-      cmd = [_sbatch,
-             "--job-name", job_name,
-             "--nodes", str(_nodes),
-             "--output", output_filename,
-             "--partition", _partition,
-             "--time", _timelimit]
+      cmd = [
+          _sbatch, "--job-name", job_name, "--nodes",
+          str(_nodes), "--output", output_filename, "--partition", _partition,
+          "--time", _timelimit
+      ]
       process = subprocess.run(_with_ssh(cmd),
                                input=script,
                                stdout=subprocess.PIPE,
