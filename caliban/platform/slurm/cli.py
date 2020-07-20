@@ -160,7 +160,7 @@ def _job_submit(args: dict) -> None:
       # Create Docker image, and push it to a Docker repository
       logging.info("Generating Docker image with parameters:")
       logging.info(t.yellow(pformat(docker_args)))
-    
+
       if dry_run:
         logging.info("Dry run - skipping actual 'docker build' and 'docker push'.")
         image_tag = "dry_run_tag"
