@@ -63,8 +63,8 @@ In the shell that launches you'll see the directory mirrored:
    Successfully built f2ba6fb7b628
    I0122 14:30:33.125234 4445842880 docker.py:666] Running command: docker run --ipc host -w /usr/app -u 735994:89939 -v /Users/totoro/code/python/tutorials/hello-tensorflow:/usr/app -it --entrypoint /bin/bash --volume /usr/local/google/home/totoro/data:/foo f2ba6fb7b628
       _________    __    ________  ___    _   __  __  __
-     / ____/   |  / /   /  _/ __ )/   |  / | / /  \ \
-    / /   / /| | / /    / // __  / /| | /  |/ /    \ \
+     / ____/   |  / /   /  _/ __ )/   |  / | / /  \ \ \ \
+    / /   / /| | / /    / // __  / /| | /  |/ /    \ \ \ \
    / /___/ ___ |/ /____/ // /_/ / ___ |/ /|  /     / / / /
    \____/_/  |_/_____/___/_____/_/  |_/_/ |_/     /_/ /_/
 
