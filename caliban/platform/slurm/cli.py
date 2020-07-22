@@ -42,6 +42,9 @@ t = Terminal()
 _ssh = "ssh"
 _hostname = "symmetry.pi.local"
 _username = "eschnetter"
+_logdir = "/home/eschnetter/caliban"
+_resultdir_host = "/gpfs/eschnetter/caliban-simulations"
+_resultdir_container = "/caliban-simulations"
 
 # Environment modules
 _setup_cmds = [["source", "/etc/profile"], ["module", "load", "slurm"]]
@@ -138,9 +141,10 @@ def _job_submit(args: dict) -> None:
   # TODO: Sanitize job_name
   if job_name is None:
     job_name = job_prefix
-    output_filename = job_name + ".log"
+    log_filename = job_name + ".log"
   else:
-    output_filename = job_prefix + "-" + job_name + ".log"
+    log_filename = job_prefix + "-" + job_name + ".log"
+  log_filename = _logdir + "/" + log_filename
 
   # Arguments to internally build the image required to submit to Slurm
   docker_m = {'job_mode': job_mode, 'package': package, **docker_args}
@@ -166,6 +170,7 @@ def _job_submit(args: dict) -> None:
         image_id = db.build_image(**docker_m)
 
         project_id = args['project_id']
+        assert project_id is not None
         project_s = project_id.replace(":", "/")
         # TODO: Use sub-project "caliban" or similar?
         # base = f"docker.io/{project_s}/{image_id}"
@@ -186,6 +191,7 @@ def _job_submit(args: dict) -> None:
     for experiment in experiments:
       logging.info("*** script")
       # TODO: Use srun to start job, then use singularity inside srun
+      qargs = _quote_args(script_args)
       script = f"""\
 #!/bin/bash
 source /etc/profile
@@ -194,17 +200,22 @@ date
 hostname
 nproc
 module load singularity
-env PYTHONUNBUFFERED=1 singularity run --tmpdir /gpfs/eschnetter/singularity/tmp --workdir /gpfs/eschnetter/singularity/work --pwd /usr/app docker://{image_tag} exe/cactus_sim arrangements/CactusWave/WaveToyC/par/wavetoyc_rad.par
+env PYTHONUNBUFFERED=1 singularity run --tmpdir /gpfs/eschnetter/singularity/tmp --no-home --bind {_resultdir_host}:{_resultdir_container} --pwd /usr/app docker://{image_tag} {qargs}
 """
       logging.info(f"Script is {script}")
 
       logging.info("Submitting job...")
+      prepare_cmd = ["mkdir", "-p", _logdir, _resultdir_host]
       cmd = [
-          _sbatch, "--job-name", job_name, "--nodes",
-          str(_nodes), "--output", output_filename, "--partition", _partition,
+          _sbatch,
+          "--job-name", job_name,
+          "--nodes", str(_nodes),
+          "--output", log_filename,
+          "--partition", _partition,
           "--time", _timelimit
       ]
-      process = subprocess.run(_with_ssh(cmd),
+      cmds = [prepare_cmd, cmd]
+      process = subprocess.run(_with_ssh(cmds),
                                input=script,
                                stdout=subprocess.PIPE,
                                universal_newlines=True,
@@ -235,10 +246,10 @@ def _join_cmds(cmds: [str]) -> str:
 
 
 # ----------------------------------------------------------------------------
-def _with_ssh(cmd: [str]) -> [str]:
+def _with_ssh(cmds: [[str]]) -> [str]:
   """adds ssh command to execute command remotely"""
   # Add module load commands
-  cmds = _setup_cmds + [cmd]
+  cmds = _setup_cmds + cmds
   cmd = _join_cmds(map(_quote_args, cmds))
   # Add ssh command prefix
   assert _hostname[0] != '-'

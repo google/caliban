@@ -36,7 +36,8 @@ import caliban.util.fs as ufs
 
 t = Terminal()
 
-DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
+# DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
+DEV_CONTAINER_ROOT = "docker.io/eschnett/carpetx-caliban"
 TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
