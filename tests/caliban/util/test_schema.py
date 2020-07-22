@@ -13,3 +13,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import tempfile
+
+import schema as s
+
+import caliban.util.schema as us
+import pytest
+
+
+def test_directory(tmpdir):
+  # Proper directories pass validation.
+  assert us.Directory.validate(tmpdir) == tmpdir
+
+  # random dirs that I made up dont!
+  with pytest.raises(s.SchemaError):
+    assert us.Directory.validate('random')
+
+
+def test_file():
+  with tempfile.NamedTemporaryFile() as tmp:
+    # Existing files pass validation.
+    assert us.File.validate(tmp.name) == tmp.name
+
+  # random paths that I made up dont!
+  with pytest.raises(s.SchemaError):
+    assert us.File.validate('random')

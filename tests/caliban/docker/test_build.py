@@ -13,3 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import caliban.docker.build as b
+
+
+def test_shell_dict():
+  """Tests that the shell dict has an entry for all possible Shell values."""
+
+  assert set(b.Shell) == set(b.SHELL_DICT.keys())

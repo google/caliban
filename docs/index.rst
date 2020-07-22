@@ -136,6 +136,7 @@ with Caliban.
    cloud/gpu_specs
    cloud/ai_platform_tpu
    cloud/rate_limit
+   cloud/service_account
    cloud/adc
    cloud/bucket
 
