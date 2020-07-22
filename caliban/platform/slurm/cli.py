@@ -207,11 +207,8 @@ env PYTHONUNBUFFERED=1 singularity run --tmpdir /gpfs/eschnetter/singularity/tmp
       logging.info("Submitting job...")
       prepare_cmd = ["mkdir", "-p", _logdir, _resultdir_host]
       cmd = [
-          _sbatch,
-          "--job-name", job_name,
-          "--nodes", str(_nodes),
-          "--output", log_filename,
-          "--partition", _partition,
+          _sbatch, "--job-name", job_name, "--nodes",
+          str(_nodes), "--output", log_filename, "--partition", _partition,
           "--time", _timelimit
       ]
       cmds = [prepare_cmd, cmd]
