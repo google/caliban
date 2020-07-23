@@ -124,13 +124,23 @@ BaseImage = s.Or(
     """"base_image" entry must be a string OR dict with 'cpu' and 'gpu' keys, not '{}'"""
 )
 
+MLFlowConfig = s.Schema({
+    'project': str,
+    'region': str,
+    'db': str,
+    'user': str,
+    'password': str,
+    'artifact_root': str
+})
+
 CalibanConfig = s.Schema({
     s.Optional("build_time_credentials", default=False): bool,
     s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
     s.Optional("project_id"): s.And(str, len),
     s.Optional("cloud_key"): s.And(str, len),
     s.Optional("base_image", default=None): BaseImage,
-    s.Optional("apt_packages", default=AptPackages.validate({})): AptPackages
+    s.Optional("apt_packages", default=AptPackages.validate({})): AptPackages,
+    s.Optional("mlflow_config", default=None): MLFlowConfig,
 })
 
 # Accessors

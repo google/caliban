@@ -249,8 +249,44 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
   return ret
 
 
-def _package_entries(workdir: str, user_id: int, user_group: int,
-                     package: u.Package) -> str:
+def _mlflow_wrapper(mlflow_cfg: Dict[str, Any], entrypoint: str):
+
+  dockerfile = """
+RUN wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy && \
+    chmod 755 cloud_sql_proxy
+
+RUN echo '\\
+#!/bin/env bash\\n\\
+echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"\\n\\
+OLD_CREDS=$GOOGLE_APPLICATION_CREDENTIALS\\n\\
+export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/application_default_credentials.json\\n\\
+./cloud_sql_proxy -dir={dir} -instances={project}:{region}:{db} &\\n\\
+sleep 5\\n\\
+export GOOGLE_APPLICATION_CREDENTIALS=$OLD_CREDS\\n\\
+echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"\\n\\
+export MLFLOW_TRACKING_URI=postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={dir}/{project}:{region}:{db}/.s.PGSQL.5432\\n\\
+{entrypoint} $@\\
+'>> mlflow_wrapper.sh
+""".format_map({
+      'dir': '/tmp/cloudsql',
+      'project': mlflow_cfg['project'],
+      'region': mlflow_cfg['region'],
+      'db': mlflow_cfg['db'],
+      'user': mlflow_cfg['user'],
+      'pw': mlflow_cfg['password'],
+      'entrypoint': ' '.join(entrypoint),
+  })
+
+  return dockerfile
+
+
+def _package_entries(
+    workdir: str,
+    user_id: int,
+    user_group: int,
+    package: u.Package,
+    caliban_config: Optional[Dict[str, Any]] = None,
+) -> str:
   """Returns the Dockerfile entries required to:
 
   - copy a directory of code into a docker container
@@ -268,18 +304,27 @@ def _package_entries(workdir: str, user_id: int, user_group: int,
   # quotes.
   entrypoint_s = json.dumps(package.executable + [arg])
 
-  return """
+  dockerfile = """
 # Copy project code into the docker container.
 COPY --chown={owner} {package_path} {workdir}/{package_path}
-
-# Declare an entrypoint that actually runs the container.
-ENTRYPOINT {entrypoint_s}
-  """.format_map({
+""".format_map({
       "owner": owner,
       "package_path": package.package_path,
       "workdir": workdir,
-      "entrypoint_s": entrypoint_s
   })
+
+  mlflow_cfg = caliban_config.get('mlflow_config')
+
+  if mlflow_cfg is not None:
+    dockerfile += _mlflow_wrapper(mlflow_cfg, package.executable + [arg])
+    entrypoint_s = '["/bin/bash", "mlflow_wrapper.sh"]'
+
+  dockerfile += """
+# Declare an entrypoint that actually runs the container.
+ENTRYPOINT {entrypoint_s}
+  """.format_map({"entrypoint_s": entrypoint_s})
+
+  return dockerfile
 
 
 def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
@@ -517,6 +562,7 @@ ENV HOME={c_home}
 WORKDIR {workdir}
 
 USER {uid}:{gid}
+
 """.format_map({
       "base_image": base_image,
       "username": username,
@@ -553,7 +599,7 @@ USER {uid}:{gid}
 
   if package is not None:
     # The actual entrypoint and final copied code.
-    dockerfile += _package_entries(workdir, uid, gid, package)
+    dockerfile += _package_entries(workdir, uid, gid, package, caliban_config)
 
   return dockerfile
 
