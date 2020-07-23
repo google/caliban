@@ -49,8 +49,9 @@ make lint
 
 ## Documentation
 
-We use Sphinx to generate docs. To get live reloading working, use
-[sphinx-reload](https://pypi.org/project/sphinx-reload/):
+We use Sphinx to generate docs. If you want to live-preview your changes to the
+documentation as you are editing, you can use
+[sphinx-reload](https://pypi.org/project/sphinx-reload/). To get this working:
 
 ```bash
 pipx install sphinx-reload
@@ -59,8 +60,12 @@ pipx install sphinx-reload
 Then, inside the caliban folder:
 
 ```bash
+make build
 sphinx-reload docs
 ```
+
+If all goes well, `sphinx-reload` will tell you it is serving the documentation
+on a port, which you can listen into from your browser.
 
 ## Publishing Caliban
 

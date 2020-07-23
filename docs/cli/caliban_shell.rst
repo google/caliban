@@ -84,3 +84,11 @@ prevent you from getting too far.
    will use your ``$SHELL`` environment variable to pick a default; to override
    the default, you can always pass the ``--shell`` argument, like this:
    ``caliban shell --shell bash``.
+
+One potential issue resulting from the fact that your home directory will mount
+into the container is that some binaries from your ``$HOME``  directory might
+leak into the container.  For example, we have seen a case in which, in trying
+to run a CUDA binary to communicate with the GPU, ``caliban shell`` called a
+binary from the home directory rather than the one which the container should
+have used. This issue can be mitigated simply by using the ``--bare`` option,
+which will not mount the ``$HOME``  directory inside the container.
