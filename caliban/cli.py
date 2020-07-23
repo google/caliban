@@ -149,7 +149,7 @@ def no_cache_arg(parser):
 def docker_run_arg(parser):
   """Adds a command that accepts arguments to pass directly to `docker run`."""
   parser.add_argument("--docker_run_args",
-                      type=lambda s: s.split(" "),
+                      type=lambda s: s.split(),
                       help="String of args to add to Docker.")
 
 
