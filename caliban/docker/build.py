@@ -265,6 +265,8 @@ RUN /bin/bash -c "mkdir -p $JULIA_LOC && \
                   tar xzf $(basename {julia_url}) -C $JULIA_LOC --strip-components 1 && \
                   rm -f $(basename {julia_url}) && \
                   mkdir -p $JULIA_DEPOT_PATH && \
+                  mkdir -p $JULIA_DEPOT_PATH/servers && \
+                  echo 'telemetry = false' > $JULIA_DEPOT_PATH/servers/telemetry.toml && \
                   julia --eval 'using Pkg; Pkg.instantiate()'"
 """
 
