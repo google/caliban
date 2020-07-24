@@ -500,6 +500,8 @@ def _dockerfile_template(
   dockerfile = """
 FROM {base_image}
 
+ENV PIP_SRC /opt/conda/envs/caliban/pipsrc
+
 # Create the same group we're using on the host machine.
 RUN [ $(getent group {gid}) ] || groupadd --gid {gid} {gid}
 
