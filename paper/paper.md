@@ -15,7 +15,7 @@ authors:
     orcid: 0000-0003-0625-3327
     affiliation: 1
 affiliations:
- - name: Google, USA
+ - name: Google, United States of America
    index: 1
 date: 22 June 2020
 bibliography: paper.bib
