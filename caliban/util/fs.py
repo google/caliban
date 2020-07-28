@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 import uuid
-from typing import List, NamedTuple, Optional
+from typing import List, NamedTuple, Optional, Dict
 
 from blessings import Terminal
 
@@ -122,32 +122,46 @@ class TempCopy(object):
 
   """
 
-  def __init__(self, original_path=None, tmp_name=None):
-    if tmp_name is None:
-      self.tmp_path = ".{}.json".format(str(uuid.uuid1()))
-    else:
-      self.tmp_path = tmp_name
+  class SrcDst(NamedTuple):
+    '''source/destination tuple
+    src: the host path to the file
+    dst: the temp file name that will be created in the local directory
+         (this should be a filename only, not a full path)
+    '''
+    src: str
+    dst: str
 
-    self.original_path = None
-    if original_path:
-      # handle tilde!
-      self.original_path = os.path.expanduser(original_path)
-
-    self.path = None
-
-  def __enter__(self):
-    if self.original_path is None:
-      return None
-
+  def _sanitize_entries(self, entries: List[SrcDst]) -> List[SrcDst]:
+    '''sanitizes the src/dst entries to generate uuid temp
+    names when needed, and generating absolute filesystem paths
+    '''
     current_dir = os.getcwd()
-    self.path = os.path.join(current_dir, self.tmp_path)
-    shutil.copy2(self.original_path, self.path)
-    return self.tmp_path
+    sanitized = []
+    for x in entries:
+      if x.src is None:
+        continue
+      src = os.path.abspath(os.path.expanduser(x.src))
+      dst = os.path.join(current_dir, x.dst or f'.{uuid.uuid1()}.json')
+
+      sanitized.append(TempCopy.SrcDst(src, dst))
+
+    return sanitized
+
+  def __init__(self, files: List[SrcDst]):
+    self._files = self._sanitize_entries(files)
+
+  def __enter__(self) -> Dict[str, str]:
+    '''context manager entrypoint, returns dictionary of filenames keyed by src'''
+    files = {}
+    for f in self._files:
+      shutil.copy2(f.src, f.dst)
+      files[f.src] = os.path.split(f.dst)[-1]
+    return files
 
   def __exit__(self, exc_type, exc_val, exc_tb):
-    if self.path is not None:
-      os.remove(self.path)
-      self.path = None
+    for f in self._files:
+      if os.path.exists(f.dst):
+        os.remove(f.dst)
 
 
 def capture_stdout(cmd: List[str],

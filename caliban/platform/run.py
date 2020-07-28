@@ -20,8 +20,12 @@ and notebooks in a Docker environment.
 
 from __future__ import absolute_import, division, print_function
 
+from datetime import datetime
+import json
+import os
 import subprocess
 import sys
+import traceback
 from typing import Any, Dict, Iterable, List, Optional
 
 import tqdm
@@ -32,6 +36,7 @@ from tqdm.utils import _screen_shape_wrapper
 import caliban.config as c
 import caliban.config.experiment as ce
 import caliban.docker.build as b
+import caliban.util as u
 import caliban.util.fs as ufs
 import caliban.util.tqdm as ut
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
@@ -134,6 +139,9 @@ def _create_job_spec_dict(
     experiment: Experiment,
     job_mode: c.JobMode,
     image_id: str,
+    index: int,
+    caliban_config: Dict[str, Any],
+    env: Dict[str, str] = {},
     run_args: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
   '''creates a job spec dictionary for a local job'''
@@ -143,7 +151,20 @@ def _create_job_spec_dict(
   terminal_cmds = ["-e" "PYTHONUNBUFFERED=1"] + window_size_env_cmds()
 
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
-  command = base_cmd + ce.experiment_to_args(experiment.kwargs, experiment.args)
+
+  wrapper_args = [f'--caliban_env="{k}={v}"' for k, v in env.items()]
+
+  wrapper_args += b.mlflow_args(
+      experiment=experiment,
+      caliban_config=caliban_config,
+      index=index,
+  )
+
+  cmd_args = ce.experiment_to_args(experiment.kwargs, experiment.args)
+
+  # cmd args *must* be last in order for the wrapper to pass them through
+  command = base_cmd + wrapper_args + cmd_args
+
   return {'command': command, 'container': image_id}
 
 
@@ -151,12 +172,14 @@ def _create_job_spec_dict(
 def execute_jobs(
     job_specs: Iterable[JobSpec],
     dry_run: bool = False,
+    caliban_config: Optional[Dict[str, Any]] = {},
 ):
   '''executes a sequence of jobs based on job specs
 
   Arg:
   job_specs: specifications for jobs to be executed
   dry_run: if True, only print what would be done
+  caliban_config: caliban configuration data
   '''
 
   with ut.tqdm_logging() as orig_stream:
@@ -194,6 +217,7 @@ def run_experiments(job_mode: c.JobMode,
                     dry_run: bool = False,
                     experiment_config: Optional[ce.ExpConf] = None,
                     xgroup: Optional[str] = None,
+                    env: Optional[Dict[str, str]] = {},
                     **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker
   run` on the resulting image using sensible defaults.
@@ -214,6 +238,7 @@ def run_experiments(job_mode: c.JobMode,
   - dry_run: if True, no actual jobs will be executed and docker won't
     actually build; logging side effects will show the user what will happen
     without dry_run=True.
+  - env: dictionary of environment variables to set in container
 
   any extra kwargs supplied are passed through to build_image.
   """
@@ -228,6 +253,7 @@ def run_experiments(job_mode: c.JobMode,
 
   docker_args = {k: v for k, v in build_image_kwargs.items()}
   docker_args['job_mode'] = job_mode
+  caliban_config = docker_args.get('caliban_config', {})
 
   engine = get_mem_engine() if dry_run else get_sql_engine()
 
@@ -257,15 +283,21 @@ def run_experiments(job_mode: c.JobMode,
                 job_mode=job_mode,
                 run_args=run_args,
                 image_id=image_id,
+                index=i,
+                caliban_config=caliban_config,
+                env=env,
             ),
             platform=Platform.LOCAL,
-        ) for x in experiments
+        ) for i, x in enumerate(experiments)
     ]
 
     try:
-      execute_jobs(job_specs=job_specs, dry_run=dry_run)
+      execute_jobs(job_specs=job_specs,
+                   dry_run=dry_run,
+                   caliban_config=caliban_config)
     except Exception as e:
       logging.error(f'exception: {e}')
+      logging.error(f'{traceback.format_exc()}')
       session.commit()  # commit here, otherwise will be rolled back
 
 

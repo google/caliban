@@ -231,6 +231,7 @@ def base_parser(base):
   cloud_key_arg(base)
   setup_extras(base)
   no_cache_arg(base)
+  env_arg(base)
 
 
 def building_parser(base):
@@ -945,4 +946,19 @@ def max_jobs_arg(parser):
             f'experiment to view. If you do not specify an experiment group, '
             f'then this specifies the total number of jobs to return, ordered '
             f'by creation date, or all jobs if max_jobs==0.'),
+  )
+
+
+# ----------------------------------------------------------------------------
+def env_arg(parser):
+  """Adds environment variables arg
+  """
+  parser.add_argument(
+      "--env",
+      metavar='KEY=VALUE',
+      default=None,
+      action='append',
+      type=ua.parse_kv_pair,
+      help='environment variables to set in container, '
+      'may be specified multiple times: -e foo=bar, -e baz=zoom',
   )

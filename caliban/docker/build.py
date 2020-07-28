@@ -20,12 +20,14 @@ and notebooks in a Docker environment.
 
 from __future__ import absolute_import, division, print_function
 
+import datetime
 import json
 import os
 import re
 import subprocess
 from enum import Enum
 from pathlib import Path
+from pkg_resources import resource_filename
 from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
 
 from absl import logging
@@ -34,6 +36,7 @@ from blessings import Terminal
 import caliban.config as c
 import caliban.util as u
 import caliban.util.fs as ufs
+import caliban.history.types as ht
 
 t = Terminal()
 
@@ -42,6 +45,10 @@ TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
 CONDA_BIN = "/opt/conda/bin/conda"
+WRAPPER_SCRIPT = 'caliban_wrapper.py'
+CLOUD_SQL_WRAPPER_SCRIPT = 'caliban_cloud_sql.py'
+CALIBAN_DEFAULT_CREDS = '.caliban_default_creds.json'
+CALIBAN_ADC_CREDS = '.caliban_adc_creds.json'
 
 ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
@@ -249,35 +256,19 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
   return ret
 
 
-def _mlflow_wrapper(mlflow_cfg: Dict[str, Any], entrypoint: str):
+def _wrapper_script_path() -> str:
+  return resource_filename('caliban.resources', WRAPPER_SCRIPT)
 
-  dockerfile = """
-RUN wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy && \
-    chmod 755 cloud_sql_proxy
 
-RUN echo '\\
-#!/bin/env bash\\n\\
-echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"\\n\\
-OLD_CREDS=$GOOGLE_APPLICATION_CREDENTIALS\\n\\
-export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/application_default_credentials.json\\n\\
-./cloud_sql_proxy -dir={dir} -instances={project}:{region}:{db} &\\n\\
-sleep 5\\n\\
-export GOOGLE_APPLICATION_CREDENTIALS=$OLD_CREDS\\n\\
-echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"\\n\\
-export MLFLOW_TRACKING_URI=postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={dir}/{project}:{region}:{db}/.s.PGSQL.5432\\n\\
-{entrypoint} $@\\
-'>> mlflow_wrapper.sh
-""".format_map({
-      'dir': '/tmp/cloudsql',
-      'project': mlflow_cfg['project'],
-      'region': mlflow_cfg['region'],
-      'db': mlflow_cfg['db'],
-      'user': mlflow_cfg['user'],
-      'pw': mlflow_cfg['password'],
-      'entrypoint': ' '.join(entrypoint),
-  })
+def _cloud_sql_proxy_wrapper_path() -> str:
+  return resource_filename('caliban.resources', CLOUD_SQL_WRAPPER_SCRIPT)
 
-  return dockerfile
+
+def _mlflow_dockerfile(mlflow_cfg: Dict[str, Any]) -> str:
+  '''returns mlflow dockerfile entries'''
+  return (
+      'RUN wget -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 '
+      '-O cloud_sql_proxy && chmod 755 cloud_sql_proxy')
 
 
 def _package_entries(
@@ -302,27 +293,29 @@ def _package_entries(
 
   # This needs to use json so that quotes print as double quotes, not single
   # quotes.
-  entrypoint_s = json.dumps(package.executable + [arg])
+  executable_s = json.dumps(package.executable + [arg])
 
-  dockerfile = """
+  wrapper_cmd = ['python', WRAPPER_SCRIPT, '--caliban_command', executable_s]
+  entrypoint_s = json.dumps(wrapper_cmd)
+
+  dockerfile = ''
+
+  mlflow_cfg = caliban_config.get('mlflow_config')
+  if mlflow_cfg is not None:
+    dockerfile += _mlflow_dockerfile(mlflow_cfg)
+
+  dockerfile += """
 # Copy project code into the docker container.
 COPY --chown={owner} {package_path} {workdir}/{package_path}
+
+# Declare an entrypoint that actually runs the container.
+ENTRYPOINT {entrypoint_s}
 """.format_map({
       "owner": owner,
       "package_path": package.package_path,
       "workdir": workdir,
+      'entrypoint_s': entrypoint_s,
   })
-
-  mlflow_cfg = caliban_config.get('mlflow_config')
-
-  if mlflow_cfg is not None:
-    dockerfile += _mlflow_wrapper(mlflow_cfg, package.executable + [arg])
-    entrypoint_s = '["/bin/bash", "mlflow_wrapper.sh"]'
-
-  dockerfile += """
-# Declare an entrypoint that actually runs the container.
-ENTRYPOINT {entrypoint_s}
-  """.format_map({"entrypoint_s": entrypoint_s})
 
   return dockerfile
 
@@ -500,6 +493,30 @@ def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
   return ret
 
 
+def _resource_entries(
+    workdir: str,
+    uid: int,
+    gid: int,
+    resource_files: Optional[List[str]] = [],
+) -> str:
+  '''returns Dockerfile entries necessary to copy caliban resource files into
+  container
+
+  Args:
+  workdir: destination for resource files
+  uid: user id in container for files
+  gid: user group id in container for files
+  resource_files: list of files to copy
+  '''
+  dockerfile = ''
+  for x in resource_files:
+    dockerfile += f'''
+COPY --chown={uid}:{gid} {x} {workdir}
+'''
+
+  return dockerfile
+
+
 def _dockerfile_template(
     job_mode: c.JobMode,
     workdir: Optional[str] = None,
@@ -513,7 +530,8 @@ def _dockerfile_template(
     inject_notebook: NotebookInstall = NotebookInstall.none,
     shell: Optional[Shell] = None,
     extra_dirs: Optional[List[str]] = None,
-    caliban_config: Optional[Dict[str, Any]] = None) -> str:
+    caliban_config: Optional[Dict[str, Any]] = None,
+    resource_files: Optional[List[str]] = []) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
 
@@ -562,7 +580,6 @@ ENV HOME={c_home}
 WORKDIR {workdir}
 
 USER {uid}:{gid}
-
 """.format_map({
       "base_image": base_image,
       "username": username,
@@ -570,12 +587,14 @@ USER {uid}:{gid}
       "gid": gid,
       "workdir": workdir,
       "c_home": container_home(),
-      "creds_dir": CREDS_DIR
+      "creds_dir": CREDS_DIR,
   })
   dockerfile += _credentials_entries(uid,
                                      gid,
                                      adc_path=adc_path,
                                      credentials_path=credentials_path)
+
+  dockerfile += _resource_entries(workdir, uid, gid, resource_files)
 
   dockerfile += _dependency_entries(workdir,
                                     uid,
@@ -630,28 +649,105 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
-  with ufs.TempCopy(credentials_path,
-                    tmp_name=".caliban_default_creds.json") as creds:
-    with ufs.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
-      cache_args = ["--no-cache"] if no_cache else []
-      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
+  wrapper_path = _wrapper_script_path()
+  sql_proxy_path = _cloud_sql_proxy_wrapper_path()
 
-      dockerfile = _dockerfile_template(job_mode,
-                                        credentials_path=creds,
-                                        adc_path=adc,
-                                        **kwargs)
+  temp_files = [
+      (credentials_path, CALIBAN_DEFAULT_CREDS),
+      (adc_path, CALIBAN_ADC_CREDS),
+      (wrapper_path, WRAPPER_SCRIPT),
+      (sql_proxy_path, CLOUD_SQL_WRAPPER_SCRIPT),
+  ]
+  temp_files = [ufs.TempCopy.SrcDst(src, dst) for src, dst in temp_files]
 
-      joined_cmd = " ".join(cmd)
-      logging.info("Running command: {}".format(joined_cmd))
+  with ufs.TempCopy(files=temp_files) as tmpfiles:
+    cache_args = ["--no-cache"] if no_cache else []
+    cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
-      try:
-        output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
-        if ret_code == 0:
-          return docker_image_id(output)
-        else:
-          error_msg = "Docker failed with error code {}.".format(ret_code)
-          raise DockerError(error_msg, cmd, ret_code)
+    dockerfile = _dockerfile_template(
+        job_mode,
+        credentials_path=tmpfiles.get(credentials_path),
+        adc_path=tmpfiles.get(adc_path),
+        resource_files=[
+            tmpfiles.get(wrapper_path),
+            tmpfiles.get(sql_proxy_path)
+        ],
+        **kwargs,
+    )
 
-      except subprocess.CalledProcessError as e:
-        logging.error(e.output)
-        logging.error(e.stderr)
+    joined_cmd = " ".join(cmd)
+    logging.info("Running command: {}".format(joined_cmd))
+
+    try:
+      output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
+      if ret_code == 0:
+        return docker_image_id(output)
+      else:
+        error_msg = "Docker failed with error code {}.".format(ret_code)
+        raise DockerError(error_msg, cmd, ret_code)
+
+    except subprocess.CalledProcessError as e:
+      logging.error(e.output)
+      logging.error(e.stderr)
+
+
+# ----------------------------------------------------------------------------
+def _mlflow_job_name(index: int, user: str = None) -> str:
+  '''returns mlflow job name for local caliban job'''
+  user = user or u.current_user()
+  timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+  return f'{user}-{timestamp}-{index}'
+
+
+# ----------------------------------------------------------------------------
+def mlflow_args(
+    experiment: ht.Experiment,
+    caliban_config: Dict[str, Any],
+    index: int,
+    workdir: str = DEFAULT_WORKDIR,
+) -> List[str]:
+  '''returns mlflow args for caliban wrapper
+  experiment: experiment
+  command: docker command to execute
+  caliban_config: caliban config dictionary
+  workdir: working dir in container
+  index: job index
+
+  Returns:
+  mlflow args
+  '''
+
+  mlflow_cfg = caliban_config.get('mlflow_config', None)
+  if mlflow_cfg is None:
+    return []
+
+  user = mlflow_cfg['user']
+  pw = mlflow_cfg['password']
+  db = mlflow_cfg['db']
+  project = mlflow_cfg['project']
+  region = mlflow_cfg['region']
+
+  socket_path = '/tmp/cloudsql'
+  proxy_path = os.path.join(workdir, 'cloud_sql_proxy')
+
+  cmd = [
+      'python', CLOUD_SQL_WRAPPER_SCRIPT, '--path', socket_path, '--proxy',
+      proxy_path, '--project', project, '--region', region, '--db', db,
+      '--creds', '~/.config/gcloud/application_default_credentials.json'
+  ]
+
+  uri = (f'postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={socket_path}/'
+         f'{project}:{region}:{db}/.s.PGSQL.5432')
+
+  args = [
+      '--caliban_service',
+      json.dumps(cmd),
+      '--caliban_env',
+      f'MLFLOW_TRACKING_URI={uri}',
+      '--caliban_env',
+      f'CALIBAN_EXPERIMENT_NAME={experiment.xgroup.name}',
+      '--caliban_env',
+      f'CALIBAN_RUN_NAME={_mlflow_job_name(index=index)}',
+  ]
+
+  return args

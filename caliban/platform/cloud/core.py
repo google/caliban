@@ -418,6 +418,8 @@ def _job_specs(
     training_input: Dict[str, Any],
     labels: Dict[str, str],
     experiments: Iterable[ht.Experiment],
+    env: Dict[str, str] = {},
+    caliban_config: Dict[str, Any] = {},
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
@@ -429,7 +431,19 @@ def _job_specs(
 
   """
   for idx, m in enumerate(experiments, 1):
-    args = ce.experiment_to_args(m.kwargs, m.args)
+    wrapper_args = [f'--caliban_env="{k}={v}"' for k, v in env.items()]
+
+    wrapper_args += db.mlflow_args(
+        experiment=m,
+        caliban_config=caliban_config,
+        index=idx,
+    )
+
+    cmd_args = ce.experiment_to_args(m.kwargs, m.args)
+
+    # cmd args *must* be last in order for the wrapper to pass them through
+    args = wrapper_args + cmd_args
+
     yield _job_spec(job_name=job_name,
                     idx=idx,
                     training_input={
@@ -448,6 +462,8 @@ def build_job_specs(
     user_labels: Dict[str, str],
     gpu_spec: Optional[ct.GPUSpec],
     tpu_spec: Optional[ct.TPUSpec],
+    env: Dict[str, str] = {},
+    caliban_config: Dict[str, Any] = {},
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
@@ -479,7 +495,9 @@ def build_job_specs(
   return _job_specs(job_name,
                     training_input=training_input,
                     labels=base_labels,
-                    experiments=experiments)
+                    experiments=experiments,
+                    env=env,
+                    caliban_config=caliban_config)
 
 
 def generate_image_tag(project_id, docker_args, dry_run: bool = False):
@@ -540,22 +558,25 @@ def submit_job_specs(
   execute_requests(requests, num_specs, num_retries=request_retries)
 
 
-def submit_ml_job(job_mode: conf.JobMode,
-                  docker_args: Dict[str, Any],
-                  region: ct.Region,
-                  project_id: str,
-                  credentials_path: Optional[str] = None,
-                  dry_run: bool = False,
-                  job_name: Optional[str] = None,
-                  machine_type: Optional[ct.MachineType] = None,
-                  gpu_spec: Optional[ct.GPUSpec] = None,
-                  tpu_spec: Optional[ct.TPUSpec] = None,
-                  image_tag: Optional[str] = None,
-                  labels: Optional[Dict[str, str]] = None,
-                  experiment_config: Optional[ce.ExpConf] = None,
-                  script_args: Optional[List[str]] = None,
-                  request_retries: Optional[int] = None,
-                  xgroup: Optional[str] = None) -> None:
+def submit_ml_job(
+    job_mode: conf.JobMode,
+    docker_args: Dict[str, Any],
+    region: ct.Region,
+    project_id: str,
+    credentials_path: Optional[str] = None,
+    dry_run: bool = False,
+    job_name: Optional[str] = None,
+    machine_type: Optional[ct.MachineType] = None,
+    gpu_spec: Optional[ct.GPUSpec] = None,
+    tpu_spec: Optional[ct.TPUSpec] = None,
+    image_tag: Optional[str] = None,
+    labels: Optional[Dict[str, str]] = None,
+    experiment_config: Optional[ce.ExpConf] = None,
+    script_args: Optional[List[str]] = None,
+    request_retries: Optional[int] = None,
+    xgroup: Optional[str] = None,
+    env: Optional[Dict[str, str]] = {},
+) -> None:
   """Top level function in the module. This function:
 
   - builds an image using the supplied docker_args, in either CPU or GPU mode
@@ -602,6 +623,7 @@ def submit_ml_job(job_mode: conf.JobMode,
     a timeout or a rate limiting request.
   - xgroup: experiment group for this submission, if None a new group will
     be created
+  - env: environment variables to be set in container
   """
   if script_args is None:
     script_args = []
@@ -623,6 +645,8 @@ def submit_ml_job(job_mode: conf.JobMode,
 
   if request_retries is None:
     request_retries = 10
+
+  caliban_config = docker_args.get('caliban_config', {})
 
   engine = get_mem_engine() if dry_run else get_sql_engine()
 
@@ -649,6 +673,8 @@ def submit_ml_job(job_mode: conf.JobMode,
         user_labels=labels,
         gpu_spec=gpu_spec,
         tpu_spec=tpu_spec,
+        env=env,
+        caliban_config=caliban_config,
     )
 
     if dry_run:
