@@ -22,6 +22,7 @@ configuring a container for this behavior.
 import caliban.util as u
 
 CLOUD_SQL_WRAPPER_SCRIPT = 'cloud_sql_proxy.py'
+LAUNCHER_SCRIPT = 'caliban_launcher.py'
 
 
 def cloud_sql_proxy_path() -> str:
@@ -30,3 +31,11 @@ def cloud_sql_proxy_path() -> str:
 
   """
   return u.resource(CLOUD_SQL_WRAPPER_SCRIPT)
+
+
+def launcher_path() -> str:
+  """Returns an absolute path to the Caliban python wrapper that manages
+environment variable setting and service launches inside the container.
+
+  """
+  return u.resource(LAUNCHER_SCRIPT)

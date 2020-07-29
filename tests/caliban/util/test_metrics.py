@@ -27,3 +27,12 @@ def test_cloud_sql_proxy_path():
   # check that the name matches the global variable.
   expected = os.path.join(u.resource(""), um.CLOUD_SQL_WRAPPER_SCRIPT)
   assert um.cloud_sql_proxy_path() == expected
+
+
+def test_launcher_path():
+  """Check that the launcher resource exists and wasn't deleted or renamed."""
+  assert um.launcher_path() is not None
+
+  # check that the name matches the global variable.
+  expected = os.path.join(u.resource(""), um.LAUNCHER_SCRIPT)
+  assert um.launcher_path() == expected
