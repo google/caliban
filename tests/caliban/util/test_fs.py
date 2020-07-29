@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import io
+import json
+import os
 
 import caliban.util.fs as ufs
 
@@ -82,6 +84,79 @@ def test_generate_package():
   }
   for k in m:
     assert ufs.generate_package(k) == m[k]
+
+
+def test_tmp_copy(tmpdir):
+  # from and to exist.
+  from_a_path = str(tmpdir.join('from_a.json'))
+  to_a_path = str(tmpdir.join('to_a.json'))
+
+  # to doesn't exist; test that this still works.
+  from_b_path = str(tmpdir.join('from_b.json'))
+  to_b_path = None
+
+  # this should be ignored!
+  from_c_path = None
+  to_c_path = str(tmpdir.join('to_c.json'))
+
+  # same here.
+  from_d_path = None
+  to_d_path = None
+
+  # prepare valid data in the a and b sources.
+  a_data = {"apt_packages": ["face"]}
+
+  with open(from_a_path, 'w') as f:
+    json.dump(a_data, f)
+
+  b_data = {"key": ["value"]}
+
+  with open(from_b_path, 'w') as f:
+    json.dump(b_data, f)
+
+  # note that a duplicate None key is fine.
+  tmpcopy = ufs.TempCopy({
+      from_a_path: to_a_path,
+      from_b_path: to_b_path,
+      from_c_path: to_c_path,
+      from_d_path: to_d_path
+  })
+  assert not tmpcopy.active
+
+  frozen_m = None
+  with tmpcopy as m:
+
+    # save the m for later inspection.
+    frozen_m = m
+
+    # inside the context manager, tmpcopy is active.
+    assert tmpcopy.active
+
+    # check that all keys work as expected.
+    assert m[from_a_path] == to_a_path
+    assert m[from_b_path] is not None
+    assert from_c_path not in m
+    assert from_d_path not in m
+
+    # data exists in the location we specified:
+    with open(to_a_path, 'r') as a_file:
+      assert a_data == json.load(a_file)
+
+    # the reference is correct too, inside the map:
+    with open(m[from_a_path], 'r') as a_file:
+      assert a_data == json.load(a_file)
+
+    # We provided None for to_b_path, but the data still makes it into the
+    # correct location.
+    with open(m[from_b_path], 'r') as b_file:
+      assert b_data == json.load(b_file)
+
+  # Outside the manager, no longer active.
+  assert not tmpcopy.active
+
+  # files are now deleted:
+  assert not os.path.exists(m[from_a_path])
+  assert not os.path.exists(m[from_b_path])
 
 
 def test_capture_stdout():
