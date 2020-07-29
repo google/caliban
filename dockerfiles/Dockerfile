@@ -93,3 +93,8 @@ RUN chmod -R 757 /opt/conda/envs/caliban && mkdir /.cache && chmod -R 757 /.cach
 
 # This is equivalent to activating the env.
 ENV PATH /opt/conda/envs/caliban/bin:$PATH
+
+# This makes pip recognize our conda environment
+# as a virtual environment, so it installs editables properly
+# See https://github.com/conda/conda/issues/5861 for details
+ENV PIP_SRC /opt/conda/envs/caliban/pipsrc

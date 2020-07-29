@@ -148,7 +148,7 @@ def _create_job_spec_dict(
 
   # Without the unbuffered environment variable, stderr and stdout won't be
   # emitted in the proper order from inside the container.
-  terminal_cmds = ["-e" "PYTHONUNBUFFERED=1"] + window_size_env_cmds()
+  terminal_cmds = ["-e", "PYTHONUNBUFFERED=1"] + window_size_env_cmds()
 
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
 

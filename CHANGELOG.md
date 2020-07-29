@@ -1,5 +1,20 @@
 # 0.3.0
 
+- @ramasesh Added a fix that prevented `pip` git dependencies from working in
+  `caliban shell` mode (https://github.com/google/caliban/pull/55) This adds a
+  small update to the base image, so be sure to run
+
+```
+docker pull gcr.io/blueshift-playground/blueshift:cpu
+docker pull gcr.io/blueshift-playground/blueshift:gpu
+```
+
+to get access to this fix.
+
+- Thanks to @eschnett, `--docker_run-args` can now deal with arbitrary
+  whitespace in the list of arguments, instead of single spaces only.
+  (https://github.com/google/caliban/pull/46)
+
 - Caliban now authenticates AI Platform job submissions using the authentication
   provided by `gcloud auth login`, rather than requiring a service account key.
   This significantly simplifies the setup required for a first time user.
