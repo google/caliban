@@ -25,6 +25,7 @@ configuration via a JSON dictionary of the form:
     "creds": "path_to_credentials (optional)"
 }
 
+This script lives in a dotfile
 """
 
 import argparse
