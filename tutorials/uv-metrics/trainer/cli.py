@@ -13,8 +13,7 @@ def create_parser():
 
   parser = argparse_flags.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-      description=
-      f"""Configurable arguments for hello-uv. For documentation, visit http://go/tutorials#hello-uv.""",
+      description=f"""Configurable arguments for the UV Metrics demo.""",
       prog="python -m trainer.train")
 
   parser.add_argument(
