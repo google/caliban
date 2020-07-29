@@ -104,6 +104,28 @@ def apt_command(commands: List[str]) -> List[str]:
   return update + commands + cleanup
 
 
+def copy_command(user_id: int,
+                 user_group: int,
+                 from_path: str,
+                 to_path: str,
+                 comment: Optional[str] = None) -> str:
+  """Generates a Dockerfile entry that will copy the file at the directory-local
+  from_path into the container at to_path.
+
+  If you supply a relative path, Docker will copy the file into the current
+  working directory, where it will be overwritten in any interactive mode. We
+  recommend using an absolute path!
+
+  """
+  cmd = f"COPY --chown={user_id}:{user_group} {from_path} {to_path}"
+
+  if comment is not None:
+    comment_s = "\n# ".join(comment.split("\n"))
+    return f"# {comment_s}\n{cmd}"
+
+  return cmd
+
+
 # Dict linking a particular supported shell to the data required to run and
 # install the shell inside a container.
 #
@@ -224,15 +246,18 @@ def _dependency_entries(workdir: str,
   """
   ret = ""
 
+  def copy(from_path, to_path):
+    return copy_command(user_id, user_group, from_path, to_path)
+
   if setup_extras is not None:
     ret += f"""
-COPY --chown={user_id}:{user_group} setup.py {workdir}
+{copy("setup.py", workdir)}
 RUN /bin/bash -c "pip install --no-cache-dir {extras_string(setup_extras)}"
 """
 
   if conda_env_path is not None:
     ret += f"""
-COPY --chown={user_id}:{user_group} {conda_env_path} {workdir}
+{copy(conda_env_path, workdir)}
 RUN /bin/bash -c "{CONDA_BIN} env update \
     --quiet --name caliban \
     --file {conda_env_path} && \
@@ -241,7 +266,7 @@ RUN /bin/bash -c "{CONDA_BIN} env update \
 
   if requirements_path is not None:
     ret += f"""
-COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
+{copy(requirements_path, workdir)}
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
 
@@ -259,26 +284,24 @@ def _package_entries(workdir: str, user_id: int, user_group: int,
   between files inside a project.
 
   """
-  owner = "{}:{}".format(user_id, user_group)
-
   arg = package.main_module or package.script_path
+  package_path = package.package_path
 
   # This needs to use json so that quotes print as double quotes, not single
   # quotes.
   entrypoint_s = json.dumps(package.executable + [arg])
-
-  return """
-# Copy project code into the docker container.
-COPY --chown={owner} {package_path} {workdir}/{package_path}
+  copy_code = copy_command(
+      user_id,
+      user_group,
+      package_path,
+      f"{workdir}/{package_path}",
+      comment="Copy project code into the docker container.")
+  return f"""
+{copy_code}
 
 # Declare an entrypoint that actually runs the container.
 ENTRYPOINT {entrypoint_s}
-  """.format_map({
-      "owner": owner,
-      "package_path": package.package_path,
-      "workdir": workdir,
-      "entrypoint_s": entrypoint_s
-  })
+  """
 
 
 def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
@@ -298,26 +321,21 @@ def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
   service account is present.
 
   """
-  container_creds = "{}/credentials.json".format(docker_credentials_dir)
-  ret = """
-COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
+  container_creds = f"{docker_credentials_dir}/credentials.json"
+  ret = f"""
+{copy_command(user_id, user_group, credentials_path, container_creds)}
 
 # Use the credentials file to activate gcloud, gsutil inside the container.
 RUN gcloud auth activate-service-account --key-file={container_creds} && \
   git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
 
 ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
-""".format_map({
-      "user_id": user_id,
-      "user_group": user_group,
-      "credentials_path": credentials_path,
-      "container_creds": container_creds
-  })
+"""
 
   if write_adc_placeholder:
-    ret += """
-RUN echo "placeholder" >> {}
-""".format(adc_location(container_home()))
+    ret += f"""
+RUN echo "placeholder" >> {adc_location(container_home())}
+"""
 
   return ret
 
@@ -328,14 +346,8 @@ def _adc_entry(user_id: int, user_group: int, adc_path: str):
   directory.
 
   """
-  return """
-COPY --chown={user_id}:{user_group} {adc_path} {adc_loc}
-    """.format_map({
-      "user_id": user_id,
-      "user_group": user_group,
-      "adc_path": adc_path,
-      "adc_loc": adc_location(container_home())
-  })
+  return copy_command(user_id, user_group, adc_path,
+                      adc_location(container_home()))
 
 
 def _credentials_entries(user_id: int,
@@ -432,14 +444,11 @@ def _copy_dir_entry(workdir: str, user_id: int, user_group: int,
   from the current directory into a docker container during build.
 
   """
-  owner = "{}:{}".format(user_id, user_group)
-  return """# Copy {dirname} into the Docker container.
-COPY --chown={owner} {dirname} {workdir}/{dirname}
-""".format_map({
-      "owner": owner,
-      "workdir": workdir,
-      "dirname": dirname
-  })
+  return copy_command(user_id,
+                      user_group,
+                      dirname,
+                      f"{workdir}/{dirname}",
+                      comment=f"Copy {dirname} into the Docker container.")
 
 
 def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
