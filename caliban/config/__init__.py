@@ -129,6 +129,15 @@ GCloudConfig = {
     s.Optional("cloud_key"): s.And(str, len)
 }
 
+MLFlowConfig = {
+    'project': str,
+    'region': str,
+    'db': str,
+    'user': str,
+    'password': str,
+    'artifact_root': str
+}
+
 # Config items that are project-specific, and don't belong in a global
 # .calibanconfig shared between projects.
 ProjectConfig = {
@@ -148,6 +157,7 @@ ProjectConfig = {
 SystemConfig = {
     s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
     s.Optional("gcloud", default={}): GCloudConfig,
+    s.Optional("mlflow_config", default=None): MLFlowConfig,
 }
 
 # The final, parsed calibanconfig.

@@ -1,0 +1,9 @@
+{
+  "apt_packages" : ["openssh-client", "curl"],
+  "mlflow_config" : {"project": "blueshift-research",
+		     "region": "us-central1",
+		     "db": "mlflow",
+		     "user": "postgres",
+		     "password": "mlflow",
+		     "artifact_root": "gs://blueshift-research/mlflow"}
+}
