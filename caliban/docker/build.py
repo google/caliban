@@ -33,6 +33,7 @@ from blessings import Terminal
 import caliban.config as c
 import caliban.util as u
 import caliban.util.fs as ufs
+import caliban.util.metrics as um
 
 t = Terminal()
 
@@ -40,6 +41,7 @@ DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
 TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
+RESOURCE_DIR = "/.resources"
 CONDA_BIN = "/opt/conda/bin/conda"
 
 ImageId = NewType('ImageId', str)
@@ -451,16 +453,50 @@ def _copy_dir_entry(workdir: str, user_id: int, user_group: int,
                       comment=f"Copy {dirname} into the Docker container.")
 
 
-def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
-                       extra_dirs: List[str]) -> str:
+def _extra_dir_entries(workdir: str,
+                       user_id: int,
+                       user_group: int,
+                       extra_dirs: Optional[List[str]] = None) -> str:
   """Returns the Dockerfile entries necessary to copy all directories in the
   extra_dirs list into a docker container during build.
 
   """
-  ret = ""
-  for d in extra_dirs:
-    ret += "\n{}".format(_copy_dir_entry(workdir, user_id, user_group, d))
-  return ret
+  if extra_dirs is None:
+    return ""
+
+  def copy(d):
+    return _copy_dir_entry(workdir, user_id, user_group, d)
+
+  return "\n\n".join(map(copy, extra_dirs)) + "\n"
+
+
+def _resource_entries(uid: int,
+                      gid: int,
+                      resource_files: Optional[List[str]] = None,
+                      resource_dir: str = RESOURCE_DIR) -> str:
+  """Returns Dockerfile entries necessary to copy miscellaneous resource files
+  into container. Usually these files are staged in the working directory, so
+  that Docker's build context can access them.
+
+  Args:
+  uid: user id in container for files
+  gid: user group id in container for files
+  resource_files: list of files to copy
+  resource_dir: destination for resource files
+
+
+  Returns:
+  a string to append to a Dockerfile containing COPY commands that will copy
+  those resources into a built container.
+
+  """
+  if resource_files is None:
+    return ""
+
+  def copy(path):
+    return copy_command(uid, gid, path, resource_dir)
+
+  return "\n\n".join(map(copy, resource_files)) + "\n"
 
 
 def _dockerfile_template(
@@ -476,6 +512,7 @@ def _dockerfile_template(
     inject_notebook: NotebookInstall = NotebookInstall.none,
     shell: Optional[Shell] = None,
     extra_dirs: Optional[List[str]] = None,
+    resource_files: Optional[List[str]] = None,
     caliban_config: Optional[Dict[str, Any]] = None) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
@@ -505,8 +542,9 @@ def _dockerfile_template(
     workdir = DEFAULT_WORKDIR
 
   base_image = c.base_image(caliban_config, job_mode) or base_image_id(job_mode)
+  c_home = container_home()
 
-  dockerfile = """
+  dockerfile = f"""
 FROM {base_image}
 
 # Create the same group we're using on the host machine.
@@ -518,22 +556,14 @@ RUN useradd --no-log-init --no-create-home -u {uid} -g {gid} --shell /bin/bash {
 
 # The directory is created by root. This sets permissions so that any user can
 # access the folder.
-RUN mkdir -m 777 {workdir} {creds_dir} {c_home}
+RUN mkdir -m 777 {workdir} {CREDS_DIR} {RESOURCE_DIR} {c_home}
 
 ENV HOME={c_home}
 
 WORKDIR {workdir}
 
 USER {uid}:{gid}
-""".format_map({
-      "base_image": base_image,
-      "username": username,
-      "uid": uid,
-      "gid": gid,
-      "workdir": workdir,
-      "c_home": container_home(),
-      "creds_dir": CREDS_DIR
-  })
+"""
   dockerfile += _credentials_entries(uid,
                                      gid,
                                      adc_path=adc_path,
@@ -550,14 +580,15 @@ USER {uid}:{gid}
     install_lab = inject_notebook == NotebookInstall.lab
     dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
-  if extra_dirs is not None:
-    dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
+  dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
 
   dockerfile += _custom_packages(uid,
                                  gid,
                                  packages=c.apt_packages(
                                      caliban_config, job_mode),
                                  shell=shell)
+
+  dockerfile += _resource_entries(uid, gid, resource_files)
 
   if package is not None:
     # The actual entrypoint and final copied code.
@@ -592,9 +623,13 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
+  # Paths for resource files.
+  sql_proxy_path = um.cloud_sql_proxy_path()
+
   with ufs.TempCopy({
       credentials_path: ".caliban_default_creds.json",
-      adc_path: ".caliban_adc_creds.json"
+      adc_path: ".caliban_adc_creds.json",
+      sql_proxy_path: um.CLOUD_SQL_WRAPPER_SCRIPT
   }) as creds:
     cache_args = ["--no-cache"] if no_cache else []
     cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
@@ -603,6 +638,7 @@ def build_image(job_mode: c.JobMode,
         job_mode,
         credentials_path=creds.get(credentials_path),
         adc_path=creds.get(adc_path),
+        resource_files=[creds.get(sql_proxy_path)],
         **kwargs)
 
     joined_cmd = " ".join(cmd)
