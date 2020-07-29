@@ -583,28 +583,30 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
-  with ufs.TempCopy(credentials_path,
-                    tmp_name=".caliban_default_creds.json") as creds:
-    with ufs.TempCopy(adc_path, tmp_name=".caliban_adc_creds.json") as adc:
-      cache_args = ["--no-cache"] if no_cache else []
-      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
+  with ufs.TempCopy({
+      credentials_path: ".caliban_default_creds.json",
+      adc_path: ".caliban_adc_creds.json"
+  }) as creds:
+    cache_args = ["--no-cache"] if no_cache else []
+    cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
-      dockerfile = _dockerfile_template(job_mode,
-                                        credentials_path=creds,
-                                        adc_path=adc,
-                                        **kwargs)
+    dockerfile = _dockerfile_template(
+        job_mode,
+        credentials_path=creds.get(credentials_path),
+        adc_path=creds.get(adc_path),
+        **kwargs)
 
-      joined_cmd = " ".join(cmd)
-      logging.info("Running command: {}".format(joined_cmd))
+    joined_cmd = " ".join(cmd)
+    logging.info("Running command: {}".format(joined_cmd))
 
-      try:
-        output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
-        if ret_code == 0:
-          return docker_image_id(output)
-        else:
-          error_msg = "Docker failed with error code {}.".format(ret_code)
-          raise DockerError(error_msg, cmd, ret_code)
+    try:
+      output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
+      if ret_code == 0:
+        return docker_image_id(output)
+      else:
+        error_msg = "Docker failed with error code {}.".format(ret_code)
+        raise DockerError(error_msg, cmd, ret_code)
 
-      except subprocess.CalledProcessError as e:
-        logging.error(e.output)
-        logging.error(e.stderr)
+    except subprocess.CalledProcessError as e:
+      logging.error(e.output)
+      logging.error(e.stderr)

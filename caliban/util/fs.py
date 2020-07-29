@@ -24,7 +24,8 @@ import subprocess
 import sys
 import time
 import uuid
-from typing import List, NamedTuple, Optional
+from itertools import chain
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from blessings import Terminal
 
@@ -122,32 +123,81 @@ class TempCopy(object):
 
   """
 
-  def __init__(self, original_path=None, tmp_name=None):
-    if tmp_name is None:
-      self.tmp_path = ".{}.json".format(str(uuid.uuid1()))
-    else:
-      self.tmp_path = tmp_name
+  def __init__(self,
+               mapping: Optional[Dict[Optional[str], Optional[str]]] = None):
+    if mapping is None:
+      mapping = {}
 
-    self.original_path = None
-    if original_path:
-      # handle tilde!
-      self.original_path = os.path.expanduser(original_path)
+    self._mapping = self._sanitize_entries(mapping)
+    self._written = None
 
-    self.path = None
+  @property
+  def active(self) -> bool:
+    """Returns true if the TmpCopy instance is managing written data, false
+    otherwise.
 
-  def __enter__(self):
-    if self.original_path is None:
-      return None
+    """
+    return self._written is not None
 
+  def _sanitize_pair(self, src: Optional[str],
+                     dst: Optional[str]) -> List[Tuple[str, str]]:
+    """ If the source isn't none, returns a singleton with a pair of (from
+    directory, to_directory). Else, returns []."""
+
+    if src is None:
+      return []
+
+    src = os.path.abspath(os.path.expanduser(src))
+    dst = dst or str(uuid.uuid1())
+
+    return [(src, dst)]
+
+  def _sanitize_entries(
+      self, mapping: Dict[Optional[str], Optional[str]]) -> Dict[str, str]:
+    """Generates a dictionary of source file -> destination file, based on the
+    information in the original mapping.
+
+    If a key in the original mapping is None, it won't appear in the output. If
+    a value is None, a filename will be generated and paired with the
+    corresponding key.
+
+    """
+
+    processed = [self._sanitize_pair(src, dst) for src, dst in mapping.items()]
+    return dict(chain.from_iterable(processed))
+
+  def _prepend_dir(self, current_dir: str,
+                   mapping: Dict[str, str]) -> Dict[str, str]:
+    return {k: os.path.join(current_dir, v) for k, v in mapping.items()}
+
+  def __enter__(self) -> Dict[str, str]:
+    """Entrypoint for the context manager. Performs the side effect of writing out
+    the contents of every file specified as a key of self._mapping over into
+    temporary files in the current working directory (at the time of the
+    context manager's activation).
+
+    """
     current_dir = os.getcwd()
-    self.path = os.path.join(current_dir, self.tmp_path)
-    shutil.copy2(self.original_path, self.path)
-    return self.tmp_path
+    mapping = {**self._mapping}
+    to_write = self._prepend_dir(current_dir, mapping)
+
+    for src, dst in to_write.items():
+      shutil.copy2(src, dst)
+
+    self._written = to_write
+
+    return mapping
 
   def __exit__(self, exc_type, exc_val, exc_tb):
-    if self.path is not None:
-      os.remove(self.path)
-      self.path = None
+    """If the context manager is holding on to temporary files, delete them all and
+    reset the internal state.
+
+    """
+    if self._written is not None:
+      for _, dst in self._written.items():
+        if os.path.exists(dst):
+          os.remove(dst)
+      self._written = None
 
 
 def capture_stdout(cmd: List[str],
