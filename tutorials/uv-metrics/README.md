@@ -1,17 +1,16 @@
-# UV + MLFlow Tutorial
+# UV + MLFlow Tutorial [ALPHA!]
 
-## Get the custom Caliban build installed
+This directory contains a demo of a model training workflow that uses the
+[uv-metrics](https://github.com/google/uv-metrics) library to persist metrics to
+an [MLFlow](https://mlflow.org/) tracking server.
 
-This is simple:
-
-```
-install_caliban aslone/mlflow_tracking
-```
+This is mostly here for testing and reference. Check back for a documentation
+update once the API settles down.
 
 ## Setting up MLFLow
 
-Annoyingly, you can't install `mlflow` using pipx. Here are the steps required
-to get the UI running locally.
+You can't install `mlflow` using `pipx`. Here are the steps required to get the
+UI running locally.
 
 In a new tab:
 
@@ -25,7 +24,7 @@ The UI is now running. Visit http://127.0.0.1:5000/#/ to take a look.
 
 ## Running a Job
 
-In the caliban repo:
+In the Caliban repository:
 
 ```
 git checkout aslone/mlflow_tracking && git pull
@@ -41,7 +40,7 @@ caliban run --nogpu trainer.train
 Name the experiment group and run 3:
 
 ```
-caliban run --experiment_config experiment.json --xgroup guy_research --nogpu trainer.train
+caliban run --experiment_config experiment.json --xgroup mlflow_tutorial --nogpu trainer.train
 ```
 
 ## Check the MLFlow UI
