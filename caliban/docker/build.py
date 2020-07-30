@@ -23,6 +23,7 @@ from __future__ import absolute_import, division, print_function
 import json
 import os
 import os.path
+import re
 import subprocess
 from enum import Enum
 from pathlib import Path
@@ -237,7 +238,7 @@ def _dependency_entries(workdir: str,
                         requirements_path: Optional[str] = None,
                         conda_env_path: Optional[str] = None,
                         setup_extras: Optional[List[str]] = None,
-                        julia_url: Optional[str] = None) -> str:
+                        julia_version: Optional[str] = None) -> str:
   """Returns the Dockerfile entries required to install dependencies from either:
 
   - a requirements.txt file, path supplied by requirements_path
@@ -275,8 +276,12 @@ RUN /bin/bash -c "{CONDA_BIN} env update \
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
 
-  if julia_url is not None:
+  if julia_version is not None:
     # Install Julia
+    # Extract major and minor version numbers
+    m = re.match(r"(\d+[.]\d+)", julia_version)
+    julia_version2 = m[1]
+    julia_url = f"https://julialang-s3.julialang.org/bin/linux/x64/{julia_version2}/julia-{julia_version}-linux-x86_64.tar.gz"
     ret += f"""
 # Where Julia is installed
 # TODO: Use /usr/local instead of /tmp for Julia directories
@@ -288,7 +293,7 @@ RUN /bin/bash -c "mkdir -p $JULIA_LOC && \
                   wget -nv {julia_url} && \
                   tar xzf $(basename {julia_url}) -C $JULIA_LOC --strip-components 1 && \
                   rm -f $(basename {julia_url}) && \
-                  echo 'ENV["PYTHON"] = ""' >> $JULIA_LOC/etc/julia/startup.jl && \
+                  echo 'ENV[\\"PYTHON\\"] = \\"\\"' >> $JULIA_LOC/etc/julia/startup.jl && \
                   mkdir -p $JULIA_DEPOT_PATH && \
                   mkdir -p $JULIA_DEPOT_PATH/servers && \
                   echo 'telemetry = false' > $JULIA_DEPOT_PATH/servers/telemetry.toml"
@@ -540,7 +545,7 @@ def _dockerfile_template(
     requirements_path: Optional[str] = None,
     conda_env_path: Optional[str] = None,
     setup_extras: Optional[List[str]] = None,
-    julia_url: Optional[str] = None,
+    julia_version: Optional[str] = None,
     adc_path: Optional[str] = None,
     credentials_path: Optional[str] = None,
     jupyter_version: Optional[str] = None,
@@ -610,7 +615,7 @@ USER {uid}:{gid}
                                     requirements_path=requirements_path,
                                     conda_env_path=conda_env_path,
                                     setup_extras=setup_extras,
-                                    julia_url=julia_url)
+                                    julia_version=julia_version)
 
   if inject_notebook.value != 'none':
     install_lab = inject_notebook == NotebookInstall.lab
