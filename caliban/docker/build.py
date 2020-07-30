@@ -249,25 +249,34 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
 
   if julia_url is not None:
-    if os.path.exists("Project.toml"):
-      ret += f"""
-COPY --chown={user_id}:{user_group} *.toml {workdir}/
-"""
-    # TODO: Use /usr/local instead of /tmp for Julia directories
+    # Install Julia
     ret += f"""
-COPY --chown={user_id}:{user_group} src {workdir}/src
+# Where Julia is installed
+# TODO: Use /usr/local instead of /tmp for Julia directories
 ENV JULIA_LOC=/tmp/julia
-ENV JULIA_DEPOT_PATH=/tmp/var/julia_depot
-ENV JULIA_PROJECT={workdir}
 ENV PATH=$PATH:$JULIA_LOC/bin
+# Where Julia installs packages
+ENV JULIA_DEPOT_PATH=/tmp/var/julia_depot
 RUN /bin/bash -c "mkdir -p $JULIA_LOC && \
                   wget -nv {julia_url} && \
                   tar xzf $(basename {julia_url}) -C $JULIA_LOC --strip-components 1 && \
                   rm -f $(basename {julia_url}) && \
+                  echo 'ENV["PYTHON"] = ""' >> $JULIA_LOC/etc/julia/startup.jl && \
                   mkdir -p $JULIA_DEPOT_PATH && \
                   mkdir -p $JULIA_DEPOT_PATH/servers && \
-                  echo 'telemetry = false' > $JULIA_DEPOT_PATH/servers/telemetry.toml && \
-                  julia --eval 'using Pkg; Pkg.instantiate()'"
+                  echo 'telemetry = false' > $JULIA_DEPOT_PATH/servers/telemetry.toml"
+"""
+
+    # Install dependencies for the current Julia project
+    if os.path.exists("Project.toml"):
+      ret += f"""
+# The current Julia project
+ENV JULIA_PROJECT={workdir}
+COPY --chown={user_id}:{user_group} *.toml {workdir}/
+COPY --chown={user_id}:{user_group} src {workdir}/src/
+RUN /bin/bash -c "cd {workdir} && \
+                  julia --eval 'using Pkg; Pkg.instantiate()' && \
+                  rm -rf *"
 """
 
   return ret
