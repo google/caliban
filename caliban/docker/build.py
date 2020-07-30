@@ -37,6 +37,7 @@ import caliban.config as c
 import caliban.util as u
 import caliban.util.fs as ufs
 import caliban.history.types as ht
+import caliban.util.metrics as um
 
 t = Terminal()
 
@@ -44,11 +45,9 @@ DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
 TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
+RESOURCE_DIR = "/.resources"
 CONDA_BIN = "/opt/conda/bin/conda"
 WRAPPER_SCRIPT = 'caliban_wrapper.py'
-CLOUD_SQL_WRAPPER_SCRIPT = 'caliban_cloud_sql.py'
-CALIBAN_DEFAULT_CREDS = '.caliban_default_creds.json'
-CALIBAN_ADC_CREDS = '.caliban_adc_creds.json'
 
 ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
@@ -110,6 +109,28 @@ def apt_command(commands: List[str]) -> List[str]:
   update = ["apt-get update"]
   cleanup = ["apt-get clean", "rm -rf /var/lib/apt/lists/*"]
   return update + commands + cleanup
+
+
+def copy_command(user_id: int,
+                 user_group: int,
+                 from_path: str,
+                 to_path: str,
+                 comment: Optional[str] = None) -> str:
+  """Generates a Dockerfile entry that will copy the file at the directory-local
+  from_path into the container at to_path.
+
+  If you supply a relative path, Docker will copy the file into the current
+  working directory, where it will be overwritten in any interactive mode. We
+  recommend using an absolute path!
+
+  """
+  cmd = f"COPY --chown={user_id}:{user_group} {from_path} {to_path}"
+
+  if comment is not None:
+    comment_s = "\n# ".join(comment.split("\n"))
+    return f"# {comment_s}\n{cmd}"
+
+  return cmd
 
 
 # Dict linking a particular supported shell to the data required to run and
@@ -232,15 +253,18 @@ def _dependency_entries(workdir: str,
   """
   ret = ""
 
+  def copy(from_path, to_path):
+    return copy_command(user_id, user_group, from_path, to_path)
+
   if setup_extras is not None:
     ret += f"""
-COPY --chown={user_id}:{user_group} setup.py {workdir}
+{copy("setup.py", workdir)}
 RUN /bin/bash -c "pip install --no-cache-dir {extras_string(setup_extras)}"
 """
 
   if conda_env_path is not None:
     ret += f"""
-COPY --chown={user_id}:{user_group} {conda_env_path} {workdir}
+{copy(conda_env_path, workdir)}
 RUN /bin/bash -c "{CONDA_BIN} env update \
     --quiet --name caliban \
     --file {conda_env_path} && \
@@ -249,7 +273,7 @@ RUN /bin/bash -c "{CONDA_BIN} env update \
 
   if requirements_path is not None:
     ret += f"""
-COPY --chown={user_id}:{user_group} {requirements_path} {workdir}
+{copy(requirements_path, workdir)}
 RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
 
@@ -260,12 +284,8 @@ def _wrapper_script_path() -> str:
   return resource_filename('caliban.resources', WRAPPER_SCRIPT)
 
 
-def _cloud_sql_proxy_wrapper_path() -> str:
-  return resource_filename('caliban.resources', CLOUD_SQL_WRAPPER_SCRIPT)
-
-
-def _mlflow_dockerfile(mlflow_cfg: Dict[str, Any]) -> str:
-  '''returns mlflow dockerfile entries'''
+def _cloud_sql_proxy_entry() -> str:
+  '''returns docker entry to fetch cloud_sql_proxy'''
   return (
       'RUN wget -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 '
       '-O cloud_sql_proxy && chmod 755 cloud_sql_proxy')
@@ -287,35 +307,41 @@ def _package_entries(
   between files inside a project.
 
   """
-  owner = "{}:{}".format(user_id, user_group)
+  caliban_config = caliban_config or {}
 
   arg = package.main_module or package.script_path
+  package_path = package.package_path
 
   # This needs to use json so that quotes print as double quotes, not single
   # quotes.
   executable_s = json.dumps(package.executable + [arg])
-
-  wrapper_cmd = ['python', WRAPPER_SCRIPT, '--caliban_command', executable_s]
-  entrypoint_s = json.dumps(wrapper_cmd)
-
-  dockerfile = ''
+  copy_code = copy_command(
+      user_id,
+      user_group,
+      package_path,
+      f"{workdir}/{package_path}",
+      comment="Copy project code into the docker container.")
 
   mlflow_cfg = caliban_config.get('mlflow_config')
   if mlflow_cfg is not None:
-    dockerfile += _mlflow_dockerfile(mlflow_cfg)
+    cloud_sql_proxy_code = _cloud_sql_proxy_entry()
+  else:
+    cloud_sql_proxy_code = ''
 
-  dockerfile += """
-# Copy project code into the docker container.
-COPY --chown={owner} {package_path} {workdir}/{package_path}
+  wrapper_cmd = json.dumps([
+      'python',
+      os.path.join(RESOURCE_DIR, WRAPPER_SCRIPT), '--caliban_command',
+      executable_s
+  ])
+
+  dockerfile = f'''
+{copy_code}
+
+{cloud_sql_proxy_code}
 
 # Declare an entrypoint that actually runs the container.
-ENTRYPOINT {entrypoint_s}
-""".format_map({
-      "owner": owner,
-      "package_path": package.package_path,
-      "workdir": workdir,
-      'entrypoint_s': entrypoint_s,
-  })
+ENTRYPOINT {wrapper_cmd}
+'''
 
   return dockerfile
 
@@ -337,26 +363,21 @@ def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
   service account is present.
 
   """
-  container_creds = "{}/credentials.json".format(docker_credentials_dir)
-  ret = """
-COPY --chown={user_id}:{user_group} {credentials_path} {container_creds}
+  container_creds = f"{docker_credentials_dir}/credentials.json"
+  ret = f"""
+{copy_command(user_id, user_group, credentials_path, container_creds)}
 
 # Use the credentials file to activate gcloud, gsutil inside the container.
 RUN gcloud auth activate-service-account --key-file={container_creds} && \
   git config --global credential.'https://source.developers.google.com'.helper gcloud.sh
 
 ENV GOOGLE_APPLICATION_CREDENTIALS={container_creds}
-""".format_map({
-      "user_id": user_id,
-      "user_group": user_group,
-      "credentials_path": credentials_path,
-      "container_creds": container_creds
-  })
+"""
 
   if write_adc_placeholder:
-    ret += """
-RUN echo "placeholder" >> {}
-""".format(adc_location(container_home()))
+    ret += f"""
+RUN echo "placeholder" >> {adc_location(container_home())}
+"""
 
   return ret
 
@@ -367,14 +388,8 @@ def _adc_entry(user_id: int, user_group: int, adc_path: str):
   directory.
 
   """
-  return """
-COPY --chown={user_id}:{user_group} {adc_path} {adc_loc}
-    """.format_map({
-      "user_id": user_id,
-      "user_group": user_group,
-      "adc_path": adc_path,
-      "adc_loc": adc_location(container_home())
-  })
+  return copy_command(user_id, user_group, adc_path,
+                      adc_location(container_home()))
 
 
 def _credentials_entries(user_id: int,
@@ -471,50 +486,57 @@ def _copy_dir_entry(workdir: str, user_id: int, user_group: int,
   from the current directory into a docker container during build.
 
   """
-  owner = "{}:{}".format(user_id, user_group)
-  return """# Copy {dirname} into the Docker container.
-COPY --chown={owner} {dirname} {workdir}/{dirname}
-""".format_map({
-      "owner": owner,
-      "workdir": workdir,
-      "dirname": dirname
-  })
+  return copy_command(user_id,
+                      user_group,
+                      dirname,
+                      f"{workdir}/{dirname}",
+                      comment=f"Copy {dirname} into the Docker container.")
 
 
-def _extra_dir_entries(workdir: str, user_id: int, user_group: int,
-                       extra_dirs: List[str]) -> str:
+def _extra_dir_entries(workdir: str,
+                       user_id: int,
+                       user_group: int,
+                       extra_dirs: Optional[List[str]] = None) -> str:
   """Returns the Dockerfile entries necessary to copy all directories in the
   extra_dirs list into a docker container during build.
 
   """
-  ret = ""
-  for d in extra_dirs:
-    ret += "\n{}".format(_copy_dir_entry(workdir, user_id, user_group, d))
-  return ret
+  if extra_dirs is None:
+    return ""
+
+  def copy(d):
+    return _copy_dir_entry(workdir, user_id, user_group, d)
+
+  return "\n\n".join(map(copy, extra_dirs)) + "\n"
 
 
-def _resource_entries(
-    workdir: str,
-    uid: int,
-    gid: int,
-    resource_files: Optional[List[str]] = [],
-) -> str:
-  '''returns Dockerfile entries necessary to copy caliban resource files into
-  container
+def _resource_entries(uid: int,
+                      gid: int,
+                      resource_files: Optional[List[str]] = None,
+                      resource_dir: str = RESOURCE_DIR) -> str:
+  """Returns Dockerfile entries necessary to copy miscellaneous resource files
+  into container. Usually these files are staged in the working directory, so
+  that Docker's build context can access them.
 
   Args:
-  workdir: destination for resource files
   uid: user id in container for files
   gid: user group id in container for files
   resource_files: list of files to copy
-  '''
-  dockerfile = ''
-  for x in resource_files:
-    dockerfile += f'''
-COPY --chown={uid}:{gid} {x} {workdir}
-'''
+  resource_dir: destination for resource files
 
-  return dockerfile
+
+  Returns:
+  a string to append to a Dockerfile containing COPY commands that will copy
+  those resources into a built container.
+
+  """
+  if resource_files is None:
+    return ""
+
+  def copy(path):
+    return copy_command(uid, gid, path, resource_dir)
+
+  return "\n\n".join(map(copy, resource_files)) + "\n"
 
 
 def _dockerfile_template(
@@ -530,8 +552,8 @@ def _dockerfile_template(
     inject_notebook: NotebookInstall = NotebookInstall.none,
     shell: Optional[Shell] = None,
     extra_dirs: Optional[List[str]] = None,
-    caliban_config: Optional[Dict[str, Any]] = None,
-    resource_files: Optional[List[str]] = []) -> str:
+    resource_files: Optional[List[str]] = None,
+    caliban_config: Optional[Dict[str, Any]] = None) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
 
@@ -560,8 +582,9 @@ def _dockerfile_template(
     workdir = DEFAULT_WORKDIR
 
   base_image = c.base_image(caliban_config, job_mode) or base_image_id(job_mode)
+  c_home = container_home()
 
-  dockerfile = """
+  dockerfile = f"""
 FROM {base_image}
 
 # Create the same group we're using on the host machine.
@@ -573,28 +596,18 @@ RUN useradd --no-log-init --no-create-home -u {uid} -g {gid} --shell /bin/bash {
 
 # The directory is created by root. This sets permissions so that any user can
 # access the folder.
-RUN mkdir -m 777 {workdir} {creds_dir} {c_home}
+RUN mkdir -m 777 {workdir} {CREDS_DIR} {RESOURCE_DIR} {c_home}
 
 ENV HOME={c_home}
 
 WORKDIR {workdir}
 
 USER {uid}:{gid}
-""".format_map({
-      "base_image": base_image,
-      "username": username,
-      "uid": uid,
-      "gid": gid,
-      "workdir": workdir,
-      "c_home": container_home(),
-      "creds_dir": CREDS_DIR,
-  })
+"""
   dockerfile += _credentials_entries(uid,
                                      gid,
                                      adc_path=adc_path,
                                      credentials_path=credentials_path)
-
-  dockerfile += _resource_entries(workdir, uid, gid, resource_files)
 
   dockerfile += _dependency_entries(workdir,
                                     uid,
@@ -607,14 +620,15 @@ USER {uid}:{gid}
     install_lab = inject_notebook == NotebookInstall.lab
     dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
-  if extra_dirs is not None:
-    dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
+  dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
 
   dockerfile += _custom_packages(uid,
                                  gid,
                                  packages=c.apt_packages(
                                      caliban_config, job_mode),
                                  shell=shell)
+
+  dockerfile += _resource_entries(uid, gid, resource_files)
 
   if package is not None:
     # The actual entrypoint and final copied code.
@@ -649,31 +663,27 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
+  # Paths for resource files.
+  sql_proxy_path = um.cloud_sql_proxy_path()
   wrapper_path = _wrapper_script_path()
-  sql_proxy_path = _cloud_sql_proxy_wrapper_path()
 
-  temp_files = [
-      (credentials_path, CALIBAN_DEFAULT_CREDS),
-      (adc_path, CALIBAN_ADC_CREDS),
-      (wrapper_path, WRAPPER_SCRIPT),
-      (sql_proxy_path, CLOUD_SQL_WRAPPER_SCRIPT),
-  ]
-  temp_files = [ufs.TempCopy.SrcDst(src, dst) for src, dst in temp_files]
+  with ufs.TempCopy({
+      credentials_path: ".caliban_default_creds.json",
+      adc_path: ".caliban_adc_creds.json",
+      sql_proxy_path: um.CLOUD_SQL_WRAPPER_SCRIPT,
+      wrapper_path: WRAPPER_SCRIPT,
+  }) as creds:
 
-  with ufs.TempCopy(files=temp_files) as tmpfiles:
     cache_args = ["--no-cache"] if no_cache else []
     cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
     dockerfile = _dockerfile_template(
         job_mode,
-        credentials_path=tmpfiles.get(credentials_path),
-        adc_path=tmpfiles.get(adc_path),
-        resource_files=[
-            tmpfiles.get(wrapper_path),
-            tmpfiles.get(sql_proxy_path)
-        ],
-        **kwargs,
-    )
+        credentials_path=creds.get(credentials_path),
+        adc_path=creds.get(adc_path),
+        resource_files=[creds.get(sql_proxy_path),
+                        creds.get(wrapper_path)],
+        **kwargs)
 
     joined_cmd = " ".join(cmd)
     logging.info("Running command: {}".format(joined_cmd))
@@ -730,10 +740,18 @@ def mlflow_args(
   socket_path = '/tmp/cloudsql'
   proxy_path = os.path.join(workdir, 'cloud_sql_proxy')
 
+  config = json.dumps({
+      'proxy': proxy_path,
+      'path': socket_path,
+      'project': project,
+      'region': region,
+      'db': db,
+      'creds': '~/.config/gcloud/application_default_credentials.json',
+  })
+
   cmd = [
-      'python', CLOUD_SQL_WRAPPER_SCRIPT, '--path', socket_path, '--proxy',
-      proxy_path, '--project', project, '--region', region, '--db', db,
-      '--creds', '~/.config/gcloud/application_default_credentials.json'
+      'python',
+      os.path.join(RESOURCE_DIR, um.CLOUD_SQL_WRAPPER_SCRIPT), config
   ]
 
   uri = (f'postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={socket_path}/'
