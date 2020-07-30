@@ -15,6 +15,9 @@
 # limitations under the License.
 
 import itertools
+import json
+import os
+import uuid
 from collections import OrderedDict
 from enum import Enum
 from typing import Union
@@ -41,6 +44,28 @@ def test_enum_vals(ks, vs):
 
   # enum_vals returns the values from the enum.
   assert list(m.values()) == u.enum_vals(enum)
+
+
+def test_resource_path():
+  resource_dir = u.resource("")
+  test_path = f"{uuid.uuid1()}.json"
+  full_path = os.path.join(resource_dir, test_path)
+
+  # Before writing any data, we get None back.
+  assert u.resource(test_path) is None
+
+  # Now write some data...
+  resource_data = {"apt_packages": ["face"]}
+  with open(full_path, 'w') as f:
+    json.dump(resource_data, f)
+
+  # now we see the full path.
+  assert u.resource(test_path) == full_path
+
+  os.remove(full_path)
+
+  # Just for fun, check that we've deleted it.
+  assert u.resource(test_path) is None
 
 
 def test_any_of_unit():
