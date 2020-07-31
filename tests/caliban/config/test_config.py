@@ -125,7 +125,7 @@ def test_extract_cloud_key(monkeypatch):
     monkeypatch.delenv(k)
 
   # initial missing case.
-  assert c.extract_cloud_key({}) == None
+  assert c.extract_cloud_key({}) is None
 
   monkeypatch.setenv(k, "key.json")
 
@@ -157,8 +157,8 @@ def test_base_image():
 
   # Same trick works even nested in dicts. If the image is NOT a specially
   # keyed DLVM, it's untouched.
-  # assert c.base_image(conf, c.JobMode.CPU) == c.DLVM_CONFIG["dlvm:tf2-cpu-2.1"]
-  # assert c.base_image(conf, c.JobMode.GPU) == "random:latest"
+  assert c.base_image(conf, c.JobMode.CPU) == c.DLVM_CONFIG["dlvm:tf2-cpu-2.1"]
+  assert c.base_image(conf, c.JobMode.GPU) == "random:latest"
 
 
 def test_caliban_config(tmpdir):

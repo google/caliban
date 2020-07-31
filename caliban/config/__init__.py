@@ -107,19 +107,21 @@ def expand_image(image: str) -> str:
 
 
 AptPackages = s.Or(
-    [str], {
-        s.Optional("gpu", default=list): [str],
-        s.Optional("cpu", default=list): [str]
-    },
+    s.Schema([str]),
+    s.Schema({
+        s.Optional("gpu", default=list): s.Schema([str]),
+        s.Optional("cpu", default=list): s.Schema([str])
+    }),
     error=""""apt_packages" entry must be a dictionary or list, not '{}'""")
 
 Image = s.And(str, s.Use(expand_image))
 
 BaseImage = s.Or(
-    Image, {
+    Image,
+    s.Schema({
         s.Optional("gpu", default=None): Image,
         s.Optional("cpu", default=None): Image
-    },
+    }),
     error=
     """"base_image" entry must be a string OR dict with 'cpu' and 'gpu' keys, not '{}'"""
 )
