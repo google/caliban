@@ -1,3 +1,7 @@
+# 0.unreleased
+
+- Upgraded the Schema dependency to 0.7.3.
+
 # 0.3.0
 
 - @ramasesh Added a fix that prevented `pip` git dependencies from working in

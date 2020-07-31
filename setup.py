@@ -40,7 +40,7 @@ def readme():
 REQUIRED_PACKAGES = [
     'absl-py',
     'blessings',
-    'commentjson',
+    'commentjson==0.8.3',
     'google-api-python-client',
     'pyyaml',
     'tqdm>=4.45.0',
@@ -49,13 +49,9 @@ REQUIRED_PACKAGES = [
     'google-cloud-core>=1.0.3',
     'google-cloud-container>=0.3.0',
     'psycopg2-binary==2.8.5',
-    'schema==0.7.2',
+    'schema==0.7.3',
     'urllib3>=1.25.7',
     'yaspin>=0.16.0',
-    # This is not a real dependency of ours, but we need it to override the
-    # dep that commentjson brings in. Delete once this is merged:
-    # https://github.com/vaidik/commentjson/pull/33/files
-    'lark-parser>=0.7.1,<0.8.0',
     'SQLAlchemy>=1.3.11',
 ]
 
