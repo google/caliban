@@ -39,7 +39,6 @@ import sys
 logging.basicConfig(level=logging.INFO)
 
 
-# ----------------------------------------------------------------------------
 def _parser():
   parser = argparse.ArgumentParser(
       description='cloud_sql_proxy wrapper that allows JSON configuration.',
@@ -50,12 +49,10 @@ def _parser():
   return parser
 
 
-# ----------------------------------------------------------------------------
 def _parse_flags(argv):
   return _parser().parse_args(argv[1:])
 
 
-# ----------------------------------------------------------------------------
 def main(proxy="", path="", project="", region="", db="", creds=None):
   cmd = [
       proxy,
@@ -76,7 +73,6 @@ def main(proxy="", path="", project="", region="", db="", creds=None):
   subprocess.check_call(cmd, env=env)
 
 
-# ----------------------------------------------------------------------------
 if __name__ == '__main__':
   m = _parse_flags(sys.argv)
   main(**m.config)

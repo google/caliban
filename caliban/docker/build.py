@@ -47,7 +47,6 @@ DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
 RESOURCE_DIR = "/.resources"
 CONDA_BIN = "/opt/conda/bin/conda"
-WRAPPER_SCRIPT = 'caliban_wrapper.py'
 
 ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
@@ -280,10 +279,6 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
   return ret
 
 
-def _wrapper_script_path() -> str:
-  return resource_filename('caliban.resources', WRAPPER_SCRIPT)
-
-
 def _cloud_sql_proxy_entry() -> str:
   '''returns docker entry to fetch cloud_sql_proxy'''
   return (
@@ -330,7 +325,7 @@ def _package_entries(
 
   wrapper_cmd = json.dumps([
       'python',
-      os.path.join(RESOURCE_DIR, WRAPPER_SCRIPT), '--caliban_command',
+      os.path.join(RESOURCE_DIR, um.WRAPPER_SCRIPT), '--caliban_command',
       executable_s
   ])
 
@@ -665,13 +660,13 @@ def build_image(job_mode: c.JobMode,
   """
   # Paths for resource files.
   sql_proxy_path = um.cloud_sql_proxy_path()
-  wrapper_path = _wrapper_script_path()
+  wrapper_path = um.wrapper_script_path()
 
   with ufs.TempCopy({
       credentials_path: ".caliban_default_creds.json",
       adc_path: ".caliban_adc_creds.json",
       sql_proxy_path: um.CLOUD_SQL_WRAPPER_SCRIPT,
-      wrapper_path: WRAPPER_SCRIPT,
+      wrapper_path: um.WRAPPER_SCRIPT,
   }) as creds:
 
     cache_args = ["--no-cache"] if no_cache else []
@@ -699,73 +694,3 @@ def build_image(job_mode: c.JobMode,
     except subprocess.CalledProcessError as e:
       logging.error(e.output)
       logging.error(e.stderr)
-
-
-# ----------------------------------------------------------------------------
-def _mlflow_job_name(index: int, user: str = None) -> str:
-  '''returns mlflow job name for local caliban job'''
-  user = user or u.current_user()
-  timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-  return f'{user}-{timestamp}-{index}'
-
-
-# ----------------------------------------------------------------------------
-def mlflow_args(
-    experiment: ht.Experiment,
-    caliban_config: Dict[str, Any],
-    index: int,
-    workdir: str = DEFAULT_WORKDIR,
-) -> List[str]:
-  '''returns mlflow args for caliban wrapper
-  experiment: experiment
-  command: docker command to execute
-  caliban_config: caliban config dictionary
-  workdir: working dir in container
-  index: job index
-
-  Returns:
-  mlflow args
-  '''
-
-  mlflow_cfg = caliban_config.get('mlflow_config', None)
-  if mlflow_cfg is None:
-    return []
-
-  user = mlflow_cfg['user']
-  pw = mlflow_cfg['password']
-  db = mlflow_cfg['db']
-  project = mlflow_cfg['project']
-  region = mlflow_cfg['region']
-
-  socket_path = '/tmp/cloudsql'
-  proxy_path = os.path.join(workdir, 'cloud_sql_proxy')
-
-  config = json.dumps({
-      'proxy': proxy_path,
-      'path': socket_path,
-      'project': project,
-      'region': region,
-      'db': db,
-      'creds': '~/.config/gcloud/application_default_credentials.json',
-  })
-
-  cmd = [
-      'python',
-      os.path.join(RESOURCE_DIR, um.CLOUD_SQL_WRAPPER_SCRIPT), config
-  ]
-
-  uri = (f'postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={socket_path}/'
-         f'{project}:{region}:{db}/.s.PGSQL.5432')
-
-  args = [
-      '--caliban_service',
-      json.dumps(cmd),
-      '--caliban_env',
-      f'MLFLOW_TRACKING_URI={uri}',
-      '--caliban_env',
-      f'CALIBAN_EXPERIMENT_NAME={experiment.xgroup.name}',
-      '--caliban_env',
-      f'CALIBAN_RUN_NAME={_mlflow_job_name(index=index)}',
-  ]
-
-  return args

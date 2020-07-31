@@ -575,7 +575,7 @@ def submit_ml_job(
     script_args: Optional[List[str]] = None,
     request_retries: Optional[int] = None,
     xgroup: Optional[str] = None,
-    env: Optional[Dict[str, str]] = {},
+    env: Optional[Dict[str, str]] = None,
 ) -> None:
   """Top level function in the module. This function:
 
@@ -645,6 +645,9 @@ def submit_ml_job(
 
   if request_retries is None:
     request_retries = 10
+
+  if env is None:
+    env = {}
 
   caliban_config = docker_args.get('caliban_config', {})
 

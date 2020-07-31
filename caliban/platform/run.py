@@ -38,6 +38,7 @@ import caliban.config.experiment as ce
 import caliban.docker.build as b
 import caliban.util as u
 import caliban.util.fs as ufs
+import caliban.util.metrics as um
 import caliban.util.tqdm as ut
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 from caliban.history.util import (create_experiments, generate_container_spec,
@@ -154,7 +155,7 @@ def _create_job_spec_dict(
 
   wrapper_args = [f'--caliban_env="{k}={v}"' for k, v in env.items()]
 
-  wrapper_args += b.mlflow_args(
+  wrapper_args += um.mlflow_args(
       experiment=experiment,
       caliban_config=caliban_config,
       index=index,
@@ -172,7 +173,7 @@ def _create_job_spec_dict(
 def execute_jobs(
     job_specs: Iterable[JobSpec],
     dry_run: bool = False,
-    caliban_config: Optional[Dict[str, Any]] = {},
+    caliban_config: Optional[Dict[str, Any]] = None,
 ):
   '''executes a sequence of jobs based on job specs
 
@@ -181,6 +182,7 @@ def execute_jobs(
   dry_run: if True, only print what would be done
   caliban_config: caliban configuration data
   '''
+  caliban_config = caliban_config or {}
 
   with ut.tqdm_logging() as orig_stream:
     pbar = tqdm.tqdm(logged_job_specs(job_specs),

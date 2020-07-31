@@ -13,7 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-'''caliban wrapper utility'''
+'''This utility sets environment variables and runs service jobs in the
+container before executing the primary entrypoint.
+'''
 
 import argparse
 import copy
@@ -27,7 +29,6 @@ import time
 logging.basicConfig(level=logging.INFO)
 
 
-# ----------------------------------------------------------------------------
 def _parse_kv_pair(s):
   """
     Parse a key, value pair, separated by '='
@@ -49,7 +50,6 @@ def _parse_kv_pair(s):
   return (k, v)
 
 
-# ----------------------------------------------------------------------------
 def _parse_json(argname, json_string, expected_type):
   """parses a json string, validating the return type"""
 
@@ -63,7 +63,6 @@ def _parse_json(argname, json_string, expected_type):
   return obj
 
 
-# ----------------------------------------------------------------------------
 def _parser():
   '''generates argument parser'''
 
@@ -103,12 +102,10 @@ def _parser():
   return parser
 
 
-# ----------------------------------------------------------------------------
 def _parse_flags(argv):
   return _parser().parse_known_args(argv[1:])
 
 
-# ----------------------------------------------------------------------------
 def _start_services(services, env, delay):
   '''runs the commands in the services list, returns a list of Popen instances
   sets the environment variables in <env>, and delays by <delay> between
@@ -123,7 +120,6 @@ def _start_services(services, env, delay):
   return procs
 
 
-# ----------------------------------------------------------------------------
 def _execute_command(cmd, args, env):
   '''executes the given command with the provided args and env vars
   this blocks until the given command completes
@@ -134,7 +130,6 @@ def _execute_command(cmd, args, env):
   subprocess.check_call(cmd, env=env)
 
 
-# ----------------------------------------------------------------------------
 def main(args, passthrough_args):
 
   env = copy.copy(dict(os.environ))
@@ -158,6 +153,5 @@ def main(args, passthrough_args):
   _execute_command(cmd, passthrough_args, env)
 
 
-# ----------------------------------------------------------------------------
 if __name__ == '__main__':
   main(*_parse_flags(sys.argv))
