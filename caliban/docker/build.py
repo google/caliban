@@ -349,7 +349,7 @@ def _adc_entry(user_id: int, user_group: int, adc_path: str):
 
   """
   return copy_command(user_id, user_group, adc_path,
-                      adc_location(container_home()))
+                      adc_location(container_home())) + "\n"
 
 
 def _credentials_entries(user_id: int,
