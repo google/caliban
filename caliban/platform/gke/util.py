@@ -378,13 +378,19 @@ def resource_limits_from_quotas(
 
   for q in quotas:
     metric = q['metric']
-    limit = q['limit']
+    limit = int(q['limit'])
+
+    # the api can return a limit of 0, but specifying a limit of zero
+    # causes an error when configuring the cluster, so we skip any
+    # resources with no quota
+    if limit < 1:
+      continue
 
     if metric == 'CPUS':
       limits.append({'resourceType': 'cpu', 'maximum': str(limit)})
       limits.append({
           'resourceType': 'memory',
-          'maximum': str(int(limit) * k.MAX_GB_PER_CPU)
+          'maximum': str(limit * k.MAX_GB_PER_CPU)
       })
       continue
 
