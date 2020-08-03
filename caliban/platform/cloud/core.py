@@ -18,6 +18,7 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
+import traceback
 from copy import deepcopy
 from pprint import pformat
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -37,6 +38,7 @@ import caliban.platform.cloud.types as ct
 import caliban.platform.cloud.util as cu
 import caliban.util as u
 import caliban.util.auth as ua
+import caliban.util.metrics as um
 import caliban.util.tqdm as ut
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
@@ -433,7 +435,7 @@ def _job_specs(
   for idx, m in enumerate(experiments, 1):
     wrapper_args = [f'--caliban_env="{k}={v}"' for k, v in env.items()]
 
-    wrapper_args += db.mlflow_args(
+    wrapper_args += um.mlflow_args(
         experiment=m,
         caliban_config=caliban_config,
         index=idx,
@@ -693,6 +695,7 @@ def submit_ml_job(
       )
     except Exception as e:
       logging.error(f'exception: {e}')
+      logging.error(f'{traceback.format_exc()}')
       session.commit()  # commit here, otherwise will be rolled back
 
     logging.info("")

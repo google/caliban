@@ -415,7 +415,7 @@ def _credentials_entries(user_id: int,
                                   write_adc_placeholder=adc_path is None)
 
   if adc_path is not None:
-    ret += _adc_entry(user_id, user_group, adc_path)
+    ret += _adc_entry(user_id, user_group, adc_path) + '\n'
 
   return ret
 
