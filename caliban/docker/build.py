@@ -119,7 +119,7 @@ def copy_command(user_id: int,
   recommend using an absolute path!
 
   """
-  cmd = f"COPY --chown={user_id}:{user_group} {from_path} {to_path}"
+  cmd = f"COPY --chown={user_id}:{user_group} {from_path} {to_path}\n"
 
   if comment is not None:
     comment_s = "\n# ".join(comment.split("\n"))
