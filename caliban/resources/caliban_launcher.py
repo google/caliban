@@ -49,8 +49,6 @@ def _parse_json(argname, json_string, expected_type):
 
 
 def _parser():
-  '''generates argument parser'''
-
   parser = argparse.ArgumentParser(
       description='caliban wrapper for container.',
       prog='caliban_launcher',

@@ -33,6 +33,11 @@ WRAPPER_SCRIPT = 'caliban_launcher.py'
 RESOURCE_DIR = "/.resources"
 WRAPPER_CONFIG_FILE = 'caliban_wrapper_cfg.json'
 WRAPPER_CONFIG_PATH = os.path.join(RESOURCE_DIR, WRAPPER_CONFIG_FILE)
+GPU_ENABLED_TAG = 'gpu_enabled'
+TPU_ENABLED_TAG = 'tpu_enabled'
+JOB_NAME_TAG = 'job_name'
+DOCKER_IMAGE_TAG = 'docker_image'
+PLATFORM_TAG = 'platform'
 
 
 def cloud_sql_proxy_path() -> str:
@@ -137,21 +142,20 @@ def mlflow_args(
     experiment: ht.Experiment,
     caliban_config: Dict[str, Any],
     index: int,
+    tags: Dict[str, Any],
 ) -> List[str]:
   '''returns mlflow args for caliban wrapper
   experiment: experiment
   caliban_config: caliban config dictionary
   index: job index
+  tags: dictionary of tags to pass to mlflow
 
   Returns:
   mlflow args
   '''
 
-  launcher_config = json.dumps({
-      'env': {
-          'MLFLOW_EXPERIMENT_NAME': experiment.xgroup.name,
-          'MLFLOW_RUN_NAME': _mlflow_job_name(index=index)
-      }
-  })
+  env = {f'ENVVAR_{k}': v for k, v in tags.items()}
+  env['MLFLOW_EXPERIMENT_NAME'] = experiment.xgroup.name
+  env['MLFLOW_RUN_NAME'] = _mlflow_job_name(index=index)
 
-  return ['--caliban_config', launcher_config]
+  return ['--caliban_config', json.dumps({'env': env})]

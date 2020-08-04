@@ -13,6 +13,7 @@ import fs
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import tqdm
+import uv
 import uv.reporter as r
 import uv.tensorflow.reporter as rft
 import uv.util as u
@@ -420,17 +421,17 @@ def model_main(activation='relu', width=1000, depth=2, lr=0.5, **kwargs):
   model = build_model(activation, width, depth)
   optimizer = tf.optimizers.SGD(lr)
 
-  with r.start_run():
-    r.log_params({
-        **kwargs,
-        **{
-            "depth": depth,
-            "width": width,
-            "lr": lr,
-            "activation": activation
-        }
-    })
-    train_and_log(model, optimizer, **kwargs)
+  uv.start_run()
+  uv.report_params({
+      **kwargs,
+      **{
+          "depth": depth,
+          "width": width,
+          "lr": lr,
+          "activation": activation
+      }
+  })
+  train_and_log(model, optimizer, **kwargs)
 
 
 def run_app(args):

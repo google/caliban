@@ -156,6 +156,12 @@ def _create_job_spec_dict(
       experiment=experiment,
       caliban_config=caliban_config,
       index=index,
+      tags={
+          um.GPU_ENABLED_TAG: str(job_mode == c.JobMode.GPU).lower(),
+          um.TPU_ENABLED_TAG: 'false',
+          um.DOCKER_IMAGE_TAG: image_id,
+          um.PLATFORM_TAG: Platform.LOCAL.value,
+      },
   )
 
   cmd_args = ce.experiment_to_args(experiment.kwargs, experiment.args)

@@ -437,6 +437,11 @@ def _job_specs(
         experiment=m,
         caliban_config=caliban_config,
         index=idx,
+        tags={
+            um.DOCKER_IMAGE_TAG: image_id,
+            um.PLATFORM_TAG: Platform.CAIP.value,
+            **cu.sanitize_labels(labels),
+        },
     )
 
     cmd_args = ce.experiment_to_args(m.kwargs, m.args)
@@ -488,6 +493,7 @@ def build_job_specs(
       "gpu_enabled": str(gpu_enabled).lower(),
       "tpu_enabled": str(tpu_enabled).lower(),
       "job_name": job_name,
+      "docker_image": image_tag,
       **user_labels
   }
 
