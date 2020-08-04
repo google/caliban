@@ -1,6 +1,2 @@
 uv-metrics
-tensorflow-cpu
-matplotlib
-tensorflow_datasets
 pg8000==1.16.1
-google-cloud-storage
