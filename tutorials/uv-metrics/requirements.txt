@@ -1,2 +1,0 @@
-# Get it done
-git+https://github.com/google/uv-metrics.git@sritchie/mlflow#egg=uv-metrics

@@ -25,6 +25,7 @@ REQUIRED_PACKAGES = [
     "sqlalchemy==1.3.13",
     'tensorflow-cpu',
     'tensorflow_datasets',
+    'uv-metrics',
 ]
 
 setup(
