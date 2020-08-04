@@ -57,6 +57,7 @@ REQUIRED_PACKAGES = [
     # https://github.com/vaidik/commentjson/pull/33/files
     'lark-parser>=0.7.1,<0.8.0',
     'SQLAlchemy==1.3.11',
+    'pg8000==1.16.1',
 ]
 
 setup(name='caliban',
