@@ -279,11 +279,62 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
   return ret
 
 
-def _cloud_sql_proxy_entry() -> str:
-  '''returns docker entry to fetch cloud_sql_proxy'''
-  return (
+def _cloud_sql_proxy_entry(user_id: int, user_group: int) -> str:
+  '''returns dockerfile entry to fetch cloud_sql_proxy, installing in /usr/bin'''
+
+  cmd = (
       'RUN wget -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 '
-      '-O cloud_sql_proxy && chmod 755 cloud_sql_proxy')
+      '-O /usr/bin/cloud_sql_proxy && '
+      'chmod 755 /usr/bin/cloud_sql_proxy')
+
+  return f'''
+USER root
+
+{cmd}
+
+USER {user_id}:{user_group}
+'''
+
+
+def _generate_entrypoint(
+    executable: str,
+    user_id: int,
+    user_group: int,
+    caliban_config: Optional[Dict[str, Any]] = None,
+) -> str:
+  '''generates dockerfile entry to set the container entrypoint, along with
+    any additional necessary entries, such as for services like cloud_sql_proxy
+
+  Args:
+  executable: string of main executable
+  caliban_config: dictionary of caliban configuration options
+  user_id: id of non-root user
+  user_group: id of non-root group for user
+
+  Returns:
+  string with Dockerfile directives to set ENTRYPOINT
+  '''
+
+  caliban_config = caliban_config or {}
+
+  mlflow_cfg = caliban_config.get('mlflow_config')
+  if mlflow_cfg is not None:
+    cloud_sql_proxy_code = _cloud_sql_proxy_entry(user_id=user_id,
+                                                  user_group=user_group)
+  else:
+    cloud_sql_proxy_code = ''
+
+  wrapper_cmd = json.dumps([
+      'python',
+      os.path.join(RESOURCE_DIR, um.WRAPPER_SCRIPT), '--caliban_command',
+      executable
+  ])
+
+  return f'''
+{cloud_sql_proxy_code}
+
+ENTRYPOINT {wrapper_cmd}
+'''
 
 
 def _package_entries(
@@ -307,9 +358,6 @@ def _package_entries(
   arg = package.main_module or package.script_path
   package_path = package.package_path
 
-  # This needs to use json so that quotes print as double quotes, not single
-  # quotes.
-  executable_s = json.dumps(package.executable + [arg])
   copy_code = copy_command(
       user_id,
       user_group,
@@ -317,28 +365,22 @@ def _package_entries(
       f"{workdir}/{package_path}",
       comment="Copy project code into the docker container.")
 
-  mlflow_cfg = caliban_config.get('mlflow_config')
-  if mlflow_cfg is not None:
-    cloud_sql_proxy_code = _cloud_sql_proxy_entry()
-  else:
-    cloud_sql_proxy_code = ''
+  # This needs to use json so that quotes print as double quotes, not single
+  # quotes.
+  executable_s = json.dumps(package.executable + [arg])
 
-  wrapper_cmd = json.dumps([
-      'python',
-      os.path.join(RESOURCE_DIR, um.WRAPPER_SCRIPT), '--caliban_command',
-      executable_s
-  ])
+  entrypoint_code = _generate_entrypoint(
+      executable=executable_s,
+      user_id=user_id,
+      user_group=user_group,
+      caliban_config=caliban_config,
+  )
 
-  dockerfile = f'''
-{copy_code}
+  return f'''
+  {copy_code}
 
-{cloud_sql_proxy_code}
-
-# Declare an entrypoint that actually runs the container.
-ENTRYPOINT {wrapper_cmd}
+  {entrypoint_code}
 '''
-
-  return dockerfile
 
 
 def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
@@ -415,7 +457,7 @@ def _credentials_entries(user_id: int,
                                   write_adc_placeholder=adc_path is None)
 
   if adc_path is not None:
-    ret += _adc_entry(user_id, user_group, adc_path) + '\n'
+    ret += _adc_entry(user_id, user_group, adc_path)
 
   return ret
 
@@ -658,10 +700,13 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
+  caliban_config = kwargs.get('caliban_config', {})
+
   # Paths for resource files.
   sql_proxy_path = um.cloud_sql_proxy_path()
   wrapper_path = um.wrapper_script_path()
 
+  # --------------------------------------------------------------------------
   with ufs.TempCopy({
       credentials_path: ".caliban_default_creds.json",
       adc_path: ".caliban_adc_creds.json",
@@ -669,28 +714,35 @@ def build_image(job_mode: c.JobMode,
       wrapper_path: um.WRAPPER_SCRIPT,
   }) as creds:
 
-    cache_args = ["--no-cache"] if no_cache else []
-    cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
+    # generate our wrapper configuration file
+    with um.wrapper_config_file(
+        path='.', caliban_config=caliban_config) as wrapper_config:
 
-    dockerfile = _dockerfile_template(
-        job_mode,
-        credentials_path=creds.get(credentials_path),
-        adc_path=creds.get(adc_path),
-        resource_files=[creds.get(sql_proxy_path),
-                        creds.get(wrapper_path)],
-        **kwargs)
+      cache_args = ["--no-cache"] if no_cache else []
+      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
-    joined_cmd = " ".join(cmd)
-    logging.info("Running command: {}".format(joined_cmd))
+      dockerfile = _dockerfile_template(
+          job_mode,
+          credentials_path=creds.get(credentials_path),
+          adc_path=creds.get(adc_path),
+          resource_files=[
+              creds.get(sql_proxy_path),
+              creds.get(wrapper_path),
+              wrapper_config,
+          ],
+          **kwargs)
 
-    try:
-      output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
-      if ret_code == 0:
-        return docker_image_id(output)
-      else:
-        error_msg = "Docker failed with error code {}.".format(ret_code)
-        raise DockerError(error_msg, cmd, ret_code)
+      joined_cmd = " ".join(cmd)
+      logging.info("Running command: {}".format(joined_cmd))
 
-    except subprocess.CalledProcessError as e:
-      logging.error(e.output)
-      logging.error(e.stderr)
+      try:
+        output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
+        if ret_code == 0:
+          return docker_image_id(output)
+        else:
+          error_msg = "Docker failed with error code {}.".format(ret_code)
+          raise DockerError(error_msg, cmd, ret_code)
+
+      except subprocess.CalledProcessError as e:
+        logging.error(e.output)
+        logging.error(e.stderr)

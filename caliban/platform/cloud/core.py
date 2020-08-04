@@ -420,7 +420,6 @@ def _job_specs(
     training_input: Dict[str, Any],
     labels: Dict[str, str],
     experiments: Iterable[ht.Experiment],
-    env: Dict[str, str] = {},
     caliban_config: Dict[str, Any] = {},
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
@@ -433,7 +432,6 @@ def _job_specs(
 
   """
   for idx, m in enumerate(experiments, 1):
-    wrapper_args = [f'--caliban_env="{k}={v}"' for k, v in env.items()]
 
     wrapper_args += um.mlflow_args(
         experiment=m,
@@ -464,7 +462,6 @@ def build_job_specs(
     user_labels: Dict[str, str],
     gpu_spec: Optional[ct.GPUSpec],
     tpu_spec: Optional[ct.TPUSpec],
-    env: Dict[str, str] = {},
     caliban_config: Dict[str, Any] = {},
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
@@ -498,7 +495,6 @@ def build_job_specs(
                     training_input=training_input,
                     labels=base_labels,
                     experiments=experiments,
-                    env=env,
                     caliban_config=caliban_config)
 
 
@@ -577,7 +573,6 @@ def submit_ml_job(
     script_args: Optional[List[str]] = None,
     request_retries: Optional[int] = None,
     xgroup: Optional[str] = None,
-    env: Optional[Dict[str, str]] = None,
 ) -> None:
   """Top level function in the module. This function:
 
@@ -625,7 +620,6 @@ def submit_ml_job(
     a timeout or a rate limiting request.
   - xgroup: experiment group for this submission, if None a new group will
     be created
-  - env: environment variables to be set in container
   """
   if script_args is None:
     script_args = []
@@ -647,9 +641,6 @@ def submit_ml_job(
 
   if request_retries is None:
     request_retries = 10
-
-  if env is None:
-    env = {}
 
   caliban_config = docker_args.get('caliban_config', {})
 
@@ -678,7 +669,6 @@ def submit_ml_job(
         user_labels=labels,
         gpu_spec=gpu_spec,
         tpu_spec=tpu_spec,
-        env=env,
         caliban_config=caliban_config,
     )
 

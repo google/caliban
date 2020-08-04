@@ -13,8 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-'''This utility sets environment variables and runs service jobs in the
-container before executing the primary entrypoint.
+'''This utility wraps the caliban user's entrypoint in order to configure
+additional service processes and environment variables for each caliban
+job.
 '''
 
 import argparse
@@ -26,28 +27,11 @@ import subprocess
 import sys
 import time
 
+RESOURCE_DIR = "/.resources"
+WRAPPER_CONFIG_FILE = 'caliban_wrapper_cfg.json'
+WRAPPER_CONFIG_PATH = os.path.join(RESOURCE_DIR, WRAPPER_CONFIG_FILE)
+
 logging.basicConfig(level=logging.INFO)
-
-
-def _parse_kv_pair(s):
-  """
-    Parse a key, value pair, separated by '='
-
-    On the command line (argparse) a declaration will typically look like:
-        foo=hello
-    or
-        foo="hello world"
-
-  Returns: (key,value) tuple"""
-  items = s.split('=')
-  k = items[0].strip()  # Remove whitespace around keys
-
-  if len(items) <= 1:
-    raise argparse.ArgumentTypeError(
-        "Couldn't parse label '{}' into k=v format.".format(s))
-
-  v = '='.join(items[1:])
-  return (k, v)
 
 
 def _parse_json(argname, json_string, expected_type):
@@ -56,9 +40,10 @@ def _parse_json(argname, json_string, expected_type):
   try:
     obj = json.loads(json_string)
     assert isinstance(obj, expected_type)
-  except Exception as e:
+  except Exception:
     raise argparse.ArgumentTypeError(
-        '%s must be a json %s' % (argname, expected_type.__name__),)
+        "%s must be a json %s. Got '%s'." %
+        (argname, expected_type.__name__, json_string))
 
   return obj
 
@@ -67,36 +52,21 @@ def _parser():
   '''generates argument parser'''
 
   parser = argparse.ArgumentParser(
-      description='caliban wrapper for container',
-      prog='caliban_wrapper',
+      description='caliban wrapper for container.',
+      prog='caliban_launcher',
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
   parser.add_argument(
-      '--caliban_env',
-      metavar="KEY=VALUE",
-      action='append',
-      type=_parse_kv_pair,
-      help='environment variables to set for container',
+      '--caliban_config',
+      type=lambda x: _parse_json('env', x, dict),
+      default={},
+      help='JSON config dictionary',
   )
 
   parser.add_argument(
       '--caliban_command',
       type=lambda x: _parse_json('command', x, list),
       help='main container command to execute, as json list',
-  )
-
-  parser.add_argument(
-      '--caliban_service',
-      type=lambda x: _parse_json('service', x, list),
-      action='append',
-      help=
-      'run the given command as a service prior to running the main entrypoint')
-
-  parser.add_argument(
-      '--caliban_delay',
-      type=int,
-      default=5,
-      help='delay in seconds between service executions',
   )
 
   return parser
@@ -106,7 +76,7 @@ def _parse_flags(argv):
   return _parser().parse_known_args(argv[1:])
 
 
-def _start_services(services, env, delay):
+def _start_services(services, env, delay=5):
   '''runs the commands in the services list, returns a list of Popen instances
   sets the environment variables in <env>, and delays by <delay> between
   commands
@@ -130,13 +100,49 @@ def _execute_command(cmd, args, env):
   subprocess.check_call(cmd, env=env)
 
 
+def _load_config_file():
+  '''loads the launcher configuration data from the config file
+  at ./resources/'caliban_wrapper_cfg.json as a dict
+  '''
+  if not os.path.exists(WRAPPER_CONFIG_PATH):
+    return {}
+
+  with open(WRAPPER_CONFIG_PATH) as f:
+    cfg = json.load(f)
+
+  return cfg
+
+
+# ----------------------------------------------------------------------------
+def _get_config(args):
+  '''gets the configuration dictionary for the launcher by combining the
+  static configuration in the launcher config file and the dynamic
+  configuration passed in the command args. Here the dynamic args take
+  precedence over static args where there is a collision.
+  '''
+
+  cfg = _load_config_file()
+  dynamic_config = args.caliban_config
+
+  for k, v in dynamic_config.items():
+    if k not in cfg:
+      cfg[k] = v
+    elif k == 'env':
+      cfg[k].update(v)
+    elif k == 'services':
+      cfg[k] += v
+
+  return cfg
+
+
 def main(args, passthrough_args):
 
+  config = _get_config(args)
+
   env = copy.copy(dict(os.environ))
-  caliban_env = dict(args.caliban_env or [])
+  caliban_env = config.get('env', {})
   cmd = args.caliban_command
-  services = args.caliban_service
-  delay = args.caliban_delay
+  services = config.get('services', [])
 
   logging.info('base env: %s' % str(env))
   logging.info('env vars: %s' % str(caliban_env))
@@ -146,12 +152,12 @@ def main(args, passthrough_args):
 
   env.update(caliban_env)
 
-  logging.info('dir:\n%s' % str(os.listdir()))
   logging.info('env:\n%s' % str(env))
 
-  _start_services(services, env, delay)
+  _start_services(services, env)
   _execute_command(cmd, passthrough_args, env)
 
 
+# ----------------------------------------------------------------------------
 if __name__ == '__main__':
   main(*_parse_flags(sys.argv))

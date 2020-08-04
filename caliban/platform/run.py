@@ -142,7 +142,6 @@ def _create_job_spec_dict(
     image_id: str,
     index: int,
     caliban_config: Dict[str, Any],
-    env: Dict[str, str] = {},
     run_args: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
   '''creates a job spec dictionary for a local job'''
@@ -153,9 +152,7 @@ def _create_job_spec_dict(
 
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
 
-  wrapper_args = [f'--caliban_env="{k}={v}"' for k, v in env.items()]
-
-  wrapper_args += um.mlflow_args(
+  wrapper_args = um.mlflow_args(
       experiment=experiment,
       caliban_config=caliban_config,
       index=index,
@@ -219,7 +216,6 @@ def run_experiments(job_mode: c.JobMode,
                     dry_run: bool = False,
                     experiment_config: Optional[ce.ExpConf] = None,
                     xgroup: Optional[str] = None,
-                    env: Optional[Dict[str, str]] = {},
                     **build_image_kwargs) -> None:
   """Builds an image using the supplied **build_image_kwargs and calls `docker
   run` on the resulting image using sensible defaults.
@@ -240,7 +236,6 @@ def run_experiments(job_mode: c.JobMode,
   - dry_run: if True, no actual jobs will be executed and docker won't
     actually build; logging side effects will show the user what will happen
     without dry_run=True.
-  - env: dictionary of environment variables to set in container
 
   any extra kwargs supplied are passed through to build_image.
   """
@@ -287,7 +282,6 @@ def run_experiments(job_mode: c.JobMode,
                 image_id=image_id,
                 index=i,
                 caliban_config=caliban_config,
-                env=env,
             ),
             platform=Platform.LOCAL,
         ) for i, x in enumerate(experiments)

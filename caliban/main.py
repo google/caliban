@@ -100,7 +100,6 @@ def run_app(arg_input):
     image_id = args.get("image_id")
     exp_config = args.get("experiment_config")
     xgroup = args.get('xgroup')
-    env = dict(args.get('env') or [])
 
     pr.run_experiments(job_mode,
                        run_args=docker_run_args,
@@ -110,7 +109,6 @@ def run_app(arg_input):
                        dry_run=dry_run,
                        package=package,
                        xgroup=xgroup,
-                       env=env,
                        **docker_args)
 
   elif command == "cloud":
@@ -128,7 +126,6 @@ def run_app(arg_input):
     exp_config = args.get("experiment_config")
     labels = cu.sanitize_labels(args.get("label") or [])
     xgroup = args.get('xgroup')
-    env = dict(args.get('env') or [])
 
     # Arguments to internally build the image required to submit to Cloud.
     docker_m = {"job_mode": job_mode, "package": package, **docker_args}
@@ -149,7 +146,6 @@ def run_app(arg_input):
         script_args=script_args,
         experiment_config=exp_config,
         xgroup=xgroup,
-        env=env,
     )
   else:
     logging.info("Unknown command: {}".format(command))
