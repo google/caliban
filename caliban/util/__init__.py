@@ -18,6 +18,7 @@ Utilities for our job runner.
 """
 import getpass
 import itertools as it
+import os
 import platform
 import sys
 from enum import Enum
@@ -25,6 +26,7 @@ from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
                     Set, Tuple, Union)
 
 from blessings import Terminal
+from pkg_resources import resource_filename
 
 t = Terminal()
 
@@ -55,6 +57,18 @@ def is_linux() -> bool:
 
   """
   return platform.system() == "Darwin"
+
+
+def resource(name: str) -> Optional[str]:
+  """If the supplied resource exists in caliban.resources, returns the absolute
+  path to the resource. Else, returns None.
+
+  """
+  path = resource_filename("caliban.resources", name)
+  if os.path.exists(path):
+    return path
+
+  return None
 
 
 def enum_vals(enum: Enum) -> List[str]:

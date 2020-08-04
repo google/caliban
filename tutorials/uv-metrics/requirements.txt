@@ -1,0 +1,9 @@
+git+https://github.com/google/uv-metrics.git@sritchie/mlflow#egg=uv-metrics
+mlflow==1.9.1
+tensorflow-cpu
+matplotlib
+tensorflow_datasets
+sqlalchemy==1.3.13
+pg8000==1.16.1
+google-cloud-storage
+alembic==1.4.2

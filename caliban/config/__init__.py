@@ -124,14 +124,44 @@ BaseImage = s.Or(
     """"base_image" entry must be a string OR dict with 'cpu' and 'gpu' keys, not '{}'"""
 )
 
-CalibanConfig = s.Schema({
-    s.Optional("build_time_credentials", default=False): bool,
-    s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
+GCloudConfig = {
     s.Optional("project_id"): s.And(str, len),
-    s.Optional("cloud_key"): s.And(str, len),
-    s.Optional("base_image", default=None): BaseImage,
-    s.Optional("apt_packages", default=AptPackages.validate({})): AptPackages
-})
+    s.Optional("cloud_key"): s.And(str, len)
+}
+
+MLFlowConfig = {
+    'project': str,
+    'region': str,
+    'db': str,
+    'user': str,
+    'password': str,
+    'artifact_root': str
+}
+
+# Config items that are project-specific, and don't belong in a global
+# .calibanconfig shared between projects.
+ProjectConfig = {
+    s.Optional("build_time_credentials", default=False):
+        bool,
+    s.Optional("base_image", default=None):
+        BaseImage,
+    s.Optional("apt_packages", default=AptPackages.validate({})):
+        AptPackages,
+    # If present, Caliban will attempt to install Julia into the base container.
+    s.Optional("julia_version", default=None):
+        s.And(str, s.Use(lambda s: s.strip())),
+}
+
+# Elements of calibanconfig that are fair game to share between projects.
+#
+SystemConfig = {
+    s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
+    s.Optional("gcloud", default={}): GCloudConfig,
+    s.Optional("mlflow_config", default=None): MLFlowConfig,
+}
+
+# The final, parsed calibanconfig.
+CalibanConfig = s.Schema({**ProjectConfig, **SystemConfig})
 
 # Accessors
 
