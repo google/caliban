@@ -226,7 +226,7 @@ class TempCopy(object):
 
 def capture_stdout(cmd: List[str],
                    input_str: Optional[str] = None,
-                   file=None) -> Tuple[str, int]:
+                   file=None) -> str:
   """Executes the supplied command with the supplied string of std input, then
   streams the output to stdout, and returns it as a string along with the
   process's return code.
