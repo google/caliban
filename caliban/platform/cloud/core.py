@@ -433,14 +433,13 @@ def _job_specs(
   """
   for idx, m in enumerate(experiments, 1):
 
-    wrapper_args += um.mlflow_args(
+    wrapper_args = um.mlflow_args(
         experiment=m,
         caliban_config=caliban_config,
         index=idx,
         tags={
-            um.DOCKER_IMAGE_TAG: image_id,
-            um.PLATFORM_TAG: Platform.CAIP.value,
-            **cu.sanitize_labels(labels),
+            um.PLATFORM_TAG: ht.Platform.CAIP.value,
+            **labels,
         },
     )
 
