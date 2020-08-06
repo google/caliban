@@ -40,7 +40,7 @@ DOCKER_IMAGE_TAG = 'docker_image'
 PLATFORM_TAG = 'platform'
 
 
-def cloud_sql_proxy_path() -> str:
+def cloud_sql_proxy_path() -> Optional[str]:
   """Returns an absolute path to the cloud_sql_proxy python wrapper that we
   inject into containers.
 
@@ -48,7 +48,7 @@ def cloud_sql_proxy_path() -> str:
   return u.resource(CLOUD_SQL_WRAPPER_SCRIPT)
 
 
-def launcher_path() -> str:
+def launcher_path() -> Optional[str]:
   """Returns an absolute path to the caliban_launcher python script that we
   inject into containers.
 
@@ -136,6 +136,8 @@ def launcher_config_file(
   Yields:
   path to configuration file
   '''
+
+  caliban_config = caliban_config or {}
 
   config = _default_launcher_config()
   config_file_path = os.path.join(path, LAUNCHER_CONFIG_FILE)
