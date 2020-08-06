@@ -80,7 +80,7 @@ def wrapper_config_file(
   path to configuration file
   '''
 
-  cfg = {}
+  config = {}
   mlflow_cfg = caliban_config.get('mlflow_config', None)
   config_file_path = os.path.join(path, WRAPPER_CONFIG_FILE)
 
