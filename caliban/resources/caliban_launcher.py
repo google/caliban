@@ -28,8 +28,8 @@ import sys
 import time
 
 RESOURCE_DIR = "/.resources"
-WRAPPER_CONFIG_FILE = 'caliban_wrapper_cfg.json'
-WRAPPER_CONFIG_PATH = os.path.join(RESOURCE_DIR, WRAPPER_CONFIG_FILE)
+LAUNCHER_CONFIG_FILE = 'caliban_launcher_cfg.json'
+LAUNCHER_CONFIG_PATH = os.path.join(RESOURCE_DIR, LAUNCHER_CONFIG_FILE)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -50,7 +50,7 @@ def _parse_json(argname, json_string, expected_type):
 
 def _parser():
   parser = argparse.ArgumentParser(
-      description='caliban wrapper for container.',
+      description='caliban launcher for container.',
       prog='caliban_launcher',
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -100,18 +100,17 @@ def _execute_command(cmd, args, env):
 
 def _load_config_file():
   '''loads the launcher configuration data from the config file
-  at ./resources/'caliban_wrapper_cfg.json as a dict
+  at ./resources/'caliban_laucher_cfg.json as a dict
   '''
-  if not os.path.exists(WRAPPER_CONFIG_PATH):
+  if not os.path.exists(LAUNCHER_CONFIG_PATH):
     return {}
 
-  with open(WRAPPER_CONFIG_PATH) as f:
+  with open(LAUNCHER_CONFIG_PATH) as f:
     cfg = json.load(f)
 
   return cfg
 
 
-# ----------------------------------------------------------------------------
 def _get_config(args):
   '''gets the configuration dictionary for the launcher by combining the
   static configuration in the launcher config file and the dynamic
@@ -156,6 +155,5 @@ def main(args, passthrough_args):
   _execute_command(cmd, passthrough_args, env)
 
 
-# ----------------------------------------------------------------------------
 if __name__ == '__main__':
   main(*_parse_flags(sys.argv))

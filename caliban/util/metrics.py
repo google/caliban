@@ -29,10 +29,10 @@ from contextlib import contextmanager
 from typing import Dict, Any, List, Optional
 
 CLOUD_SQL_WRAPPER_SCRIPT = 'cloud_sql_proxy.py'
-WRAPPER_SCRIPT = 'caliban_launcher.py'
+LAUNCHER_SCRIPT = 'caliban_launcher.py'
 RESOURCE_DIR = "/.resources"
-WRAPPER_CONFIG_FILE = 'caliban_wrapper_cfg.json'
-WRAPPER_CONFIG_PATH = os.path.join(RESOURCE_DIR, WRAPPER_CONFIG_FILE)
+LAUNCHER_CONFIG_FILE = 'caliban_launcher_cfg.json'
+LAUNCHER_CONFIG_PATH = os.path.join(RESOURCE_DIR, LAUNCHER_CONFIG_FILE)
 GPU_ENABLED_TAG = 'gpu_enabled'
 TPU_ENABLED_TAG = 'tpu_enabled'
 JOB_NAME_TAG = 'job_name'
@@ -48,78 +48,102 @@ def cloud_sql_proxy_path() -> str:
   return u.resource(CLOUD_SQL_WRAPPER_SCRIPT)
 
 
-def wrapper_script_path() -> str:
-  """Returns an absolute path to the caliban_wrapper python script that we
+def launcher_path() -> str:
+  """Returns an absolute path to the caliban_launcher python script that we
   inject into containers.
 
   """
-  return u.resource(WRAPPER_SCRIPT)
+  return u.resource(LAUNCHER_SCRIPT)
+
+
+def _default_launcher_config() -> Dict[str, Any]:
+  return {
+      'services': [],
+      'env': {},
+  }
+
+
+def _create_mlflow_config(
+    cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+  '''generates mlflow configuration dict for launcher script
+  Args:
+  cfg: mlflow configuration dict from .calibanconfig.json
+
+  Returns:
+  config dict for launcher script with entries needed for mlflow
+  '''
+
+  if cfg is None:
+    return _default_launcher_config()
+
+  user = cfg['user']
+  pw = cfg['password']
+  db = cfg['db']
+  project = cfg['project']
+  region = cfg['region']
+  artifact_root = cfg['artifact_root']
+
+  socket_path = '/tmp/cloudsql'
+  proxy_path = os.path.join(os.sep, 'usr', 'bin', 'cloud_sql_proxy')
+
+  proxy_config = json.dumps({
+      'proxy': proxy_path,
+      'path': socket_path,
+      'project': project,
+      'region': region,
+      'db': db,
+      'creds': '~/.config/gcloud/application_default_credentials.json',
+  })
+
+  proxy_cmd = [
+      'python',
+      os.path.join(RESOURCE_DIR, CLOUD_SQL_WRAPPER_SCRIPT), proxy_config
+  ]
+
+  tracking_uri = (
+      f'postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={socket_path}/'
+      f'{project}:{region}:{db}/.s.PGSQL.5432')
+
+  return {
+      'services': [proxy_cmd],
+      'env': {
+          'MLFLOW_TRACKING_URI': tracking_uri,
+          'MLFLOW_ARTIFACT_ROOT': artifact_root
+      }
+  }
 
 
 @contextmanager
-def wrapper_config_file(
+def launcher_config_file(
     path: str,
     caliban_config: Optional[Dict[str, Any]] = None,
 ):
-  '''creates a configuration file for the caliban wrapper script
-  This file contains the wrapper configuration that does not vary across
+  '''creates a configuration file for the caliban launcher script
+  This file contains the launcher configuration that does not vary across
   each caliban job being submitted, so it can be copied into the container.
 
   This is to be used as a contextmanager yielding the path to the file:
 
-  with wrapper_config_file('.', caliban_config) as cfg_file:
+  with launcher_config_file('.', caliban_config) as cfg_file:
     # do things
 
   The config file is deleted upon exiting the context scope.
 
   Args:
-  path: directory in which to write file (this must exist
+  path: directory in which to write file (this must exist)
   caliban_config: caliban configuration dictionary
 
   Yields:
   path to configuration file
   '''
 
-  config = {}
-  mlflow_cfg = caliban_config.get('mlflow_config', None)
-  config_file_path = os.path.join(path, WRAPPER_CONFIG_FILE)
+  config = _default_launcher_config()
+  config_file_path = os.path.join(path, LAUNCHER_CONFIG_FILE)
 
-  if mlflow_cfg is not None:
-    user = mlflow_cfg['user']
-    pw = mlflow_cfg['password']
-    db = mlflow_cfg['db']
-    project = mlflow_cfg['project']
-    region = mlflow_cfg['region']
-    artifact_root = mlflow_cfg['artifact_root']
+  mlflow_config = _create_mlflow_config(caliban_config.get('mlflow_config'))
 
-    socket_path = '/tmp/cloudsql'
-    proxy_path = os.path.join(os.sep, 'usr', 'bin', 'cloud_sql_proxy')
-
-    proxy_config = json.dumps({
-        'proxy': proxy_path,
-        'path': socket_path,
-        'project': project,
-        'region': region,
-        'db': db,
-        'creds': '~/.config/gcloud/application_default_credentials.json',
-    })
-
-    proxy_cmd = [
-        'python',
-        os.path.join(RESOURCE_DIR, CLOUD_SQL_WRAPPER_SCRIPT), proxy_config
-    ]
-
-    tracking_uri = (
-        f'postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={socket_path}/'
-        f'{project}:{region}:{db}/.s.PGSQL.5432')
-
-    config = {
-        'services': [proxy_cmd],
-        'env': {
-            'MLFLOW_TRACKING_URI': tracking_uri,
-            'MLFLOW_ARTIFACT_ROOT': artifact_root
-        }
-    }
+  config['services'] += mlflow_config['services']
+  config['env'].update(mlflow_config['env'])
 
   with open(config_file_path, 'w') as f:
     json.dump(config, f, indent=2)
@@ -132,30 +156,29 @@ def wrapper_config_file(
 
 
 def _mlflow_job_name(index: int, user: str = None) -> str:
-  '''returns mlflow job name for local caliban job'''
   user = user or u.current_user()
   timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
   return f'{user}-{timestamp}-{index}'
 
 
 def mlflow_args(
-    experiment: ht.Experiment,
-    caliban_config: Dict[str, Any],
+    experiment_name: str,
     index: int,
     tags: Dict[str, Any],
 ) -> List[str]:
-  '''returns mlflow args for caliban wrapper
-  experiment: experiment
-  caliban_config: caliban config dictionary
+  '''returns mlflow args for caliban launcher
+  Args:
+
+  experiment: experiment object
   index: job index
   tags: dictionary of tags to pass to mlflow
 
   Returns:
-  mlflow args
+  mlflow args list
   '''
 
   env = {f'ENVVAR_{k}': v for k, v in tags.items()}
-  env['MLFLOW_EXPERIMENT_NAME'] = experiment.xgroup.name
+  env['MLFLOW_EXPERIMENT_NAME'] = experiment_name
   env['MLFLOW_RUN_NAME'] = _mlflow_job_name(index=index)
 
   return ['--caliban_config', json.dumps({'env': env})]

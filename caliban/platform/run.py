@@ -152,9 +152,8 @@ def _create_job_spec_dict(
 
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
 
-  wrapper_args = um.mlflow_args(
-      experiment=experiment,
-      caliban_config=caliban_config,
+  launcher_args = um.mlflow_args(
+      experiment_name=experiment.xgroup.name,
       index=index,
       tags={
           um.GPU_ENABLED_TAG: str(job_mode == c.JobMode.GPU).lower(),
@@ -166,8 +165,8 @@ def _create_job_spec_dict(
 
   cmd_args = ce.experiment_to_args(experiment.kwargs, experiment.args)
 
-  # cmd args *must* be last in order for the wrapper to pass them through
-  command = base_cmd + wrapper_args + cmd_args
+  # cmd args *must* be last in order for the launcher to pass them through
+  command = base_cmd + launcher_args + cmd_args
 
   return {'command': command, 'container': image_id}
 

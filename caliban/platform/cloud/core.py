@@ -433,9 +433,8 @@ def _job_specs(
   """
   for idx, m in enumerate(experiments, 1):
 
-    wrapper_args = um.mlflow_args(
-        experiment=m,
-        caliban_config=caliban_config,
+    launcher_args = um.mlflow_args(
+        experiment_name=m.xgroup.name,
         index=idx,
         tags={
             um.PLATFORM_TAG: ht.Platform.CAIP.value,
@@ -445,8 +444,8 @@ def _job_specs(
 
     cmd_args = ce.experiment_to_args(m.kwargs, m.args)
 
-    # cmd args *must* be last in order for the wrapper to pass them through
-    args = wrapper_args + cmd_args
+    # cmd args *must* be last in order for the launcher to pass them through
+    args = launcher_args + cmd_args
 
     yield _job_spec(job_name=job_name,
                     idx=idx,

@@ -324,16 +324,16 @@ def _generate_entrypoint(
   else:
     cloud_sql_proxy_code = ''
 
-  wrapper_cmd = json.dumps([
+  launcher_cmd = json.dumps([
       'python',
-      os.path.join(RESOURCE_DIR, um.WRAPPER_SCRIPT), '--caliban_command',
+      os.path.join(RESOURCE_DIR, um.LAUNCHER_SCRIPT), '--caliban_command',
       executable
   ])
 
   return f'''
 {cloud_sql_proxy_code}
 
-ENTRYPOINT {wrapper_cmd}
+ENTRYPOINT {launcher_cmd}
 '''
 
 
@@ -704,19 +704,19 @@ def build_image(job_mode: c.JobMode,
 
   # Paths for resource files.
   sql_proxy_path = um.cloud_sql_proxy_path()
-  wrapper_path = um.wrapper_script_path()
+  launcher_path = um.launcher_path()
 
   # --------------------------------------------------------------------------
   with ufs.TempCopy({
       credentials_path: ".caliban_default_creds.json",
       adc_path: ".caliban_adc_creds.json",
       sql_proxy_path: um.CLOUD_SQL_WRAPPER_SCRIPT,
-      wrapper_path: um.WRAPPER_SCRIPT,
+      launcher_path: um.LAUNCHER_SCRIPT,
   }) as creds:
 
-    # generate our wrapper configuration file
-    with um.wrapper_config_file(
-        path='.', caliban_config=caliban_config) as wrapper_config:
+    # generate our launcher configuration file
+    with um.launcher_config_file(
+        path='.', caliban_config=caliban_config) as launcher_config:
 
       cache_args = ["--no-cache"] if no_cache else []
       cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
@@ -727,8 +727,8 @@ def build_image(job_mode: c.JobMode,
           adc_path=creds.get(adc_path),
           resource_files=[
               creds.get(sql_proxy_path),
-              creds.get(wrapper_path),
-              wrapper_config,
+              creds.get(launcher_path),
+              launcher_config,
           ],
           **kwargs)
 
