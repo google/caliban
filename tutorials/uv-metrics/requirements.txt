@@ -1,1 +1,0 @@
-git+https://github.com/google/uv-metrics.git@510a1fd7a8b2d72ebf11ecf1fde36b62b3391d12#egg=uv-metrics
