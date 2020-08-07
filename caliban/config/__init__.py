@@ -135,7 +135,8 @@ MLFlowConfig = {
     'db': str,
     'user': str,
     'password': str,
-    'artifact_root': str
+    'artifact_root': str,
+    s.Optional('debug'): bool,
 }
 
 # Config items that are project-specific, and don't belong in a global
