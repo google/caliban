@@ -20,11 +20,14 @@ and notebooks in a Docker environment.
 
 from __future__ import absolute_import, division, print_function
 
+import datetime
 import json
 import os
+import re
 import subprocess
 from enum import Enum
 from pathlib import Path
+from pkg_resources import resource_filename
 from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
 
 from absl import logging
@@ -33,6 +36,7 @@ from blessings import Terminal
 import caliban.config as c
 import caliban.util as u
 import caliban.util.fs as ufs
+import caliban.history.types as ht
 import caliban.util.metrics as um
 
 t = Terminal()
@@ -275,8 +279,71 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
   return ret
 
 
-def _package_entries(workdir: str, user_id: int, user_group: int,
-                     package: u.Package) -> str:
+def _cloud_sql_proxy_entry(user_id: int, user_group: int) -> str:
+  '''returns dockerfile entry to fetch cloud_sql_proxy, installing in /usr/bin'''
+
+  cmd = (
+      'RUN wget -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 '
+      '-O /usr/bin/cloud_sql_proxy && '
+      'chmod 755 /usr/bin/cloud_sql_proxy')
+
+  return f'''
+USER root
+
+{cmd}
+
+USER {user_id}:{user_group}
+'''
+
+
+def _generate_entrypoint(
+    executable: str,
+    user_id: int,
+    user_group: int,
+    caliban_config: Optional[Dict[str, Any]] = None,
+) -> str:
+  '''generates dockerfile entry to set the container entrypoint, along with
+    any additional necessary entries, such as for services like cloud_sql_proxy
+
+  Args:
+  executable: string of main executable
+  caliban_config: dictionary of caliban configuration options
+  user_id: id of non-root user
+  user_group: id of non-root group for user
+
+  Returns:
+  string with Dockerfile directives to set ENTRYPOINT
+  '''
+
+  caliban_config = caliban_config or {}
+
+  mlflow_cfg = caliban_config.get('mlflow_config')
+  if mlflow_cfg is not None:
+    cloud_sql_proxy_code = _cloud_sql_proxy_entry(user_id=user_id,
+                                                  user_group=user_group)
+  else:
+    cloud_sql_proxy_code = ''
+
+  launcher_cmd = json.dumps([
+      'python',
+      os.path.join(RESOURCE_DIR, um.LAUNCHER_SCRIPT), '--caliban_command',
+      executable
+  ])
+
+  return f'''
+{cloud_sql_proxy_code}
+
+ENTRYPOINT {launcher_cmd}
+'''
+
+
+def _package_entries(
+    workdir: str,
+    user_id: int,
+    user_group: int,
+    package: u.Package,
+    caliban_config: Optional[Dict[str, Any]] = None,
+) -> str:
   """Returns the Dockerfile entries required to:
 
   - copy a directory of code into a docker container
@@ -286,24 +353,34 @@ def _package_entries(workdir: str, user_id: int, user_group: int,
   between files inside a project.
 
   """
+  caliban_config = caliban_config or {}
+
   arg = package.main_module or package.script_path
   package_path = package.package_path
 
-  # This needs to use json so that quotes print as double quotes, not single
-  # quotes.
-  entrypoint_s = json.dumps(package.executable + [arg])
   copy_code = copy_command(
       user_id,
       user_group,
       package_path,
       f"{workdir}/{package_path}",
       comment="Copy project code into the docker container.")
-  return f"""
-{copy_code}
 
-# Declare an entrypoint that actually runs the container.
-ENTRYPOINT {entrypoint_s}
-  """
+  # This needs to use json so that quotes print as double quotes, not single
+  # quotes.
+  executable_s = json.dumps(package.executable + [arg])
+
+  entrypoint_code = _generate_entrypoint(
+      executable=executable_s,
+      user_id=user_id,
+      user_group=user_group,
+      caliban_config=caliban_config,
+  )
+
+  return f'''
+  {copy_code}
+
+  {entrypoint_code}
+'''
 
 
 def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
@@ -592,7 +669,7 @@ USER {uid}:{gid}
 
   if package is not None:
     # The actual entrypoint and final copied code.
-    dockerfile += _package_entries(workdir, uid, gid, package)
+    dockerfile += _package_entries(workdir, uid, gid, package, caliban_config)
 
   return dockerfile
 
@@ -623,35 +700,48 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
+  caliban_config = kwargs.get('caliban_config', {})
+
   # Paths for resource files.
   sql_proxy_path = um.cloud_sql_proxy_path()
+  launcher_path = um.launcher_path()
 
   with ufs.TempCopy({
       credentials_path: ".caliban_default_creds.json",
       adc_path: ".caliban_adc_creds.json",
-      sql_proxy_path: um.CLOUD_SQL_WRAPPER_SCRIPT
+      sql_proxy_path: um.CLOUD_SQL_WRAPPER_SCRIPT,
+      launcher_path: um.LAUNCHER_SCRIPT,
   }) as creds:
-    cache_args = ["--no-cache"] if no_cache else []
-    cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
-    dockerfile = _dockerfile_template(
-        job_mode,
-        credentials_path=creds.get(credentials_path),
-        adc_path=creds.get(adc_path),
-        resource_files=[creds.get(sql_proxy_path)],
-        **kwargs)
+    # generate our launcher configuration file
+    with um.launcher_config_file(
+        path='.', caliban_config=caliban_config) as launcher_config:
 
-    joined_cmd = " ".join(cmd)
-    logging.info("Running command: {}".format(joined_cmd))
+      cache_args = ["--no-cache"] if no_cache else []
+      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
 
-    try:
-      output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
-      if ret_code == 0:
-        return docker_image_id(output)
-      else:
-        error_msg = "Docker failed with error code {}.".format(ret_code)
-        raise DockerError(error_msg, cmd, ret_code)
+      dockerfile = _dockerfile_template(
+          job_mode,
+          credentials_path=creds.get(credentials_path),
+          adc_path=creds.get(adc_path),
+          resource_files=[
+              creds.get(sql_proxy_path),
+              creds.get(launcher_path),
+              launcher_config,
+          ],
+          **kwargs)
 
-    except subprocess.CalledProcessError as e:
-      logging.error(e.output)
-      logging.error(e.stderr)
+      joined_cmd = " ".join(cmd)
+      logging.info("Running command: {}".format(joined_cmd))
+
+      try:
+        output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
+        if ret_code == 0:
+          return docker_image_id(output)
+        else:
+          error_msg = "Docker failed with error code {}.".format(ret_code)
+          raise DockerError(error_msg, cmd, ret_code)
+
+      except subprocess.CalledProcessError as e:
+        logging.error(e.output)
+        logging.error(e.stderr)

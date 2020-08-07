@@ -82,6 +82,7 @@ def _create_mlflow_config(
   project = cfg['project']
   region = cfg['region']
   artifact_root = cfg['artifact_root']
+  debug = cfg.get('debug', False)
 
   socket_path = '/tmp/cloudsql'
   proxy_path = os.path.join(os.sep, 'usr', 'bin', 'cloud_sql_proxy')
@@ -93,6 +94,7 @@ def _create_mlflow_config(
       'region': region,
       'db': db,
       'creds': '~/.config/gcloud/application_default_credentials.json',
+      'debug': debug,
   })
 
   proxy_cmd = [

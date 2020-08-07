@@ -18,6 +18,7 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
+import traceback
 from copy import deepcopy
 from pprint import pformat
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -37,6 +38,7 @@ import caliban.platform.cloud.types as ct
 import caliban.platform.cloud.util as cu
 import caliban.util as u
 import caliban.util.auth as ua
+import caliban.util.metrics as um
 import caliban.util.tqdm as ut
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
@@ -418,6 +420,7 @@ def _job_specs(
     training_input: Dict[str, Any],
     labels: Dict[str, str],
     experiments: Iterable[ht.Experiment],
+    caliban_config: Optional[Dict[str, Any]] = None,
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
@@ -428,8 +431,24 @@ def _job_specs(
   This is lower-level than build_job_specs below.
 
   """
+  caliban_config = caliban_config or {}
+
   for idx, m in enumerate(experiments, 1):
-    args = ce.experiment_to_args(m.kwargs, m.args)
+
+    launcher_args = um.mlflow_args(
+        experiment_name=m.xgroup.name,
+        index=idx,
+        tags={
+            um.PLATFORM_TAG: ht.Platform.CAIP.value,
+            **labels,
+        },
+    )
+
+    cmd_args = ce.experiment_to_args(m.kwargs, m.args)
+
+    # cmd args *must* be last in order for the launcher to pass them through
+    args = launcher_args + cmd_args
+
     yield _job_spec(job_name=job_name,
                     idx=idx,
                     training_input={
@@ -448,6 +467,7 @@ def build_job_specs(
     user_labels: Dict[str, str],
     gpu_spec: Optional[ct.GPUSpec],
     tpu_spec: Optional[ct.TPUSpec],
+    caliban_config: Optional[Dict[str, Any]] = None,
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
@@ -460,6 +480,7 @@ def build_job_specs(
   """
   logging.info(f'Building jobs for name: {job_name}')
 
+  caliban_config = caliban_config or {}
   accelerator_conf = get_accelerator_config(gpu_spec)
   training_input = base_training_input(image_tag, region, machine_type,
                                        accelerator_conf)
@@ -473,13 +494,15 @@ def build_job_specs(
       "gpu_enabled": str(gpu_enabled).lower(),
       "tpu_enabled": str(tpu_enabled).lower(),
       "job_name": job_name,
+      "docker_image": image_tag,
       **user_labels
   }
 
   return _job_specs(job_name,
                     training_input=training_input,
                     labels=base_labels,
-                    experiments=experiments)
+                    experiments=experiments,
+                    caliban_config=caliban_config)
 
 
 def generate_image_tag(project_id, docker_args, dry_run: bool = False):
@@ -540,22 +563,24 @@ def submit_job_specs(
   execute_requests(requests, num_specs, num_retries=request_retries)
 
 
-def submit_ml_job(job_mode: conf.JobMode,
-                  docker_args: Dict[str, Any],
-                  region: ct.Region,
-                  project_id: str,
-                  credentials_path: Optional[str] = None,
-                  dry_run: bool = False,
-                  job_name: Optional[str] = None,
-                  machine_type: Optional[ct.MachineType] = None,
-                  gpu_spec: Optional[ct.GPUSpec] = None,
-                  tpu_spec: Optional[ct.TPUSpec] = None,
-                  image_tag: Optional[str] = None,
-                  labels: Optional[Dict[str, str]] = None,
-                  experiment_config: Optional[ce.ExpConf] = None,
-                  script_args: Optional[List[str]] = None,
-                  request_retries: Optional[int] = None,
-                  xgroup: Optional[str] = None) -> None:
+def submit_ml_job(
+    job_mode: conf.JobMode,
+    docker_args: Dict[str, Any],
+    region: ct.Region,
+    project_id: str,
+    credentials_path: Optional[str] = None,
+    dry_run: bool = False,
+    job_name: Optional[str] = None,
+    machine_type: Optional[ct.MachineType] = None,
+    gpu_spec: Optional[ct.GPUSpec] = None,
+    tpu_spec: Optional[ct.TPUSpec] = None,
+    image_tag: Optional[str] = None,
+    labels: Optional[Dict[str, str]] = None,
+    experiment_config: Optional[ce.ExpConf] = None,
+    script_args: Optional[List[str]] = None,
+    request_retries: Optional[int] = None,
+    xgroup: Optional[str] = None,
+) -> None:
   """Top level function in the module. This function:
 
   - builds an image using the supplied docker_args, in either CPU or GPU mode
@@ -624,6 +649,8 @@ def submit_ml_job(job_mode: conf.JobMode,
   if request_retries is None:
     request_retries = 10
 
+  caliban_config = docker_args.get('caliban_config', {})
+
   engine = get_mem_engine() if dry_run else get_sql_engine()
 
   with session_scope(engine) as session:
@@ -649,6 +676,7 @@ def submit_ml_job(job_mode: conf.JobMode,
         user_labels=labels,
         gpu_spec=gpu_spec,
         tpu_spec=tpu_spec,
+        caliban_config=caliban_config,
     )
 
     if dry_run:
@@ -664,6 +692,7 @@ def submit_ml_job(job_mode: conf.JobMode,
       )
     except Exception as e:
       logging.error(f'exception: {e}')
+      logging.error(f'{traceback.format_exc()}')
       session.commit()  # commit here, otherwise will be rolled back
 
     logging.info("")
