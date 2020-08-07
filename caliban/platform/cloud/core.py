@@ -420,7 +420,7 @@ def _job_specs(
     training_input: Dict[str, Any],
     labels: Dict[str, str],
     experiments: Iterable[ht.Experiment],
-    caliban_config: Dict[str, Any] = {},
+    caliban_config: Optional[Dict[str, Any]] = None,
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
@@ -431,6 +431,8 @@ def _job_specs(
   This is lower-level than build_job_specs below.
 
   """
+  caliban_config = caliban_config or {}
+
   for idx, m in enumerate(experiments, 1):
 
     launcher_args = um.mlflow_args(
@@ -465,7 +467,7 @@ def build_job_specs(
     user_labels: Dict[str, str],
     gpu_spec: Optional[ct.GPUSpec],
     tpu_spec: Optional[ct.TPUSpec],
-    caliban_config: Dict[str, Any] = {},
+    caliban_config: Optional[Dict[str, Any]] = None,
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
@@ -478,6 +480,7 @@ def build_job_specs(
   """
   logging.info(f'Building jobs for name: {job_name}')
 
+  caliban_config = caliban_config or {}
   accelerator_conf = get_accelerator_config(gpu_spec)
   training_input = base_training_input(image_tag, region, machine_type,
                                        accelerator_conf)

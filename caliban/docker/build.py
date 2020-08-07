@@ -706,7 +706,6 @@ def build_image(job_mode: c.JobMode,
   sql_proxy_path = um.cloud_sql_proxy_path()
   launcher_path = um.launcher_path()
 
-  # --------------------------------------------------------------------------
   with ufs.TempCopy({
       credentials_path: ".caliban_default_creds.json",
       adc_path: ".caliban_adc_creds.json",

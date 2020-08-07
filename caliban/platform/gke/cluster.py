@@ -45,6 +45,7 @@ from caliban.platform.cloud.types import (GPU, TPU, Accelerator, GPUSpec,
                                           MachineType, TPUSpec)
 from caliban.platform.gke.types import NodeImage, OpStatus, ReleaseChannel
 from caliban.platform.gke.util import trap
+import caliban.util.metrics as um
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -604,7 +605,9 @@ class Cluster(object):
     '''creates a V1Job from a JobSpec, a job name, and an optional set of labels'''
 
     name = util.sanitize_job_name(name)
-    job_metadata = V1ObjectMeta(generate_name=name + '-', labels=labels)
+
+    # todo: sanitize labels
+    job_metadata = V1ObjectMeta(generate_name=name + '-')  #, labels=labels)
 
     return V1Job(api_version=k.BATCH_V1_VERSION,
                  kind='Job',
@@ -666,6 +669,7 @@ class Cluster(object):
       image: str,
       min_cpu: int,
       min_mem: int,
+      index: int,
       command: Optional[List[str]] = None,
       env: Dict[str, str] = {},
       accelerator: Optional[Accelerator] = None,
@@ -674,7 +678,10 @@ class Cluster(object):
       machine_type: Optional[MachineType] = None,
       preemptible: bool = True,
       preemptible_tpu: bool = True,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Optional[JobSpec]:
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER,
+      labels: Optional[Dict[str, str]] = None,
+      caliban_config: Optional[Dict[str, Any]] = None,
+  ) -> Optional[JobSpec]:
     """creates a simple kubernetes job (1 container, 1 pod) JobSpec for this cluster
 
     Args:
@@ -692,12 +699,29 @@ class Cluster(object):
     preemptible: use preemptible instance
     preemptible_tpu: use preemptible tpus
     tpu_driver: tpu driver to use
+    labels: user labels to set
+    caliban_config: caliban configuration dictionary
 
     Returns:
     JobSpec on success, None otherwise
     """
 
-    args = ce.experiment_to_args(experiment.kwargs, experiment.args)
+    caliban_config = caliban_config or {}
+    labels = labels or {}
+
+    launcher_args = um.mlflow_args(
+        experiment_name=experiment.xgroup.name,
+        index=index,
+        tags={
+            um.PLATFORM_TAG: Platform.GKE.value,
+            **labels,
+        },
+    )
+
+    cmd_args = ce.experiment_to_args(experiment.kwargs, experiment.args)
+
+    # cmd args *must* be last in order for the launcher to pass them through
+    args = launcher_args + cmd_args
 
     # ------------------------------------------------------------------------
     # container
@@ -784,7 +808,10 @@ class Cluster(object):
       machine_type: Optional[MachineType] = None,
       preemptible: bool = True,
       preemptible_tpu: bool = True,
-      tpu_driver: str = k.DEFAULT_TPU_DRIVER) -> Iterable[JobSpec]:
+      tpu_driver: str = k.DEFAULT_TPU_DRIVER,
+      labels: Optional[Dict[str, str]] = None,
+      caliban_config: Optional[Dict[str, Any]] = None,
+  ) -> Iterable[JobSpec]:
     """creates an iterable of JobSpec instances for a set of experiments for
     this cluster
 
@@ -804,28 +831,37 @@ class Cluster(object):
     preemptible: use preemptible instances
     preemptible_tpu: use preemptible tpus
     tpu_driver: tpu driver to use
+    labels: user labels to set
+    caliban_config: caliban config dict
 
     Returns:
     JobSpec iterable on success, None otherwise
     """
 
-    for exp in experiments:
-      yield self.create_simple_job_spec(
-          experiment=exp,
-          name=name,
-          image=image,
-          min_cpu=min_cpu,
-          min_mem=min_mem,
-          command=command,
-          env=env,
-          accelerator=accelerator,
-          accelerator_count=accelerator_count,
-          namespace=namespace,
-          machine_type=machine_type,
-          preemptible=preemptible,
-          preemptible_tpu=preemptible_tpu,
-          tpu_driver=tpu_driver,
-      )
+    job_specs = []
+    for index, exp in enumerate(list(experiments)):
+      job_specs.append(
+          self.create_simple_job_spec(
+              experiment=exp,
+              name=name,
+              image=image,
+              min_cpu=min_cpu,
+              min_mem=min_mem,
+              index=index,
+              command=command,
+              env=env,
+              accelerator=accelerator,
+              accelerator_count=accelerator_count,
+              namespace=namespace,
+              machine_type=machine_type,
+              preemptible=preemptible,
+              preemptible_tpu=preemptible_tpu,
+              tpu_driver=tpu_driver,
+              labels=labels,
+              caliban_config=caliban_config,
+          ))
+
+    return job_specs
 
   # --------------------------------------------------------------------------
   @staticmethod
