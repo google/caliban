@@ -29,13 +29,16 @@ def test_copy_command():
 
   assert multiline == f"""# This is an example
 # of a multiline comment.
-COPY --chown=1:1 face cake"""
+COPY --chown=1:1 face cake
+"""
 
   # single lines don't append comments.
   oneline = b.copy_command(1, 1, "face", "cake.py")
-  assert oneline == "COPY --chown=1:1 face cake.py"
+  assert oneline == """COPY --chown=1:1 face cake.py
+"""
 
   # single comments work.
   oneline_comment = b.copy_command(1, 1, "face", "cake.py", comment="Comment!")
   assert oneline_comment == f"""# Comment!
-COPY --chown=1:1 face cake.py"""
+COPY --chown=1:1 face cake.py
+"""

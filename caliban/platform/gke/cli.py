@@ -32,6 +32,7 @@ import caliban.platform.cloud.util as cu
 import caliban.platform.gke.constants as k
 import caliban.platform.gke.util as util
 import caliban.util as u
+import caliban.util.metrics as um
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
 from caliban.platform.cloud.core import generate_image_tag
@@ -359,10 +360,12 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
   xgroup = args.get('xgroup')
   image_tag = args.get('image_tag')
   export = args.get('export', None)
+  caliban_config = docker_args.get('caliban_config', {})
 
   labels = args.get('label')
   if labels is not None:
-    labels = dict(cu.sanitize_labels(args.get('label')))
+    labels = dict(cu.sanitize_labels(labels))
+  labels = labels or {}
 
   # Arguments to internally build the image required to submit to Cloud.
   docker_m = {'job_mode': job_mode, 'package': package, **docker_args}
@@ -423,6 +426,10 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
     if image_tag is None:
       image_tag = generate_image_tag(cluster.project_id, docker_m, dry_run)
 
+    labels[um.GPU_ENABLED_TAG] = str(job_mode == conf.JobMode.GPU).lower()
+    labels[um.TPU_ENABLED_TAG] = str(tpu_spec is not None)
+    labels[um.DOCKER_IMAGE_TAG] = image_tag
+
     experiments = create_experiments(
         session=session,
         container_spec=container_spec,
@@ -443,7 +450,10 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
             accelerator_count=accel_count,
             preemptible=preemptible,
             preemptible_tpu=preemptible_tpu,
-            tpu_driver=tpu_driver))
+            tpu_driver=tpu_driver,
+            labels=labels,
+            caliban_config=caliban_config,
+        ))
 
     # just a dry run
     if dry_run:
