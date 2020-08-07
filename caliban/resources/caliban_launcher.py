@@ -81,7 +81,6 @@ def _start_services(services, env, delay=5):
   '''
   procs = []
   for cmd in services:
-    logging.info(' '.join(cmd))
     procs.append(subprocess.Popen(cmd, env=env))
     time.sleep(delay)
 
@@ -141,15 +140,7 @@ def main(args, passthrough_args):
   cmd = args.caliban_command
   services = config.get('services', [])
 
-  logging.info('base env: %s' % str(env))
-  logging.info('env vars: %s' % str(caliban_env))
-  logging.info('command: %s' % ' '.join([str(x) for x in cmd]))
-  logging.info('passthrough args: %s' % str(passthrough_args))
-  logging.info('caliban services: %s' % str(services))
-
   env.update(caliban_env)
-
-  logging.info('env:\n%s' % str(env))
 
   _start_services(services, env)
   _execute_command(cmd, passthrough_args, env)

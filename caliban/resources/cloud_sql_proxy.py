@@ -74,8 +74,6 @@ def main(proxy="",
   if not debug:
     cmd.append('-quiet')
 
-  logging.info(f"Proxy command: '{' '.join(cmd)}'")
-
   env = copy.copy(dict(os.environ))
 
   if creds is not None:
