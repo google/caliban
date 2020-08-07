@@ -12,7 +12,7 @@ update once the API settles down.
 Right now we are supporting logging metrics to a sql-based backing store only
 in this tutorial, but we will update things to allow for local storage in the
 future. For now you will need to have a google cloud sql instance configured
-for this, and you will need an MLFlow server set up to server results from
+for this, and you will need an MLFlow server set up to serve results from
 this instance.
 
 To run this tutorial, you will need to edit the `.calibanconfig.json`
@@ -41,7 +41,7 @@ Once you have set these parameters properly, you should be able to run the tutor
 ## Sanity Check (optional)
 
 A quick sanity check to test your database connection is to set the `debug` flag in
-the `.calibanconfig.json` file to `true`, and then use caliban to run the `hello_world.sh`
+the `.calibanconfig.json` file to `true`, and then use Caliban to run the `hello_world.sh`
 script. This script simply prints "hello, world", but by enabling the `debug` flag, we
 can check the status of the database connection.
 
