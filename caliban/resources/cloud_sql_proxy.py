@@ -56,7 +56,13 @@ def _parse_flags(argv):
 
 
 # ----------------------------------------------------------------------------
-def main(proxy="", path="", project="", region="", db="", creds=None):
+def main(proxy="",
+         path="",
+         project="",
+         region="",
+         db="",
+         creds=None,
+         debug=False):
   cmd = [
       proxy,
       '-dir',
@@ -64,6 +70,9 @@ def main(proxy="", path="", project="", region="", db="", creds=None):
       '-instances',
       f"{project}:{region}:{db}",
   ]
+
+  if not debug:
+    cmd.append('-quiet')
 
   logging.info(f"Proxy command: '{' '.join(cmd)}'")
 
