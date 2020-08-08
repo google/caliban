@@ -104,7 +104,8 @@ GPU = Enum(
         "P4": "NVIDIA_TESLA_P4",
         "P100": "NVIDIA_TESLA_P100",
         "T4": "NVIDIA_TESLA_T4",
-        "V100": "NVIDIA_TESLA_V100"
+        "V100": "NVIDIA_TESLA_V100",
+        "A100": "NVIDIA_TESLA_A100",
     })
 
 # TPU types mapped from version to Cloud identifier.
@@ -153,7 +154,8 @@ COMPATIBILITY_TABLE = {
         GPU.P4: {1, 2, 4},
         GPU.P100: {1, 2, 4},
         GPU.T4: {1, 2, 4},
-        GPU.V100: {1, 2, 4, 8}
+        GPU.V100: {1, 2, 4, 8},
+        GPU.A100: {0}
     },
     MachineType.standard_8: {
         GPU.K80: {1, 2, 4, 8},
