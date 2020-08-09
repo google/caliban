@@ -34,15 +34,49 @@ def _vfn(prefix: str) -> Callable[[str], str]:
   return inner
 
 
-US_REGIONS = {"west1", "west2", "central1", "east1", "east4"}
-EURO_REGIONS = {"west1", "west4", "north1"}
-ASIA_REGIONS = {"southeast1", "east1", "northeast1"}
+US_REGIONS = {
+    "west1",
+    "west2",
+    "west3",
+    "central1",
+    "east1",
+    "east4",
+}
+NA_REGIONS = {
+    "northeast1",
+}
+SA_REGIONS = {
+    "east1",
+}
+EURO_REGIONS = {
+    "west1",
+    "west2",
+    "west3",
+    "west4",
+    "west6",
+    "north1",
+}
+ASIA_REGIONS = {
+    "south1",
+    "southeast1",
+    "east1",
+    "east2",
+    "northeast1",
+    "northeast2",
+    "northeast3",
+}
+AUSTRALIA_REGIONS = {
+    "southeast1",
+}
 
 # Actual enum types.
 US = Enum('US', u.dict_by(US_REGIONS, _vfn("us")))
+NorthAmerica = Enum('NorthAmerica', u.dict_by(NA_REGIONS, _vfn("northamerica")))
+SouthAmerica = Enum('SouthAmerica', u.dict_by(SA_REGIONS, _vfn("southamerica")))
 Europe = Enum('Europe', u.dict_by(EURO_REGIONS, _vfn("europe")))
 Asia = Enum('Asia', u.dict_by(ASIA_REGIONS, _vfn("asia")))
-Region = Union[US, Europe, Asia]
+Australia = Enum('Australia', u.dict_by(ASIA_REGIONS, _vfn("australia")))
+Region = Union[US, NorthAmerica, SouthAmerica, Europe, Asia, Australia]
 Zone = str
 
 
@@ -57,11 +91,11 @@ def valid_regions(zone: Optional[str] = None) -> List[Region]:
       + valid_regions("asia")
   z = zone.lower()
   if z == "americas":
-    return list(US)
+    return list(US) + list(NorthAmerica) + list(SouthAmerica)
   elif z == "europe":
     return list(Europe)
   elif z == "asia":
-    return list(Asia)
+    return list(Asia) + list(Australia)
   else:
     raise ValueError(
         "invalid zone: {}. Must be one of 'americas', 'europe', 'asia'.".format(
@@ -109,13 +143,7 @@ GPU = Enum(
     })
 
 # TPU types mapped from version to Cloud identifier.
-TPU = Enum(
-    "TPU",
-    {
-        "V2": "TPU_V2",
-        # NOTE - V3 are only available in beta for now.
-        "V3": "TPU_V3"
-    })
+TPU = Enum("TPU", {"V2": "TPU_V2", "V3": "TPU_V3"})
 
 # Useful for typing functions; use this for functions that can handle either
 # type of accelerator.
@@ -127,13 +155,57 @@ Accelerator = Union[GPU, TPU]
 #
 # : Dict[Accelerator, Region]
 ACCELERATOR_REGION_SUPPORT = {
-    TPU.V2: [US.central1],
-    TPU.V3: [US.central1],
-    GPU.K80: [US.west1, US.central1, US.east1, Europe.west1, Asia.east1],
-    GPU.P4: [US.west2, US.central1, US.east4, Europe.west4, Asia.southeast1],
-    GPU.P100: [US.west1, US.central1, US.east1, Europe.west1, Asia.east1],
-    GPU.T4: [US.west1, US.central1, US.east1, Europe.west4, Asia.southeast1],
-    GPU.V100: [US.west1, US.central1, Europe.west4, Asia.east1],
+    TPU.V2: [
+        US.central1,
+        Europe.west4,
+    ],
+    TPU.V3: [
+        US.central1,
+        Europe.west4,
+    ],
+    GPU.K80: [
+        US.west1,
+        US.central1,
+        US.east1,
+        Europe.west1,
+        Asia.east1,
+    ],
+    GPU.P4: [
+        US.west2,
+        US.central1,
+        US.east4,
+        NorthAmerica.northeast1,
+        Europe.west4,
+        Asia.southeast1,
+        Australia.southeast1,
+    ],
+    GPU.P100: [
+        US.west1,
+        US.central1,
+        US.east1,
+        SouthAmerica.east1,
+        Europe.west1,
+        Asia.east1,
+        Australia.southeast1,
+    ],
+    GPU.T4: [
+        US.west1,
+        US.central1,
+        US.east1,
+        SouthAmerica.east1,
+        Europe.west2,
+        Europe.west4,
+        Asia.south1,
+        Asia.southeast1,
+        Asia.northeast1,
+        Asia.northeast3,
+    ],
+    GPU.V100: [
+        US.west1,
+        US.central1,
+        Europe.west4,
+        Asia.east1,
+    ],
 }
 
 # Mapping between machine type and the Accelerator type and number of

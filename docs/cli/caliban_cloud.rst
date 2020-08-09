@@ -148,12 +148,11 @@ The additional options available to ``caliban cloud`` are:
   you attempt to run a Cloud command, Caliban will exit.
 
 * **region**\ : The Cloud region you specify with this flag is used for AI
-  Platform job submission. Any value listed in the "Americas" section of `AI
-  Platform's region docs <https://cloud.google.com/ml-engine/docs/regions>`_ is
-  valid (Let us know if you need global regions!). If you don't specify a region
-  Caliban will examine your environment for a ``$REGION`` variable and use this
-  if supplied; if that's not set it will default to ``"us-central1"``. See
-  ``caliban cloud --help`` for all possible arguments.
+  Platform job submission. Any value listed in `AI Platform's region docs
+  <https://cloud.google.com/ml-engine/docs/regions>`_ is valid. If you don't
+  specify a region Caliban will examine your environment for a ``$REGION``
+  variable and use this if supplied; if that's not set it will default to
+  ``"us-central1"``. See ``caliban cloud --help`` for all possible arguments.
 
 * **machine_type**\ : Specifies the type of machine to use for each submitted AI
   platform job. See ``caliban cloud --help`` for all possible values. See
