@@ -1,3 +1,9 @@
+# pending
+
+- Updated accelerator regions (and globally availabe AI Platform regions to
+  match the current state here):
+  https://cloud.google.com/ai-platform/training/docs/regions
+
 # 0.3.0
 
 - @ramasesh Added a fix that prevented `pip` git dependencies from working in
