@@ -13,7 +13,7 @@ import fs
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import tqdm
-import uv.reporter as r
+import uv
 import uv.tensorflow.reporter as rft
 import uv.util as u
 from absl import app
@@ -213,7 +213,7 @@ def build_reporters(
     m: Dict[str, float],
     local_path: Optional[str] = None,
     gcloud_path: Optional[str] = None,
-    tensorboard_path: Optional[str] = None) -> Dict[str, r.AbstractReporter]:
+    tensorboard_path: Optional[str] = None) -> Dict[str, uv.AbstractReporter]:
   """Returns a dict of namespace to reporter."""
 
   # This reporter keeps all metrics in an internal dictionary of metric name
@@ -226,12 +226,12 @@ def build_reporters(
   # {"step": step_idx, "value": 10.5}
   #
   # This lets you access the value of the step later.
-  mem = r.MemoryReporter(m).stepped()
+  mem = uv.MemoryReporter(m).stepped()
 
   # The "tqdm()" function returns a LoggingReporter() implementation that's
   # able to log above a tqdm progress bar. If you simply called
   # r.LoggingReporter(), the reporter would log to sys.stdout.
-  logging = r.LoggingReporter.tqdm()
+  logging = uv.LoggingReporter.tqdm()
 
   mlf = MLFlowReporter()
 
@@ -279,7 +279,7 @@ def build_reporters(
   }
 
 
-def record_measurements(step: int, reporters: Dict[str, r.AbstractReporter],
+def record_measurements(step: int, reporters: Dict[str, uv.AbstractReporter],
                         measure_batch_size: int, model, training_data,
                         test_data):
   """This function actually records various metrics.
@@ -420,8 +420,9 @@ def model_main(activation='relu', width=1000, depth=2, lr=0.5, **kwargs):
   model = build_model(activation, width, depth)
   optimizer = tf.optimizers.SGD(lr)
 
-  with r.start_run():
-    r.log_params({
+  with uv.start_run() as r:
+
+    MLFlowReporter().report_params({
         **kwargs,
         **{
             "depth": depth,
@@ -430,6 +431,7 @@ def model_main(activation='relu', width=1000, depth=2, lr=0.5, **kwargs):
             "activation": activation
         }
     })
+
     train_and_log(model, optimizer, **kwargs)
 
 
