@@ -1,7 +1,32 @@
 # How to Contribute
 
-So you want to add some code to Caliban. Excellent! This page details ways that
-you can contribute.
+So you want to add some code to Caliban. Excellent!
+
+Pull requests and bug reports are always welcome! Check out our [Contributor's
+Guide](CONTRIBUTING.md) for information on how to get started contributing to
+Caliban.
+
+The TL;DR; is:
+
+- send us a pull request,
+- iterate on the feedback + discussion, and
+- get a +1 from a [Committer](COMMITTERS.md)
+
+in order to get your PR accepted.
+
+Issues should be reported on the [GitHub issue
+tracker](https://github.com/google/caliban/issues).
+
+If you want to discuss an idea for a new feature or ask us a question,
+discussion occurs primarily in the body of [Github
+Issues](https://github.com/google/caliban/issues), though the project is growing
+large enough that we may start a Gitter channel soon.
+
+The current list of active committers (who can +1 a pull request) can be found
+here: [COMMITTERS.md](COMMITTERS.md)
+
+A list of contributors to the project can be found at the project's
+[Contributors](https://github.com/google/caliban/graphs/contributors) page.
 
 ## Contributor License Agreement
 
