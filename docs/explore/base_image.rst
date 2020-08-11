@@ -84,7 +84,7 @@ command:
 
 .. code-block:: bash
 
-   gcloud builds submit .
+   gcloud builds submit --project=<destination project> --config=cloudbuild.json .
 
 By default this uses your default project and the ``cloudbuild.json`` file in your current
 directory. If you are pushing the images to a different project than your ``gcloud`` default,
