@@ -153,6 +153,7 @@ def _create_job_spec_dict(
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
 
   launcher_args = um.mlflow_args(
+      caliban_config=caliban_config,
       experiment_name=experiment.xgroup.name,
       index=index,
       tags={
@@ -327,9 +328,23 @@ def run(job_mode: c.JobMode,
   if image_id is None:
     image_id = b.build_image(job_mode, **build_image_kwargs)
 
+  caliban_config = build_image_kwargs.get('caliban_config', {})
+
   base_cmd = _run_cmd(job_mode, run_args)
 
-  command = base_cmd + [image_id] + script_args
+  launcher_args = um.mlflow_args(
+      caliban_config=caliban_config,
+      experiment_name=um.mlflow_shell_experiment_name(),
+      index=-1,
+      tags={
+          um.GPU_ENABLED_TAG: str(job_mode == c.JobMode.GPU).lower(),
+          um.TPU_ENABLED_TAG: 'false',
+          um.DOCKER_IMAGE_TAG: image_id,
+          um.PLATFORM_TAG: Platform.LOCAL.value,
+      },
+  )
+
+  command = base_cmd + [image_id] + launcher_args + script_args
 
   logging.info("Running command: {}".format(' '.join(command)))
   subprocess.call(command)

@@ -436,6 +436,7 @@ def _job_specs(
   for idx, m in enumerate(experiments, 1):
 
     launcher_args = um.mlflow_args(
+        caliban_config=caliban_config,
         experiment_name=m.xgroup.name,
         index=idx,
         tags={

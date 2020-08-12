@@ -710,6 +710,7 @@ class Cluster(object):
     labels = labels or {}
 
     launcher_args = um.mlflow_args(
+        caliban_config=caliban_config,
         experiment_name=experiment.xgroup.name,
         index=index,
         tags={
