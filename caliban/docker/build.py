@@ -648,6 +648,12 @@ USER {uid}:{gid}
                                      adc_path=adc_path,
                                      credentials_path=credentials_path)
 
+  dockerfile += _custom_packages(uid,
+                                 gid,
+                                 packages=c.apt_packages(
+                                     caliban_config, job_mode),
+                                 shell=shell)
+
   dockerfile += _dependency_entries(workdir,
                                     uid,
                                     gid,
@@ -660,12 +666,6 @@ USER {uid}:{gid}
     dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
   dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
-
-  dockerfile += _custom_packages(uid,
-                                 gid,
-                                 packages=c.apt_packages(
-                                     caliban_config, job_mode),
-                                 shell=shell)
 
   dockerfile += _resource_entries(uid, gid, resource_files)
 
