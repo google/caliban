@@ -176,7 +176,7 @@ def mlflow_args(
 
   caliban_config: caliban configuration dict
   experiment: experiment object
-  index: job index, if < 0, then no run name is generated
+  index: job index
   tags: dictionary of tags to pass to mlflow
 
   Returns:
