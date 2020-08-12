@@ -44,7 +44,44 @@ def test_mlflow_args():
   '''verifies that we generate the dynamic args for the caliban launcher
   script for mlflow integration'''
 
+  # test case when caliban_config has no mlflow configuration
   cfg = {
+      'caliban_config': {
+          'base_image': 'gcr.io/a/b'
+      },
+      'experiment_name': 'foo',
+      'index': 42,
+      'tags': {
+          'a': 'x',
+          'b': 7
+      },
+  }
+
+  mlflow_args = um.mlflow_args(**cfg)
+  assert len(mlflow_args) == 0
+
+  # test case when caliban_config has empty mlflow configuration
+  cfg = {
+      'caliban_config': {
+          'base_image': 'gcr.io/a/b',
+          'mlflow_config': None
+      },
+      'experiment_name': 'foo',
+      'index': 42,
+      'tags': {
+          'a': 'x',
+          'b': 7
+      },
+  }
+
+  mlflow_args = um.mlflow_args(**cfg)
+  assert len(mlflow_args) == 0
+
+  # test case when caliban_config has mlflow configuration
+  cfg = {
+      'caliban_config': {
+          'mlflow_config': {}
+      },
       'experiment_name': 'foo',
       'index': 42,
       'tags': {
