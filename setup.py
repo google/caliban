@@ -45,7 +45,7 @@ REQUIRED_PACKAGES = [
     'pyyaml',
     'tqdm>=4.45.0',
     'kubernetes>=10.0.1',
-    'google-auth>=1.18.0',
+    'google-auth>=1.19.0',
     'google-cloud-core>=1.0.3',
     'google-cloud-container>=0.3.0',
     'psycopg2-binary==2.8.5',
