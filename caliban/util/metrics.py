@@ -183,7 +183,7 @@ def mlflow_args(
   mlflow args list
   '''
 
-  if 'mlflow_config' not in caliban_config:
+  if caliban_config.get('mlflow_config') is None:
     return []
 
   env = {f'ENVVAR_{k}': v for k, v in tags.items()}
