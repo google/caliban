@@ -810,10 +810,13 @@ def test_export_job():
 
 
 # ----------------------------------------------------------------------------
-def test_appication_default_credentials_path():
-  p = util.application_default_credentials_path()
-  if p is not None:
-    assert os.path.exists(p)
+def test_appication_default_credentials_path(monkeypatch):
+  adc = 'foo'
+  # monkeypatch can't set things in underscore-prefixed modules, so we
+  # cheat a bit here
+  monkeypatch.setattr(util, 'get_application_default_credentials_path',
+                      lambda: adc)
+  assert util.application_default_credentials_path() == adc
 
 
 # ----------------------------------------------------------------------------
