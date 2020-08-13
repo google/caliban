@@ -810,7 +810,7 @@ def test_export_job():
 
 
 # ----------------------------------------------------------------------------
-def test_appication_default_credentials_path(monkeypatch):
+def test_application_default_credentials_path(monkeypatch):
   adc = 'foo'
   # monkeypatch can't set things in underscore-prefixed modules, so we
   # cheat a bit here
