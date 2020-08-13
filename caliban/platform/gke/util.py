@@ -254,7 +254,10 @@ def gke_tpu_to_tpuspec(tpu: str) -> Optional[TPUSpec]:
   """
 
   tpu_re = re.compile('^(?P<tpu>(v2|v3))-(?P<count>[0-9]+)$')
-  gd = tpu_re.match(tpu).groupdict()
+  match = tpu_re.match(tpu)
+  if match is None:
+    return None
+  gd = match.groupdict()
 
   return TPUSpec(TPU[gd['tpu'].upper()], int(gd['count']))
 
@@ -301,7 +304,10 @@ def gke_gpu_to_gpu(gpu: str) -> Optional[GPU]:
   """
 
   gpu_re = re.compile('^nvidia-tesla-(?P<type>[a-z0-9]+)$')
-  gd = gpu_re.match(gpu).groupdict()
+  match = gpu_re.match(gpu)
+  if match is None:
+    return None
+  gd = match.groupdict()
   return GPU[gd['type'].upper()]
 
 
@@ -464,12 +470,15 @@ def nonnull_list(lst: list) -> list:
   for x in lst:
     if x is None:
       continue
+
+    new_x: Any = x
+
     if type(x) == dict:
-      nnl.append(nonnull_dict(x))
+      new_x = nonnull_dict(x)
     elif type(x) == list:
-      nnl.append(nonnull_list(x))
-    else:
-      nnl.append(x)
+      new_x = nonnull_list(x)
+
+    nnl.append(new_x)
 
   return nnl
 
@@ -491,12 +500,14 @@ def nonnull_dict(d: dict) -> dict:
   for k, v in d.items():
     if v is None:
       continue
+    new_val: Any = v
+
     if type(v) == dict:
-      nnd[k] = nonnull_dict(v)
+      new_val = nonnull_dict(v)
     elif type(v) == list:
-      nnd[k] = nonnull_list(v)
-    else:
-      nnd[k] = v
+      new_val = nonnull_list(v)
+
+    nnd[k] = new_val
 
   return nnd
 
@@ -764,11 +775,11 @@ def parse_job_file(job_file: str) -> Optional[dict]:
   if not valid_job_file_ext(ext):
     logging.error('invalid job file extension: {}, '.format(ext) +
                   'must be in {}'.format(k.VALID_JOB_FILE_EXT))
-    return
+    return None
 
   if not os.path.exists(job_file):
     logging.error('error: job file {} not found'.format(job_file))
-    return
+    return None
 
   try:
     if ext == '.json':
