@@ -194,8 +194,6 @@ def user_verify(msg: str, default: bool) -> bool:
 
     return (ok == 'y')
 
-  return False
-
 
 # ----------------------------------------------------------------------------
 @trap(None)
@@ -235,7 +233,6 @@ def wait_for_operation(cluster_api: discovery.Resource,
         return rsp
 
       sleep(sleep_sec)
-    return None
 
   if spinner:
     with yaspin(Spinners.line, text=message) as spinner:
@@ -601,7 +598,7 @@ def sanitize_job_name(name: str) -> str:
   # also, DNS-1123 is restricted, so just use re here
 
   def _valid(name):
-    k.DNS_1123_RE.match(name) is not None
+    return k.DNS_1123_RE.match(name) is not None
 
   alnum_re = re.compile('[a-z0-9]')
   invalid_re = re.compile('[^a-z0-9\-\.]')
@@ -691,7 +688,7 @@ def credentials_from_file(
 
 
 # ----------------------------------------------------------------------------
-def credentials(creds_file: Optional[str]) -> CredentialsData:
+def credentials(creds_file: Optional[str] = None) -> CredentialsData:
   """get credentials data, either from provided file or from system defaults
 
   Args:
