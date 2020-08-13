@@ -16,10 +16,13 @@
 """unit tests for gke utilities"""
 import unittest
 
+from datetime import datetime
 import hypothesis.strategies as st
 from hypothesis import given
+from kubernetes.client import V1Job, V1JobStatus
 
-from caliban.platform.gke.types import ReleaseChannel
+import caliban.platform.gke.types as gt
+from caliban.platform.gke.types import ReleaseChannel, JobStatus
 
 
 # ----------------------------------------------------------------------------
@@ -36,3 +39,49 @@ class TypesTestSuite(unittest.TestCase):
       x = ReleaseChannel(invalid)
 
     self.assertEqual(valid, ReleaseChannel(valid.value))
+
+
+# ----------------------------------------------------------------------------
+def test_job_status():
+  for s in JobStatus:
+    terminal = s.is_terminal()
+    if s.name in ['FAILED', 'SUCCEEDED', 'UNAVAILABLE']:
+      assert terminal
+    else:
+      assert not terminal
+
+  # completed jobs
+  status = V1JobStatus(completion_time=datetime.now(), succeeded=1)
+  job_info = V1Job(status=status)
+  job_status = JobStatus.from_job_info(job_info)
+  assert job_status == JobStatus.SUCCEEDED
+
+  status = V1JobStatus(completion_time=datetime.now(), succeeded=0)
+  job_info = V1Job(status=status)
+  job_status = JobStatus.from_job_info(job_info)
+  assert job_status == JobStatus.FAILED
+
+  # active jobs
+  status = V1JobStatus(completion_time=None, active=1)
+  job_info = V1Job(status=status)
+  job_status = JobStatus.from_job_info(job_info)
+  assert job_status == JobStatus.RUNNING
+
+  # pending jobs
+  status = V1JobStatus(completion_time=None, active=0)
+  job_info = V1Job(status=status)
+  job_status = JobStatus.from_job_info(job_info)
+  assert job_status == JobStatus.PENDING
+
+  # unknown state
+  status = V1JobStatus()
+  job_info = V1Job(status=status)
+  job_status = JobStatus.from_job_info(job_info)
+  assert job_status == JobStatus.STATE_UNSPECIFIED
+
+  job_info = V1Job()
+  job_status = JobStatus.from_job_info(job_info)
+  assert job_status == JobStatus.STATE_UNSPECIFIED
+
+  job_status = JobStatus.from_job_info(None)
+  assert job_status == JobStatus.STATE_UNSPECIFIED
