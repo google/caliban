@@ -25,6 +25,7 @@ from typing import List, Optional
 import caliban.config as c
 import caliban.docker.build as b
 import caliban.platform.run as r
+import caliban.util as u
 
 
 def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
@@ -99,9 +100,13 @@ def run_interactive(job_mode: c.JobMode,
   if entrypoint is None:
     entrypoint = b.SHELL_DICT[shell].executable
 
+  build_image_kwargs['package'] = u.Package(executable=[entrypoint],
+                                            script_path=None,
+                                            main_module=None,
+                                            package_path=None)
+
   interactive_run_args = _interactive_opts(workdir) + [
-      "-it", \
-      "--entrypoint", entrypoint
+      "-it"
   ] + _home_mount_cmds(mount_home) + run_args
 
   r.run(job_mode=job_mode,

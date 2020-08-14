@@ -125,6 +125,9 @@ def copy_command(user_id: int,
   recommend using an absolute path!
 
   """
+  if from_path is None:
+    return ""
+
   cmd = f"COPY --chown={user_id}:{user_group} {from_path} {to_path}\n"
 
   if comment is not None:
@@ -358,6 +361,7 @@ def _package_entries(
   caliban_config = caliban_config or {}
 
   arg = package.main_module or package.script_path
+  arg = [arg] if arg is not None else []
   package_path = package.package_path
 
   copy_code = copy_command(
@@ -369,7 +373,7 @@ def _package_entries(
 
   # This needs to use json so that quotes print as double quotes, not single
   # quotes.
-  executable_s = json.dumps(package.executable + [arg])
+  executable_s = json.dumps(package.executable + arg)
 
   entrypoint_code = _generate_entrypoint(
       executable=executable_s,

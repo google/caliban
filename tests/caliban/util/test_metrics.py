@@ -221,3 +221,9 @@ def test_launcher_config_file():
 
     # make sure we clean up appropriately
     assert not os.path.exists(cfg_fname)
+
+
+def test_mlflow_shell_experiment_name():
+  experiment_name = um.mlflow_shell_experiment_name()
+  assert experiment_name is not None
+  assert len(experiment_name) > 0

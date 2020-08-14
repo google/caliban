@@ -176,7 +176,7 @@ def mlflow_args(
 
   caliban_config: caliban configuration dict
   experiment: experiment object
-  index: job index
+  index: job index, if < 0, then no run name is generated
   tags: dictionary of tags to pass to mlflow
 
   Returns:
@@ -188,6 +188,14 @@ def mlflow_args(
 
   env = {f'ENVVAR_{k}': v for k, v in tags.items()}
   env['MLFLOW_EXPERIMENT_NAME'] = experiment_name
-  env['MLFLOW_RUN_NAME'] = _mlflow_job_name(index=index)
+
+  if index >= 0:
+    env['MLFLOW_RUN_NAME'] = _mlflow_job_name(index=index)
 
   return ['--caliban_config', json.dumps({'env': env})]
+
+
+def mlflow_shell_experiment_name() -> str:
+  '''generates an experiment name for a caliban shell session'''
+  timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+  return f'{u.current_user()}-shell-{timestamp}'
