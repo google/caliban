@@ -28,7 +28,7 @@ import urllib3
 import yaml
 from google.auth.credentials import Credentials
 from google.cloud.container_v1 import ClusterManagerClient
-from google.cloud.container_v1.types import NodePool
+from google.cloud.container_v1.types import NodePool, Cluster as GKECluster
 from googleapiclient import discovery
 from googleapiclient.http import HttpRequest
 from kubernetes.client import (V1Container, V1DaemonSet, V1EnvVar, V1Job,
@@ -188,13 +188,13 @@ class Cluster(object):
   """
 
   # --------------------------------------------------------------------------
-  def __init__(self, name: str, project_id: str, zone: str,
+  def __init__(self, name: Optional[str], project_id: str, zone: str,
                credentials: Credentials):
     self._cluster_client = None
-    self._gke_cluster = None
-    self._core_api = None
-    self._batch_api = None
-    self._apps_api = None
+    self._gke_cluster: Optional[GKECluster] = None
+    self._core_api: Optional[kubernetes.client.CoreV1Api] = None
+    self._batch_api: Optional[kubernetes.client.BatchV1Api] = None
+    self._apps_api: Optional[kubernetes.client.AppsV1Api] = None
     self._tpu_api = None
     self.name = name
     self.project_id = project_id
@@ -217,6 +217,9 @@ class Cluster(object):
     # if gke cluster info already populated, then noop
     # otherwise uses cluster api to get cluster info
     if not self._set_gke_cluster():
+      return False
+
+    if self._gke_cluster is None:
       return False
 
     # resolve our zone in case the wildcard '-' was passed
@@ -312,7 +315,7 @@ class Cluster(object):
 
     if client is None:
       logging.error('error getting cluster management client')
-      return False
+      return None
 
     clusters = util.get_gke_clusters(client, project_id, zone)
     return [c.name for c in clusters] if clusters is not None else None
@@ -347,7 +350,7 @@ class Cluster(object):
   def container_limits(
       accelerator: Optional[Accelerator],
       count: int = 1,
-      preemptible_tpu: bool = True) -> Optional[Dict[str, str]]:
+      preemptible_tpu: bool = True) -> Optional[Dict[str, int]]:
     """creates container limits dictionary for given accelerator type and count
 
     Args:
@@ -449,7 +452,7 @@ class Cluster(object):
       selector[k.NODE_SELECTOR_INSTANCE_TYPE] = machine_type.value
 
     # see: https://cloud.google.com/kubernetes-engine/docs/how-to/gpus
-    if type(accelerator) == GPU:
+    if isinstance(accelerator, GPU):
       selector[
           k.NODE_SELECTOR_GKE_ACCELERATOR] = accelerator.value.lower().replace(
               '_', '-')
@@ -493,6 +496,9 @@ class Cluster(object):
     list of V1Pod instances on success, None otherwise
     """
 
+    if self._core_api is None:
+      return None
+
     # this returns a V1PodList
     rsp = self._core_api.list_pod_for_all_namespaces(watch=False)
 
@@ -511,6 +517,9 @@ class Cluster(object):
     Returns:
     list of V1Job instances on success, None otherwise
     """
+    if self._batch_api is None:
+      return None
+
     return self._batch_api.list_job_for_all_namespaces(watch=False).items
 
   # --------------------------------------------------------------------------
@@ -518,6 +527,9 @@ class Cluster(object):
   @connected(None)
   def get_job(self, job_name: str) -> Optional[V1Job]:
     '''gets a v1job from the cluster from the given job name'''
+    if self._batch_api is None:
+      return None
+
     jobs = self._batch_api.list_job_for_all_namespaces(
         watch=False, field_selector=f'metadata.name={job_name}').items
     if len(jobs) != 1:
@@ -542,6 +554,9 @@ class Cluster(object):
     Returns:
     True on success, False otherwise
     '''
+    if self._batch_api is None:
+      return False
+
     try:
       # The propagation_policy arg here is important, as the default is
       # 'Orphan', which deletes the job, but keeps any running pods.
@@ -568,7 +583,9 @@ class Cluster(object):
     list of node pools on success, None otherwise
     """
 
-    # todo: re-query this
+    if self._gke_cluster is None:
+      return None
+
     return self._gke_cluster.node_pools
 
   # --------------------------------------------------------------------------
@@ -588,6 +605,9 @@ class Cluster(object):
     Returns:
     V1Job on success, None otherwise
     """
+
+    if self._batch_api is None:
+      return None
 
     return self._batch_api.create_namespaced_job(namespace=namespace,
                                                  body=job,
@@ -710,6 +730,7 @@ class Cluster(object):
     labels = labels or {}
 
     launcher_args = um.mlflow_args(
+        caliban_config=caliban_config,
         experiment_name=experiment.xgroup.name,
         index=index,
         tags={
@@ -866,8 +887,8 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @staticmethod
   def convert_accel_spec(
-      gpu_spec: Optional[GPUSpec],
-      tpu_spec: Optional[TPUSpec]) -> Optional[Tuple[Accelerator, int]]:
+      gpu_spec: Optional[GPUSpec], tpu_spec: Optional[TPUSpec]
+  ) -> Optional[Tuple[Optional[Accelerator], int]]:
     """converts gpu/tpu spec pair to accelerator,count tuple
 
     Args:
@@ -895,8 +916,10 @@ class Cluster(object):
 
   # --------------------------------------------------------------------------
   @connected(None)
-  def dashboard_url(self) -> str:
-    """returns gke dashboard url for this cluster"""
+  def dashboard_url(self) -> Optional[str]:
+    """returns gke dashboard url for this cluster on success, None otherwise"""
+    if self.name is None:
+      return None
     return util.dashboard_cluster_url(self.name, self.zone, self.project_id)
 
   # --------------------------------------------------------------------------
@@ -1033,6 +1056,9 @@ class Cluster(object):
     V1DaemonSet (with status) on success, None otherwise
     """
 
+    if self._apps_api is None:
+      return None
+
     return self._apps_api.create_namespaced_daemon_set(namespace=namespace,
                                                        body=daemonset,
                                                        async_req=False,
@@ -1041,7 +1067,7 @@ class Cluster(object):
   # --------------------------------------------------------------------------
   @connected(None)
   def apply_daemonset_from_url(
-      self, url: str, parser: Callable[[str], dict]) -> Optional[V1DaemonSet]:
+      self, url: str, parser: Callable[[bytes], dict]) -> Optional[V1DaemonSet]:
     """applies daemonset to cluster from file url
 
     Args:
@@ -1151,7 +1177,7 @@ class Cluster(object):
     rz = _parse_zone(zone)
     if rz is None:
       logging.error('invalid zone specified: {}'.format(zone))
-      return
+      return None
 
     region, _ = rz
 
@@ -1165,7 +1191,7 @@ class Cluster(object):
 
     if resource_limits is None:
       logging.error('error generating resource limits')
-      return
+      return None
 
     if single_zone:
       node_zones = [zone]
@@ -1174,7 +1200,7 @@ class Cluster(object):
 
     if node_zones is None:
       logging.error('error getting zones for region {}'.format(region))
-      return
+      return None
 
     request_body = _cluster_create_request_body(
         project_id, zone,
@@ -1215,7 +1241,7 @@ class Cluster(object):
 
     if rsp is None:
       logging.error('error: could not create cluster')
-      return
+      return None
 
     # wait for creation operation to complete
     operation_name = rsp['name']
@@ -1226,7 +1252,7 @@ class Cluster(object):
 
     if rsp['status'] != OpStatus.DONE.value:
       logging.error('error creating cluster {}!'.format(cluster_name))
-      return
+      return None
 
     # get our newly-created cluster
     cluster = Cluster.get(name=cluster_name,
@@ -1239,7 +1265,7 @@ class Cluster(object):
           'error: unable to connect to cluster {}'.format(cluster_name))
       logging.error('nvidia-driver daemonset not applied, to do this manually:')
       logging.error('kubectl apply -f {}'.format(daemonset_url))
-      return
+      return None
 
     logging.info('created cluster {} successfully'.format(cluster_name))
     logging.info('applying nvidia driver daemonset...')

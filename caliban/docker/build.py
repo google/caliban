@@ -42,6 +42,8 @@ import caliban.util.metrics as um
 t = Terminal()
 
 DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
+DEFAULT_GPU_TAG = "gpu-ubuntu1804-py37-cuda101"
+DEFAULT_CPU_TAG = "cpu-ubuntu1804-py37"
 TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
@@ -193,13 +195,13 @@ def tf_base_image(job_mode: c.JobMode, tensorflow_version: str) -> str:
 
 
 def base_image_suffix(job_mode: c.JobMode) -> str:
-  return "gpu" if c.gpu(job_mode) else "cpu"
+  return DEFAULT_GPU_TAG if c.gpu(job_mode) else DEFAULT_CPU_TAG
 
 
 def base_image_id(job_mode: c.JobMode) -> str:
   """Returns the default base image for all caliban Dockerfiles."""
   base_suffix = base_image_suffix(job_mode)
-  return "{}:{}".format(DEV_CONTAINER_ROOT, base_suffix)
+  return f"{DEV_CONTAINER_ROOT}:{base_suffix}"
 
 
 def extras_string(extras: List[str]) -> str:
@@ -684,6 +686,12 @@ USER {uid}:{gid}
                                      adc_path=adc_path,
                                      credentials_path=credentials_path)
 
+  dockerfile += _custom_packages(uid,
+                                 gid,
+                                 packages=c.apt_packages(
+                                     caliban_config, job_mode),
+                                 shell=shell)
+
   dockerfile += _dependency_entries(workdir,
                                     uid,
                                     gid,
@@ -697,12 +705,6 @@ USER {uid}:{gid}
     dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
   dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
-
-  dockerfile += _custom_packages(uid,
-                                 gid,
-                                 packages=c.apt_packages(
-                                     caliban_config, job_mode),
-                                 shell=shell)
 
   dockerfile += _resource_entries(uid, gid, resource_files)
 

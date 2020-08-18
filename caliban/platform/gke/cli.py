@@ -94,6 +94,9 @@ def _check_for_existing_cluster(cluster_name: str, project_id: str,
 
   clusters = Cluster.list(project_id=project_id, creds=creds)
 
+  if clusters is None:
+    return False
+
   if len(clusters) == 0:
     return True
 
@@ -568,7 +571,7 @@ def submit_job_specs(
   args: dictionary of args
   cluster: cluster instance
   """
-  job_specs = args.get('specs')
+  job_specs = args.get('specs', [])
 
   for s in job_specs:
     name = s.spec['template']['spec']['containers'][0]['name']

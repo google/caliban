@@ -79,6 +79,12 @@ class JobStatus(Enum):
 
   @classmethod
   def from_job_info(cls, job_info: V1Job) -> "JobStatus":
+    if job_info is None:
+      return JobStatus.STATE_UNSPECIFIED
+
+    if job_info.status is None:
+      return JobStatus.STATE_UNSPECIFIED
+
     # completed
     if job_info.status.completion_time is not None:
       if job_info.status.succeeded is not None:
