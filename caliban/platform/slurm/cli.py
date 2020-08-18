@@ -56,6 +56,8 @@ _squeue = "squeue"
 _partition = "debugq"
 _timelimit = "00:10:00"
 _nodes = 1
+_ntasks_per_node = 40
+_nthreads_per_task = 1
 
 
 # ----------------------------------------------------------------------------
@@ -206,12 +208,17 @@ env PYTHONUNBUFFERED=1 singularity run --tmpdir /gpfs/eschnetter/singularity/tmp
 
       logging.info("Submitting job...")
       prepare_cmd = ["mkdir", "-p", _logdir, _resultdir_host]
+      env_cmd = [
+          "export", "CALIBAN_NPROCS=" + str(_nodes * _ntasks_per_node),
+          "CALIBAN_NTHREADS_PER_PROC=" + str(_nthreads_per_task)
+      ]
       cmd = [
           _sbatch, "--job-name", job_name, "--nodes",
-          str(_nodes), "--output", log_filename, "--partition", _partition,
-          "--time", _timelimit
+          str(_nodes), "--ntasks-per-node",
+          str(_ntasks_per_node), "--output", log_filename, "--partition",
+          _partition, "--time", _timelimit
       ]
-      cmds = [prepare_cmd, cmd]
+      cmds = [prepare_cmd, env_cmd, cmd]
       process = subprocess.run(_with_ssh(cmds),
                                input=script,
                                stdout=subprocess.PIPE,
