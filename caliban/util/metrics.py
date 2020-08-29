@@ -166,6 +166,7 @@ def _mlflow_job_name(index: int, user: str = None) -> str:
 
 
 def mlflow_args(
+    caliban_config: Dict[str, Any],
     experiment_name: str,
     index: int,
     tags: Dict[str, Any],
@@ -173,6 +174,7 @@ def mlflow_args(
   '''returns mlflow args for caliban launcher
   Args:
 
+  caliban_config: caliban configuration dict
   experiment: experiment object
   index: job index
   tags: dictionary of tags to pass to mlflow
@@ -180,6 +182,9 @@ def mlflow_args(
   Returns:
   mlflow args list
   '''
+
+  if caliban_config.get('mlflow_config') is None:
+    return []
 
   env = {f'ENVVAR_{k}': v for k, v in tags.items()}
   env['MLFLOW_EXPERIMENT_NAME'] = experiment_name

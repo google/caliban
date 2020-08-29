@@ -153,6 +153,7 @@ def _create_job_spec_dict(
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
 
   launcher_args = um.mlflow_args(
+      caliban_config=caliban_config,
       experiment_name=experiment.xgroup.name,
       index=index,
       tags={

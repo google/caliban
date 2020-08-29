@@ -20,14 +20,11 @@ and notebooks in a Docker environment.
 
 from __future__ import absolute_import, division, print_function
 
-import datetime
 import json
 import os
-import re
 import subprocess
 from enum import Enum
 from pathlib import Path
-from pkg_resources import resource_filename
 from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
 
 from absl import logging
@@ -36,13 +33,14 @@ from blessings import Terminal
 import caliban.config as c
 import caliban.util as u
 import caliban.util.fs as ufs
-import caliban.history.types as ht
 import caliban.util.metrics as um
 
 t = Terminal()
 
 # DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
 DEV_CONTAINER_ROOT = "docker.io/eschnett/carpetx-caliban"
+DEFAULT_GPU_TAG = "gpu-ubuntu1804-py37-cuda101"
+DEFAULT_CPU_TAG = "cpu-ubuntu1804-py37"
 TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
@@ -194,13 +192,13 @@ def tf_base_image(job_mode: c.JobMode, tensorflow_version: str) -> str:
 
 
 def base_image_suffix(job_mode: c.JobMode) -> str:
-  return "gpu" if c.gpu(job_mode) else "cpu"
+  return DEFAULT_GPU_TAG if c.gpu(job_mode) else DEFAULT_CPU_TAG
 
 
 def base_image_id(job_mode: c.JobMode) -> str:
   """Returns the default base image for all caliban Dockerfiles."""
   base_suffix = base_image_suffix(job_mode)
-  return "{}:{}".format(DEV_CONTAINER_ROOT, base_suffix)
+  return f"{DEV_CONTAINER_ROOT}:{base_suffix}"
 
 
 def extras_string(extras: List[str]) -> str:
@@ -280,62 +278,60 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
   return ret
 
 
-def _cloud_sql_proxy_entry(user_id: int, user_group: int) -> str:
-  '''returns dockerfile entry to fetch cloud_sql_proxy, installing in /usr/bin'''
-
-  cmd = (
-      'RUN wget -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 '
-      '-O /usr/bin/cloud_sql_proxy && '
-      'chmod 755 /usr/bin/cloud_sql_proxy')
-
-  return f'''
-USER root
-
-{cmd}
-
-USER {user_id}:{user_group}
-'''
-
-
-def _generate_entrypoint(
-    executable: str,
+def _cloud_sql_proxy_entry(
     user_id: int,
     user_group: int,
     caliban_config: Optional[Dict[str, Any]] = None,
 ) -> str:
-  '''generates dockerfile entry to set the container entrypoint, along with
-    any additional necessary entries, such as for services like cloud_sql_proxy
+  """returns dockerfile entry to fetch cloud_sql_proxy, installing in /usr/bin.
+
+  Args:
+  user_id: id of non-root user
+  user_group: id of non-root group for user
+  caliban_config: dictionary of caliban configuration options
+
+  Returns:
+  string with Dockerfile directives to install cloud_sql_proxy as root
+  and reset the user to the specified user_id:user_group.
+
+  """
+  caliban_config = caliban_config or {}
+  mlflow_cfg = caliban_config.get('mlflow_config')
+
+  if mlflow_cfg is None:
+    return ""
+
+  return f"""
+USER root
+
+RUN wget \
+  -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 \
+  -O /usr/bin/cloud_sql_proxy \
+  && chmod 755 /usr/bin/cloud_sql_proxy
+
+USER {user_id}:{user_group}
+"""
+
+
+def _generate_entrypoint(executable: str) -> str:
+  """generates dockerfile entry to set the container entrypoint.
 
   Args:
   executable: string of main executable
-  caliban_config: dictionary of caliban configuration options
-  user_id: id of non-root user
-  user_group: id of non-root group for user
 
   Returns:
   string with Dockerfile directives to set ENTRYPOINT
-  '''
 
-  caliban_config = caliban_config or {}
-
-  mlflow_cfg = caliban_config.get('mlflow_config')
-  if mlflow_cfg is not None:
-    cloud_sql_proxy_code = _cloud_sql_proxy_entry(user_id=user_id,
-                                                  user_group=user_group)
-  else:
-    cloud_sql_proxy_code = ''
-
+  """
   launcher_cmd = json.dumps([
       'python',
       os.path.join(RESOURCE_DIR, um.LAUNCHER_SCRIPT), '--caliban_command',
       executable
   ])
 
-  return f'''
-{cloud_sql_proxy_code}
-
+  return f"""
 ENTRYPOINT {launcher_cmd}
-'''
+"""
 
 
 def _package_entries(
@@ -359,6 +355,10 @@ def _package_entries(
   arg = package.main_module or package.script_path
   package_path = package.package_path
 
+  sql_proxy_code = _cloud_sql_proxy_entry(user_id,
+                                          user_group,
+                                          caliban_config=caliban_config)
+
   copy_code = copy_command(
       user_id,
       user_group,
@@ -369,19 +369,15 @@ def _package_entries(
   # This needs to use json so that quotes print as double quotes, not single
   # quotes.
   executable_s = json.dumps(package.executable + [arg])
+  entrypoint_code = _generate_entrypoint(executable_s)
 
-  entrypoint_code = _generate_entrypoint(
-      executable=executable_s,
-      user_id=user_id,
-      user_group=user_group,
-      caliban_config=caliban_config,
-  )
+  return f"""
+  {sql_proxy_code}
 
-  return f'''
   {copy_code}
 
   {entrypoint_code}
-'''
+"""
 
 
 def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
@@ -647,6 +643,12 @@ USER {uid}:{gid}
                                      adc_path=adc_path,
                                      credentials_path=credentials_path)
 
+  dockerfile += _custom_packages(uid,
+                                 gid,
+                                 packages=c.apt_packages(
+                                     caliban_config, job_mode),
+                                 shell=shell)
+
   dockerfile += _dependency_entries(workdir,
                                     uid,
                                     gid,
@@ -659,12 +661,6 @@ USER {uid}:{gid}
     dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
   dockerfile += _extra_dir_entries(workdir, uid, gid, extra_dirs)
-
-  dockerfile += _custom_packages(uid,
-                                 gid,
-                                 packages=c.apt_packages(
-                                     caliban_config, job_mode),
-                                 shell=shell)
 
   dockerfile += _resource_entries(uid, gid, resource_files)
 

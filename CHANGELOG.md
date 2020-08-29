@@ -1,5 +1,24 @@
 # pending
 
+# 0.4.0
+
+The biggest feature in this new release is native support for logging to an
+MLFlow tracking server using the [UV
+Metrics](http://github.com/google/uv-metrics) project.
+(https://github.com/google/caliban/pull/35) This feature is in alpha; expect
+documentation soon.
+
+### More features
+
+- minor bugfixes for GKE (https://github.com/google/caliban/pull/85)
+- additional tests for gke.{types, util} (https://github.com/google/caliban/pull/84)
+- re-order custom apt packages before pip requirements (https://github.com/google/caliban/pull/82)
+- modify base image to our more general cloudbuild naming scheme (https://github.com/google/caliban/pull/80)
+- updated `google-auth` dependency version to `1.19.0` (https://github.com/google/caliban/pull/79)
+- add clearer contribution info (https://github.com/google/caliban/pull/76)
+- Update uv-metrics tutorial (https://github.com/google/caliban/pull/74, https://github.com/google/caliban/pull/72)
+- add support for running an embedded cloudsql_proxy (https://github.com/google/caliban/pull/60)
+- bugfix for #65: do not add resource maxima when quota is < 1 (#67)
 - Updated accelerator regions (and globally availabe AI Platform regions to
   match the current state here):
   https://cloud.google.com/ai-platform/training/docs/regions
