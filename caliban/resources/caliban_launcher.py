@@ -20,6 +20,7 @@ job.
 
 import argparse
 import copy
+import google.auth
 import json
 import logging
 import os
@@ -48,7 +49,7 @@ def _parse_json(argname, json_string, expected_type):
   return obj
 
 
-def _parser():
+def _parser():  # pragma: no cover
   parser = argparse.ArgumentParser(
       description='caliban launcher for container.',
       prog='caliban_launcher',
@@ -70,7 +71,7 @@ def _parser():
   return parser
 
 
-def _parse_flags(argv):
+def _parse_flags(argv):  # pragma: no cover
   return _parser().parse_known_args(argv[1:])
 
 
@@ -158,7 +159,7 @@ def _ensure_non_null_project(env):
   return new_env
 
 
-def main(args, passthrough_args):
+def main(args, passthrough_args):  # pragma: no cover
 
   config = _get_config(args)
 
@@ -175,5 +176,5 @@ def main(args, passthrough_args):
   _execute_command(cmd, passthrough_args, env)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
   main(*_parse_flags(sys.argv))
