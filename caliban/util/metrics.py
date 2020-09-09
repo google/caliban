@@ -83,6 +83,8 @@ def _create_mlflow_config(
   region = cfg['region']
   artifact_root = cfg['artifact_root']
   debug = cfg.get('debug', False)
+  pubsub_project = cfg.get('pubsub_project', project)
+  pubsub_topic = cfg['pubsub_topic']
 
   socket_path = '/tmp/cloudsql'
   proxy_path = os.path.join(os.sep, 'usr', 'bin', 'cloud_sql_proxy')
@@ -110,7 +112,9 @@ def _create_mlflow_config(
       'services': [proxy_cmd],
       'env': {
           'MLFLOW_TRACKING_URI': tracking_uri,
-          'MLFLOW_ARTIFACT_ROOT': artifact_root
+          'MLFLOW_ARTIFACT_ROOT': artifact_root,
+          'UV_MLFLOW_PUBSUB_PROJECT': pubsub_project,
+          'UV_MLFLOW_PUBSUB_TOPIC': pubsub_topic,
       }
   }
 

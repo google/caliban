@@ -171,6 +171,7 @@ def test_launcher_config_file():
                 'user': user,
                 'password': password,
                 'artifact_root': artifact_root,
+                'pubsub_topic': 'mlflow',
             },
         },
     }

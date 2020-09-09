@@ -137,6 +137,8 @@ MLFlowConfig = {
     'password': str,
     'artifact_root': str,
     s.Optional('debug'): bool,
+    s.Optional('pubsub_project'): str,  # default = project above
+    s.Optional('pubsub_topic', default='mlflow'): str,
 }
 
 # Config items that are project-specific, and don't belong in a global
