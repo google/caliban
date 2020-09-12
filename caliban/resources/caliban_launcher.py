@@ -20,6 +20,7 @@ job.
 
 import argparse
 import copy
+import google.auth
 import json
 import logging
 import os
@@ -48,7 +49,7 @@ def _parse_json(argname, json_string, expected_type):
   return obj
 
 
-def _parser():
+def _parser():  # pragma: no cover
   parser = argparse.ArgumentParser(
       description='caliban launcher for container.',
       prog='caliban_launcher',
@@ -70,7 +71,7 @@ def _parser():
   return parser
 
 
-def _parse_flags(argv):
+def _parse_flags(argv):  # pragma: no cover
   return _parser().parse_known_args(argv[1:])
 
 
@@ -131,20 +132,49 @@ def _get_config(args):
   return cfg
 
 
-def main(args, passthrough_args):
+def _ensure_non_null_project(env):
+  '''Ensures that the google cloud python api methods can get a non-none
+  project id. This is useful because google.cloud.storage.Client()
+  requires a non-none project, and writing to a storage bucket is a fairly
+  common use case. We first attempt to determine the project via
+  google.auth.default(), and if this is not successful, we then resort to
+  setting the GOOGLE_CLOUD_PROJECT environment variable to a placeholder value.
+
+  Args:
+  env: dictionary of environment variables
+
+  Returns:
+  possibly modified env dictionary
+  '''
+
+  if 'GOOGLE_CLOUD_PROJECT' in env:
+    return env
+
+  _, project_id = google.auth.default()
+  if project_id is not None:
+    return env
+
+  new_env = copy.copy(env)
+  new_env['GOOGLE_CLOUD_PROJECT'] = 'placeholder'
+  return new_env
+
+
+def main(args, passthrough_args):  # pragma: no cover
 
   config = _get_config(args)
 
   env = copy.copy(dict(os.environ))
   caliban_env = config.get('env', {})
+
   cmd = args.caliban_command
   services = config.get('services', [])
 
   env.update(caliban_env)
+  env = _ensure_non_null_project(env)
 
   _start_services(services, env)
   _execute_command(cmd, passthrough_args, env)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
   main(*_parse_flags(sys.argv))
