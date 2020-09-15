@@ -77,7 +77,7 @@ the local development experience.
 
 Projects like [MLFlow](https://mlflow.org/docs/latest/projects.html)
 [@zaharia2018accelerating] attempt to streamline the container creation process,
-but still force the researcher's to absorb much of Docker's mental model.
+but still force the researcher to absorb much of Docker's mental model.
 
 # Caliban and Reproducible Research
 
