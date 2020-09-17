@@ -64,25 +64,33 @@ def _default_launcher_config() -> Dict[str, Any]:
 
 
 def _create_mlflow_config(
-    cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    mlflow_cfg: Optional[Dict[str, Any]] = None,
+    uv_cfg: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
   '''generates mlflow configuration dict for launcher script
   Args:
-  cfg: mlflow configuration dict from .calibanconfig.json
+  mlflow_cfg: mlflow configuration dict from .calibanconfig.json
+  uv_cfg: uv configuration dict from .calibanconfig.json
 
   Returns:
   config dict for launcher script with entries needed for mlflow
   '''
 
-  if cfg is None:
+  if mlflow_cfg is None:
     return _default_launcher_config()
 
-  user = cfg['user']
-  pw = cfg['password']
-  db = cfg['db']
-  project = cfg['project']
-  region = cfg['region']
-  artifact_root = cfg['artifact_root']
-  debug = cfg.get('debug', False)
+  uv_cfg = uv_cfg or {}
+  uv_mlflow_cfg = uv_cfg.get('mlflow') or {}
+
+  user = mlflow_cfg['user']
+  pw = mlflow_cfg['password']
+  db = mlflow_cfg['db']
+  project = mlflow_cfg['project']
+  region = mlflow_cfg['region']
+  artifact_root = mlflow_cfg['artifact_root']
+  debug = mlflow_cfg.get('debug', False)
+  pubsub_project = uv_mlflow_cfg.get('pubsub_project', project)
+  pubsub_topic = uv_mlflow_cfg.get('pubsub_topic') or 'mlflow'
 
   socket_path = '/tmp/cloudsql'
   proxy_path = os.path.join(os.sep, 'usr', 'bin', 'cloud_sql_proxy')
@@ -110,7 +118,9 @@ def _create_mlflow_config(
       'services': [proxy_cmd],
       'env': {
           'MLFLOW_TRACKING_URI': tracking_uri,
-          'MLFLOW_ARTIFACT_ROOT': artifact_root
+          'MLFLOW_ARTIFACT_ROOT': artifact_root,
+          'UV_MLFLOW_PUBSUB_PROJECT': pubsub_project,
+          'UV_MLFLOW_PUBSUB_TOPIC': pubsub_topic,
       }
   }
 
@@ -144,7 +154,9 @@ def launcher_config_file(
   config = _default_launcher_config()
   config_file_path = os.path.join(path, LAUNCHER_CONFIG_FILE)
 
-  mlflow_config = _create_mlflow_config(caliban_config.get('mlflow_config'))
+  mlflow_config = _create_mlflow_config(
+      mlflow_cfg=caliban_config.get('mlflow_config'),
+      uv_cfg=caliban_config.get('uv'))
 
   config['services'] += mlflow_config['services']
   config['env'].update(mlflow_config['env'])

@@ -1,5 +1,11 @@
 # pending
 
+# 0.4.1
+
+Small release to archive for JOSS acceptance.
+
+- Move `cloud_sql_proxy` installation before code copy (https://github.com/google/caliban/pull/87)
+
 # 0.4.0
 
 The biggest feature in this new release is native support for logging to an

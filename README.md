@@ -495,21 +495,23 @@ A list of contributors to the project can be found at the project's
 
 ## Citing Caliban
 
-If Caliban helps you in your research, please consider citing the repository:
+If Caliban helps you in your research, please consider citing Caliban's
+associated academic paper:
 
 ```
-@software{caliban2020github,
-  author = {Sam Ritchie and Ambrose Slone and Vinay Ramasesh},
-  title = {{Caliban}: Docker-based job manager for reproducible workflows},
-  url = {http://github.com/google/caliban},
-  version = {0.2.5},
+@article{Ritchie2020,
+  doi = {10.21105/joss.02403},
+  url = {https://doi.org/10.21105/joss.02403},
   year = {2020},
+  publisher = {The Open Journal},
+  volume = {5},
+  number = {53},
+  pages = {2403},
+  author = {Sam Ritchie and Ambrose Slone and Vinay Ramasesh},
+  title = {Caliban: Docker-based job manager for reproducible workflows},
+  journal = {Journal of Open Source Software}
 }
 ```
-
-In the above bibtex entry, the version number is intended to be that of the
-latest tag on github, and the year corresponds to the project's open-source
-release.
 
 ## License
 
