@@ -172,6 +172,11 @@ def test_launcher_config_file():
                 'password': password,
                 'artifact_root': artifact_root,
             },
+            'uv': {
+                'mlflow': {
+                    'pubsub_topic': 'mlflow',
+                }
+            }
         },
     }
 
