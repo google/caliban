@@ -24,6 +24,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
@@ -280,9 +281,17 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
   if julia_version is not None:
     # Install Julia
     # Extract major and minor version numbers
-    m = re.match(r"(\d+[.]\d+)", julia_version)
-    julia_version2 = m[1]
-    julia_url = f"https://julialang-s3.julialang.org/bin/linux/x64/{julia_version2}/julia-{julia_version}-linux-x86_64.tar.gz"
+    if julia_version == "nightly":
+      julia_url = f"https://julialangnightlies-s3.julialang.org/bin/linux/x64/julia-latest-linux64.tar.gz"
+      today = date.today()
+      # A changing tag forces a new Julia download
+      julia_tag = f"{today.year}-{today.month}-{today.day}"
+    else:
+      m = re.match(r"(\d+[.]\d+)", julia_version)
+      julia_version2 = m[1]
+      julia_url = f"https://julialang-s3.julialang.org/bin/linux/x64/{julia_version2}/julia-{julia_version}-linux-x86_64.tar.gz"
+      julia_tag = julia_version
+
     ret += f"""
 # Where Julia is installed
 # TODO: Use /usr/local instead of /tmp for Julia directories
@@ -291,6 +300,7 @@ ENV PATH=$PATH:$JULIA_LOC/bin
 # Where Julia installs packages
 ENV JULIA_DEPOT_PATH=/tmp/var/julia_depot
 RUN /bin/bash -c "mkdir -p $JULIA_LOC && \
+                  echo 'Downloading Julia {julia_tag}' && \
                   wget -nv {julia_url} && \
                   tar xzf $(basename {julia_url}) -C $JULIA_LOC --strip-components 1 && \
                   rm -f $(basename {julia_url}) && \
