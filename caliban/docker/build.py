@@ -318,7 +318,12 @@ ENV JULIA_PROJECT={workdir}
 COPY --chown={user_id}:{user_group} *.toml {workdir}/
 COPY --chown={user_id}:{user_group} src {workdir}/src/
 RUN /bin/bash -c "cd {workdir} && \
-                  julia --eval 'using Pkg; Pkg.instantiate(); Pkg.precompile()' && \
+                  julia --eval 'using Pkg; \
+                                Pkg.instantiate(); \
+                                try \
+                                    Pkg.precompile() \
+                                catch \
+                                end' && \
                   rm -rf *"
 """
 
