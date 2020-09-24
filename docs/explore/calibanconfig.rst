@@ -41,3 +41,27 @@ This works too:
 These values will do what you expect and run ``apt-get install <package_name>``
 for each package. Packages are alphabetized, so changing the order won't
 invalidate Docker's build cache.
+
+Custom Base Images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For details on Caliban's base images, see :ref:`What's the Base Docker Image?`.
+
+You can specify a custom base image for Caliban to use in your ``.calibanconfig.json`` file
+by adding an entry with the ``base_image`` key as follows:
+
+.. code-block:: json
+
+   {
+       "base_image": "gcr.io/blueshift-playground/blueshift:gpu-ubuntu1804-py38-cuda101"
+   }
+
+You can also specify different base images for ``cpu`` and ``gpu`` modes as follows:
+
+.. code-block:: json
+
+   {
+       "base_image": {
+           "cpu": "gcr.io/blueshift-playground/blueshift:cpu-ubuntu1804-py38",
+           "gpu": "gcr.io/blueshift-playground/blueshift:gpu-ubuntu1804-py38-cuda101"
+       }
+   }
