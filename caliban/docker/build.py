@@ -698,6 +698,15 @@ def build_image(job_mode: c.JobMode,
   """
   caliban_config = kwargs.get('caliban_config', {})
 
+  if "pre-build-hook" in caliban_config.keys():
+    pre_build_hook = caliban_config['pre-build-hook']
+    _, ret_code = ufs.capture_stdout(pre_build_hook, None)
+
+    # Only continue with the build if pre-build-hook returns
+    # with exit code 0
+    if ret_code != 0:
+      raise Exception(f"Pre-build hook returned non-zero exit code {ret_code}")
+
   # Paths for resource files.
   sql_proxy_path = um.cloud_sql_proxy_path()
   launcher_path = um.launcher_path()

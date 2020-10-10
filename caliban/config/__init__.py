@@ -160,6 +160,8 @@ ProjectConfig = {
     # If present, Caliban will attempt to install Julia into the base container.
     s.Optional("julia_version", default=None):
         s.And(str, s.Use(lambda s: s.strip())),
+    s.Optional("pre-build-hook", default=None): str,
+    s.Optional("pre-run-hook", default=None): str
 }
 
 # Elements of calibanconfig that are fair game to share between projects.
