@@ -20,18 +20,35 @@ from __future__ import absolute_import, division, print_function
 
 from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
 
+import subprocess
 from absl import logging
+import json
 
-import caliban.config as c
-import caliban.util as u
 import caliban.util.fs as ufs
-import caliban.util.metrics as um
 
 def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> None:
-  if caliban_config.get("pre-build-hook", None) is not None:
-    pre_build_hook = caliban_config['pre-build-hook']
-    _, ret_code = ufs.capture_stdout(pre_build_hook, None)
 
-    if ret_code != 0:
-      raise Exception(f"Pre-build hook returned non-zero exit code {ret_code}")
+  hook_outputs = {}
+  for single_hook in caliban_config.get('pre-build-hooks', []):
+    hook_outputs.update(perform_single_hook(single_hook))
 
+  logging.info(f"Hook outputs: {hook_outputs}")
+
+  return hook_outputs
+
+def perform_single_hook(script_file: str) -> Dict:
+
+  try:
+    stdout = subprocess.run(script_file, check=True, capture_output=True).stdout.decode('utf-8')
+  except subprocess.CalledProcessError as e:
+    logging.info(e.stdout)
+    raise subprocess.CalledProcesError(e.stderr)
+
+  logging.info("Loading output dict")
+  logging.info(f"Stdout: {stdout}")
+  if stdout == '':
+    output_dict = {}
+  else:
+    output_dict = json.loads(stdout)
+  logging.info(output_dict)
+  return output_dict
