@@ -42,6 +42,7 @@ import caliban.util.metrics as um
 import caliban.util.tqdm as ut
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
+import caliban.hooks.util as hu
 
 t = Terminal()
 
@@ -659,6 +660,10 @@ def submit_ml_job(
 
     if image_tag is None:
       image_tag = generate_image_tag(project_id, docker_args, dry_run=dry_run)
+
+    image_id = image_tag[image_tag.rindex('/')+1:image_tag.index(':')]
+    hook_output = hu.perform_prerun_hooks(caliban_config,image_id)
+    labels.update(hook_output)
 
     experiments = create_experiments(
         session=session,

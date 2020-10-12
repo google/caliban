@@ -26,23 +26,23 @@ import json
 
 import caliban.util.fs as ufs
 
-def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> None:
+def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict:
 
   hook_outputs = {}
   for single_hook in caliban_config.get('pre-build-hooks', []):
-    hook_outputs.update(perform_single_hook(single_hook))
+    hook_outputs.update(perform_single_prebuild_hook(single_hook))
 
   logging.info(f"Hook outputs: {hook_outputs}")
 
   return hook_outputs
 
-def perform_single_hook(script_file: str) -> Dict:
+def perform_single_prebuild_hook(script_file: str) -> Dict:
 
   try:
     stdout = subprocess.run(script_file, check=True, capture_output=True).stdout.decode('utf-8')
   except subprocess.CalledProcessError as e:
     logging.info(e.stdout)
-    raise subprocess.CalledProcesError(e.stderr)
+    raise subprocess.CalledProcessError(returncode=e.returncode, cmd=e.cmd, stderr=e.stderr)
 
   logging.info("Loading output dict")
   logging.info(f"Stdout: {stdout}")
@@ -52,3 +52,32 @@ def perform_single_hook(script_file: str) -> Dict:
     output_dict = json.loads(stdout)
   logging.info(output_dict)
   return output_dict
+
+def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> Dict:
+  """ performs pre-run hooks and returns the resulting outputs (tags) """
+  hook_outputs = {}
+  for single_hook in caliban_config.get('pre-run-hooks', []):
+    hook_outputs.update(perform_single_prerun_hook(single_hook, container_id))
+
+  logging.info(f"Hook outputs: {hook_outputs}")
+
+  return hook_outputs
+
+def perform_single_prerun_hook(script_file: str, container_id: str) -> Dict:
+  print(f"About to perform hook {script_file}")
+
+  try:
+    stdout = subprocess.run([script_file, '--container_id', container_id], check=True, capture_output=True).stdout.decode('utf-8')
+  except subprocess.CalledProcessError as e:
+    logging.info(e.stdout)
+    raise subprocess.CalledProcessError(returncode=e.returncode, cmd=e.cmd, stderr=e.stderr)
+
+  logging.info("Loading output dict")
+  logging.info(f"Stdout: {stdout}")
+  if stdout == '':
+    output_dict = {}
+  else:
+    output_dict = json.loads(stdout)
+  logging.info(output_dict)
+  return output_dict
+

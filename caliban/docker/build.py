@@ -699,7 +699,7 @@ def build_image(job_mode: c.JobMode,
   """
   caliban_config = kwargs.get('caliban_config', {})
 
-  hu.perform_prebuild_hooks(caliban_config)
+  build_tags = hu.perform_prebuild_hooks(caliban_config)
 
   # Paths for resource files.
   sql_proxy_path = um.cloud_sql_proxy_path()
@@ -736,7 +736,9 @@ def build_image(job_mode: c.JobMode,
       try:
         output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
         if ret_code == 0:
-          return docker_image_id(output)
+          image_id = docker_image_id(output)
+          write_build_info(image_id, build_tags, caliban_config)
+          return image_id
         else:
           error_msg = "Docker failed with error code {}.".format(ret_code)
           raise DockerError(error_msg, cmd, ret_code)
@@ -744,3 +746,19 @@ def build_image(job_mode: c.JobMode,
       except subprocess.CalledProcessError as e:
         logging.error(e.output)
         logging.error(e.stderr)
+
+def write_build_info(image_id: str, build_tags: Dict[str, str], caliban_config: Dict[str, Any]) -> None:
+  """ Writes container info (from pre-build hooks) to the specified JSON file """
+  container_info = {image_id: build_tags}
+  build_file = caliban_config['container-labels']
+  print("Writing build INFO")
+  print(build_file)
+  if os.path.exists(build_file):
+    with open(build_file, 'r') as f:
+      prev = json.load(f)
+  else:
+    prev = {}
+  prev.update(container_info)
+  with open(build_file, 'w') as f:
+    json.dump(prev, f)
+
