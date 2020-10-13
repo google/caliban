@@ -58,6 +58,7 @@ REQUIRED_PACKAGES = [
     'lark-parser>=0.7.1,<0.8.0',
     'SQLAlchemy==1.3.11',
     'pg8000==1.16.1',
+    'gitpython==3.1.9',
 ]
 
 setup(name='caliban',
