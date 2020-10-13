@@ -717,7 +717,12 @@ def build_image(job_mode: c.JobMode,
         path='.', caliban_config=caliban_config) as launcher_config:
 
       cache_args = ["--no-cache"] if no_cache else []
-      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
+      label_args = get_docker_label_args(build_tags)
+      
+      cmd = ["docker", "build"]
+      cmd = cmd + label_args
+      cmd = cmd + cache_args
+      cmd = cmd + ["--rm", "-f-", build_path]
 
       dockerfile = _dockerfile_template(
           job_mode,
@@ -737,7 +742,6 @@ def build_image(job_mode: c.JobMode,
         output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
         if ret_code == 0:
           image_id = docker_image_id(output)
-          write_build_info(image_id, build_tags, caliban_config)
           return image_id
         else:
           error_msg = "Docker failed with error code {}.".format(ret_code)
@@ -746,19 +750,14 @@ def build_image(job_mode: c.JobMode,
       except subprocess.CalledProcessError as e:
         logging.error(e.output)
         logging.error(e.stderr)
+        
+def get_docker_label_args(build_tags: Dict[str, str]) -> list:
+  logging.info(f'build tags: {build_tags}')
 
-def write_build_info(image_id: str, build_tags: Dict[str, str], caliban_config: Dict[str, Any]) -> None:
-  """ Writes container info (from pre-build hooks) to the specified JSON file """
-  container_info = {image_id: build_tags}
-  build_file = caliban_config['container-labels']
-  print("Writing build INFO")
-  print(build_file)
-  if os.path.exists(build_file):
-    with open(build_file, 'r') as f:
-      prev = json.load(f)
-  else:
-    prev = {}
-  prev.update(container_info)
-  with open(build_file, 'w') as f:
-    json.dump(prev, f)
+  label_args = []
+  for k,v in build_tags.items():
+    label_args.append('--label')
+    label_args.append(k + '=' + v)
+    
+  return label_args
 
