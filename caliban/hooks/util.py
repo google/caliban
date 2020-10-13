@@ -24,6 +24,8 @@ import subprocess
 from absl import logging
 import json
 
+import os
+
 import caliban.util.fs as ufs
 
 def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict:
@@ -41,8 +43,9 @@ def perform_single_prebuild_hook(script_file: str) -> Dict:
   try:
     stdout = subprocess.run(script_file, check=True, capture_output=True).stdout.decode('utf-8')
   except subprocess.CalledProcessError as e:
-    logging.info(e.stdout)
-    raise subprocess.CalledProcessError(returncode=e.returncode, cmd=e.cmd, stderr=e.stderr)
+    logging.info(e.stdout.decode('utf-8'))
+    logging.error(e.stderr.decode('utf-8'))
+    raise e
 
   logging.info("Loading output dict")
   logging.info(f"Stdout: {stdout}")
@@ -64,13 +67,14 @@ def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> D
   return hook_outputs
 
 def perform_single_prerun_hook(script_file: str, container_id: str) -> Dict:
-  print(f"About to perform hook {script_file}")
-
+  logging.info(f"About to perform hook {script_file}")
+  
   try:
     stdout = subprocess.run([script_file, '--container_id', container_id], check=True, capture_output=True).stdout.decode('utf-8')
   except subprocess.CalledProcessError as e:
-    logging.info(e.stdout)
-    raise subprocess.CalledProcessError(returncode=e.returncode, cmd=e.cmd, stderr=e.stderr)
+    logging.info(e.stdout.decode('utf-8'))
+    logging.error(e.stderr.decode('utf-8'))
+    raise e
 
   logging.info("Loading output dict")
   logging.info(f"Stdout: {stdout}")
