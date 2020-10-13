@@ -24,8 +24,6 @@ import subprocess
 from absl import logging
 import json
 
-import os
-
 import caliban.util.fs as ufs
 
 def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict:
@@ -34,12 +32,12 @@ def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict:
   for single_hook in caliban_config.get('pre-build-hooks', []):
     hook_outputs.update(perform_single_prebuild_hook(single_hook))
 
-  logging.info(f"Hook outputs: {hook_outputs}")
+  logging.info(f"Prebuild hook outputs: {hook_outputs}")
 
   return hook_outputs
 
 def perform_single_prebuild_hook(script_file: str) -> Dict:
-
+  logging.info(f"About to perform prebuild hook {script_file}")
   try:
     stdout = subprocess.run(script_file, check=True, capture_output=True).stdout.decode('utf-8')
   except subprocess.CalledProcessError as e:
@@ -47,8 +45,7 @@ def perform_single_prebuild_hook(script_file: str) -> Dict:
     logging.error(e.stderr.decode('utf-8'))
     raise e
 
-  logging.info("Loading output dict")
-  logging.info(f"Stdout: {stdout}")
+  logging.info(f"Loading prebuild output dict from: {stdout}")
   if stdout == '':
     output_dict = {}
   else:
@@ -62,12 +59,12 @@ def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> D
   for single_hook in caliban_config.get('pre-run-hooks', []):
     hook_outputs.update(perform_single_prerun_hook(single_hook, container_id))
 
-  logging.info(f"Hook outputs: {hook_outputs}")
+  logging.info(f"Prerun hook outputs: {hook_outputs}")
 
   return hook_outputs
 
 def perform_single_prerun_hook(script_file: str, container_id: str) -> Dict:
-  logging.info(f"About to perform hook {script_file}")
+  logging.info(f"About to perform prerun hook {script_file}")
   
   try:
     stdout = subprocess.run([script_file, '--container_id', container_id], check=True, capture_output=True).stdout.decode('utf-8')
@@ -76,8 +73,7 @@ def perform_single_prerun_hook(script_file: str, container_id: str) -> Dict:
     logging.error(e.stderr.decode('utf-8'))
     raise e
 
-  logging.info("Loading output dict")
-  logging.info(f"Stdout: {stdout}")
+  logging.info(f"Loading prerun output dict from: {stdout}")
   if stdout == '':
     output_dict = {}
   else:
