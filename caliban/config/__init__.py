@@ -159,8 +159,8 @@ ProjectConfig = {
         AptPackages,
     # If present, Caliban will attempt to install Julia into the base container.
     s.Optional("julia_version", default=None): s.And(str, s.Use(lambda s: s.strip())),
-    s.Optional("pre-build-hooks", default=[]): list,
-    s.Optional("pre-run-hooks", default=[]): list
+    s.Optional("pre_build_hooks", default=[]): [us.File],
+    s.Optional("pre_run_hooks", default=[]): [us.File]
 }
 
 # Elements of calibanconfig that are fair game to share between projects.
