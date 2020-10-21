@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Git commit prerun hook example."""
+"""Git commit prerun hook example. Returns the hash of the git commit which
+corresponds to the code used to build the container to be run."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -26,7 +27,6 @@ from caliban.hooks.git_commit_hooks import git_commit_prerun_hook
 FLAGS = flags.FLAGS
 flags.DEFINE_string('container_id', None, 'ID of Docker container to use')
 
-  
 def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
@@ -34,4 +34,4 @@ def main(argv):
   git_commit_prerun_hook(FLAGS.container_id)
 
 if __name__ == '__main__':
-  app.run(main)  
+  app.run(main)

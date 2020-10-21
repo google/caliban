@@ -13,7 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Git commit prebuild hook example."""
+"""Git commit prebuild hook example. This hook checks that the git repo is clean
+(no untracked files and no uncommitted changes) and then returns the hash of
+the current commit."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -31,4 +33,4 @@ def main(argv):
   git_commit_prebuild_hook()
 
 if __name__ == '__main__':
-  app.run(main)  
+  app.run(main)
