@@ -661,7 +661,7 @@ def submit_ml_job(
     if image_tag is None:
       image_tag = generate_image_tag(project_id, docker_args, dry_run=dry_run)
 
-    image_id = image_tag[image_tag.rindex('/')+1:image_tag.index(':')]
+    image_id = get_image_id(image_tag)
     hook_output = hu.perform_prerun_hooks(caliban_config,image_id)
     labels.update(hook_output)
 
@@ -706,3 +706,9 @@ def submit_ml_job(
         t.green("Visit {} to see the status of all jobs.".format(
             job_url(project_id, ''))))
     logging.info("")
+
+def get_image_id(image_tag: str) -> str:
+  """Extracts Docker image ID from an image tag,
+  i.e. the portion of the image tag between the characters
+  '/' and ':' """
+  return image_tag[image_tag.rindex('/')+1:image_tag.index(':')]
