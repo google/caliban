@@ -718,11 +718,8 @@ def build_image(job_mode: c.JobMode,
 
       cache_args = ["--no-cache"] if no_cache else []
       label_args = get_docker_label_args(build_tags)
-      
-      cmd = ["docker", "build"]
-      cmd = cmd + label_args
-      cmd = cmd + cache_args
-      cmd = cmd + ["--rm", "-f-", build_path]
+
+      cmd = ["docker", "build"] + label_args + cache_args + ["--rm", "-f-", build_path]
 
       dockerfile = _dockerfile_template(
           job_mode,
@@ -741,8 +738,7 @@ def build_image(job_mode: c.JobMode,
       try:
         output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
         if ret_code == 0:
-          image_id = docker_image_id(output)
-          return image_id
+          return docker_image_id(output)
         else:
           error_msg = "Docker failed with error code {}.".format(ret_code)
           raise DockerError(error_msg, cmd, ret_code)
