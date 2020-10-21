@@ -25,8 +25,7 @@ from absl import logging
 import docker
 from git import Repo
 
-
-def get_hash_from_image(container_id):
+def get_hash_from_image(container_id: str) -> str:
   """Load git hash from docker image label."""
   client = docker.from_env()
   labels = client.images.get(container_id).labels
@@ -37,7 +36,7 @@ def get_hash_from_image(container_id):
     raise e
 
     
-def git_commit_prebuild_hook():
+def git_commit_prebuild_hook() -> None:
   """Git commit hash prebuild hook."""
   logging.info('Running git-cleanliness prebuild hook.')
 
@@ -56,7 +55,7 @@ def git_commit_prebuild_hook():
   print('{"commit": "%s"}' % commit_hash)
   
   
-def git_commit_prerun_hook(container_id):
+def git_commit_prerun_hook(container_id) -> None:
   """Git commit hash prerun hook."""
   commit_hash = get_hash_from_image(container_id)
   print('{"commit": "%s"}' % commit_hash)  
