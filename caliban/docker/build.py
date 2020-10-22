@@ -49,7 +49,8 @@ CONDA_BIN = "/opt/conda/bin/conda"
 
 ImageId = NewType('ImageId', str)
 ArgSeq = NewType('ArgSeq', List[str])
-
+BuildTagKey = NewType('BuildTagKey', str)
+BuildTagValue = NewType('BuildTagValue', str)
 
 class DockerError(Exception):
   """Exception that passes info on a failed Docker command."""
@@ -746,14 +747,31 @@ def build_image(job_mode: c.JobMode,
       except subprocess.CalledProcessError as e:
         logging.error(e.output)
         logging.error(e.stderr)
-        
-def get_docker_label_args(build_tags: Dict[str, str]) -> list:
+
+def get_docker_label_args(build_tags: Dict[BuildTagKey, BuildTagValue]) -> List[str]:
+  """Converts a dictionary mapping BuildTagKey (str) to BuildTagValue (str) into
+  a list of strings which can be supplied as --label arguments to a
+  'docker build' command
+
+  Args:
+    build_tags: Dict[BuildTagKey, BuildTagValue]
+                  a dictionary returned by perform_prebuild_hooks(...),
+                  containing output from running the prebuild hooks
+
+  Returns:
+    label_args: List[str]
+                ['--label','BuildTagKey=BuildTagValue']
+
+  Example:
+    build_tags = {'key': 'value'}
+    get_docker_label_args(build_tags) -> ['--label', 'key=value']
+  """
   logging.info(f'build tags: {build_tags}')
 
   label_args = []
   for k,v in build_tags.items():
     label_args.append('--label')
     label_args.append(k + '=' + v)
-    
+
   return label_args
 
