@@ -35,7 +35,6 @@ def get_hash_from_image(container_id: str) -> str:
     logging.error(f'Docker image {container_id} does not contain a git commit label.')
     raise e
 
-    
 def git_commit_prebuild_hook() -> None:
   """Git commit hash prebuild hook."""
   logging.info('Running git-cleanliness prebuild hook.')
@@ -43,18 +42,16 @@ def git_commit_prebuild_hook() -> None:
   repo = Repo('.') # TODO deal with this
 
   # check repo is clean
-  if len(repo.untracked_files) != 0:
-    logging.error('Untracked files found!')
-    sys.exit(1)
-  if repo.is_dirty():
-    logging.error('Repo is dirty!')
+  if len(repo.untracked_files) != 0 or repo.is_dirty():
+    logging.error('Git cleanliness hook found repo not up-to-date!')
+    logging.error('Either you have untracked files, or changes \n ...
+                  staged for commit but not committed.')
     sys.exit(1)
 
   # get commit hash
   commit_hash = repo.commit().hexsha
   print('{"commit": "%s"}' % commit_hash)
-  
-  
+
 def git_commit_prerun_hook(container_id) -> None:
   """Git commit hash prerun hook."""
   commit_hash = get_hash_from_image(container_id)
