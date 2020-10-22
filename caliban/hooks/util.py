@@ -29,7 +29,7 @@ import caliban.util.fs as ufs
 def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict:
 
   hook_outputs = {}
-  for single_hook in caliban_config.get('pre-build-hooks', []):
+  for single_hook in caliban_config.get('pre_build_hooks', []):
     hook_outputs.update(perform_single_prebuild_hook(single_hook))
 
   logging.info(f"Prebuild hook outputs: {hook_outputs}")
@@ -56,7 +56,7 @@ def perform_single_prebuild_hook(script_file: str) -> Dict:
 def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> Dict:
   """ performs pre-run hooks and returns the resulting outputs (tags) """
   hook_outputs = {}
-  for single_hook in caliban_config.get('pre-run-hooks', []):
+  for single_hook in caliban_config.get('pre_run_hooks', []):
     hook_outputs.update(perform_single_prerun_hook(single_hook, container_id))
 
   logging.info(f"Prerun hook outputs: {hook_outputs}")
