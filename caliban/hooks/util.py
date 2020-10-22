@@ -59,7 +59,7 @@ def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict[str, str]:
     else:
       all_outputs.update(output['Data'])
 
-  logging.info(f"Prebuild hook outputs: {all_outputs}")
+  logging.debug(f"Prebuild hook outputs: {all_outputs}")
 
   return all_outputs
 
@@ -96,6 +96,6 @@ def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> D
     else:
       all_outputs.update(output['Data'])
 
-  logging.info(f"Prerun hook outputs: {all_outputs}")
+  logging.debug(f"Prerun hook outputs: {all_outputs}")
 
   return all_outputs
