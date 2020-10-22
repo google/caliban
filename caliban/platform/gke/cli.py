@@ -29,6 +29,7 @@ from kubernetes.client import V1Job
 import caliban.cli as cli
 import caliban.config as conf
 import caliban.platform.cloud.util as cu
+import caliban.hooks.util as hu
 import caliban.platform.gke.constants as k
 import caliban.platform.gke.util as util
 import caliban.util as u
@@ -37,7 +38,6 @@ from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
 from caliban.platform.cloud.core import generate_image_tag
 from caliban.platform.gke.cluster import Cluster
-
 
 # ----------------------------------------------------------------------------
 def _project_and_creds(fn):
@@ -428,6 +428,14 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
 
     if image_tag is None:
       image_tag = generate_image_tag(cluster.project_id, docker_m, dry_run)
+
+    if image_tag != 'dry_run_tag':
+      image_id = hu.get_image_id(image_tag)
+      hook_outputs = hu.perform_prerun_hooks(caliban_config,
+                                                     image_id)
+      for key, value in hook_outputs.items():
+        script_args.append(f'--{key}')
+        script_args.append(value)
 
     labels[um.GPU_ENABLED_TAG] = str(job_mode == conf.JobMode.GPU).lower()
     labels[um.TPU_ENABLED_TAG] = str(tpu_spec is not None)

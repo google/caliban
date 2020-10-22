@@ -99,3 +99,10 @@ def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> D
   logging.debug(f"Prerun hook outputs: {all_outputs}")
 
   return all_outputs
+
+def get_image_id(image_tag: str) -> str:
+  """Extracts Docker image ID from an image tag,
+  i.e. the portion of the image tag between the characters
+  '/' and ':'
+  """
+  return image_tag[image_tag.rindex('/')+1:image_tag.index(':')]

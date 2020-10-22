@@ -43,6 +43,7 @@ import caliban.util.tqdm as ut
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 from caliban.history.util import (create_experiments, generate_container_spec,
                                   get_mem_engine, get_sql_engine, session_scope)
+import caliban.hooks.util as hu
 
 t = Terminal()
 
@@ -269,6 +270,13 @@ def run_experiments(job_mode: c.JobMode,
         image_id = 'dry_run_tag'
       else:
         image_id = b.build_image(**docker_args)
+
+    if image_id != 'dry_run_tag':
+      hook_outputs = hu.perform_prerun_hooks(caliban_config,
+                                                     image_id)
+      for key, value in hook_outputs.items():
+        script_args.append(f'--{key}')
+        script_args.append(value)
 
     experiments = create_experiments(
         session=session,
