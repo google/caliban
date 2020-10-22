@@ -17,12 +17,7 @@
 (no untracked files and no uncommitted changes) and then returns the hash of
 the current commit."""
 
-from __future__ import absolute_import, division, print_function
-
-from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
-
 from absl import app
-
 from caliban.hooks.git_commit_hooks import git_commit_prebuild_hook
 
 

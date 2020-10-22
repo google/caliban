@@ -16,10 +16,6 @@
 """Git commit prerun hook example. Returns the hash of the git commit which
 corresponds to the code used to build the container to be run."""
 
-from __future__ import absolute_import, division, print_function
-
-from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
-
 from absl import app
 from absl import flags
 from caliban.hooks.git_commit_hooks import git_commit_prerun_hook
