@@ -20,64 +20,82 @@ from __future__ import absolute_import, division, print_function
 
 from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
 
-import subprocess
+import importlib
 from absl import logging
 import json
+import sys
 
 import caliban.util.fs as ufs
 
-def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict:
+def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict[str, str]:
+  """ Performs pre-build hooks (specified in the caliban_config) and:
+    1) If these run without error, accumulates their outputs into a
+       combined dictionary and returns it
+    2) If one of them errors, immediately stops and throws an Exception
+       displaying the error message for the user.
 
-  hook_outputs = {}
-  for single_hook in caliban_config.get('pre_build_hooks', []):
-    hook_outputs.update(perform_single_prebuild_hook(single_hook))
+  Prebuild hooks are python functions, which
+    1) Take no arguments, and
+    2) Output a dictionary with 'Succeeded' bool indicating success, and
+       a. 'Error' str in the case of failure
+       b. 'Data' Dict[str, str] in the case of success
+    3) Live in the 'hooks' module in the project's root directory
+  """
+  import sys
+  sys.path.append('.')
+  all_hooks = importlib.import_module('hooks')
+  sys.path.remove('.')
 
-  logging.info(f"Prebuild hook outputs: {hook_outputs}")
+  all_outputs = {}
 
-  return hook_outputs
+  for hook_name in caliban_config.get('pre_build_hooks', []):
+    hook = getattr(all_hooks, f'hook_{hook_name}')
+    logging.info(f'Running pre-build hook {hook_name}')
+    output = hook()
 
-def perform_single_prebuild_hook(script_file: str) -> Dict:
-  logging.info(f"About to perform prebuild hook {script_file}")
-  try:
-    stdout = subprocess.run(script_file, check=True, capture_output=True).stdout.decode('utf-8')
-  except subprocess.CalledProcessError as e:
-    logging.info(e.stdout.decode('utf-8'))
-    logging.error(e.stderr.decode('utf-8'))
-    raise e
+    if not output['Succeeded']:
+      # Hook errored. Stop the build and inform the user
+      raise Exception(f'Pre-build hook {hook_name} errored with the following message:\n           {output["Error"]}')
+    else:
+      all_outputs.update(output['Data'])
 
-  logging.info(f"Loading prebuild output dict from: {stdout}")
-  if stdout == '':
-    output_dict = {}
-  else:
-    output_dict = json.loads(stdout)
-  logging.info(output_dict)
-  return output_dict
+  logging.info(f"Prebuild hook outputs: {all_outputs}")
 
-def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> Dict:
-  """ performs pre-run hooks and returns the resulting outputs (tags) """
-  hook_outputs = {}
-  for single_hook in caliban_config.get('pre_run_hooks', []):
-    hook_outputs.update(perform_single_prerun_hook(single_hook, container_id))
+  return all_outputs
 
-  logging.info(f"Prerun hook outputs: {hook_outputs}")
+def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> Dict[str, str]:
+  """ Performs pre-run hooks (specified in the caliban_config) and:
+    1) If these run without error, accumulates their outputs into a
+       combined dictionary and returns it
+    2) If one of them errors, immediately stops and throws an Exception
+       displaying the error message for the user.
 
-  return hook_outputs
+  Prerun hooks are python functions, which
+    1) Take a single str argument, the cotainer_id of the container
+       which the run will use, and
+    2) Output a dictionary with 'Succeeded' bool indicating success, and
+       a. 'Error' str in the case of failure
+       b. 'Data' Dict[str, str] in the case of success
+    3) Live in the 'hooks' module in the project's root directory
+  """
+  import sys
+  sys.path.append('.')
+  all_hooks = importlib.import_module('hooks')
+  sys.path.remove('.')
 
-def perform_single_prerun_hook(script_file: str, container_id: str) -> Dict:
-  logging.info(f"About to perform prerun hook {script_file}")
-  
-  try:
-    stdout = subprocess.run([script_file, '--container_id', container_id], check=True, capture_output=True).stdout.decode('utf-8')
-  except subprocess.CalledProcessError as e:
-    logging.info(e.stdout.decode('utf-8'))
-    logging.error(e.stderr.decode('utf-8'))
-    raise e
+  all_outputs = {}
 
-  logging.info(f"Loading prerun output dict from: {stdout}")
-  if stdout == '':
-    output_dict = {}
-  else:
-    output_dict = json.loads(stdout)
-  logging.info(output_dict)
-  return output_dict
+  for hook_name in caliban_config.get('pre_run_hooks', []):
+    hook = getattr(all_hooks, f'hook_{hook_name}')
+    logging.info(f'Running pre-run hook {hook_name}')
+    output = hook(container_id)
 
+    if not output['Succeeded']:
+      # Hook errored. Stop the run and inform the user
+      raise Exception(f'Pre-run hook {hook_name} errored with the following message:\n           {output["Error"]}')
+    else:
+      all_outputs.update(output['Data'])
+
+  logging.info(f"Prerun hook outputs: {all_outputs}")
+
+  return all_outputs
