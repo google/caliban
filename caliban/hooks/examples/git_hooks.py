@@ -16,6 +16,7 @@ from absl import logging
 import subprocess
 import json
 
+
 def hook_gitcleanliness() -> Dict[str, str]:
   # TODO change the str, str type annotation to a custom type which is more
   # descriptive
@@ -39,26 +40,37 @@ def hook_gitcleanliness() -> Dict[str, str]:
   """
   repo = Repo('.')
   if len(repo.untracked_files) != 0:
-    return {'Succeeded': False,
-            'Error': """Git repository has untracked files.  Either add them to .gitignore, or stage and commit them."""}
+    return {
+        'Succeeded':
+            False,
+        'Error':
+            """Git repository has untracked files.  Either add them to .gitignore, or stage and commit them."""
+    }
   elif repo.is_dirty():
-    return {'Succeeded': False,
-            'Error': """Git repository is dirty.  Some tracked files have changes which are not committed."""}
+    return {
+        'Succeeded':
+            False,
+        'Error':
+            """Git repository is dirty.  Some tracked files have changes which are not committed."""
+    }
   else:
     commit_hash = repo.commit().hexsha
-    return {'Succeeded': True,
-            'Data': {'commit': commit_hash}}
+    return {'Succeeded': True, 'Data': {'commit': commit_hash}}
+
 
 def hook_getcontainerhash(container_id: str) -> Dict[str, str]:
   """Gets the git commit hash associated with the given container_id.
   This hash must have been stored, by a pre_build_hook as a label
   attached to the container"""
-  output = subprocess.run(['docker','inspect',container_id],capture_output=True)
+  output = subprocess.run(['docker', 'inspect', container_id],
+                          capture_output=True)
   labels = json.loads(output.stdout)[0]['ContainerConfig']['Labels']
   if 'commit' in labels.keys():
-    return {'Succeeded': True,
-            'Data': {'commit': labels['commit']}}
+    return {'Succeeded': True, 'Data': {'commit': labels['commit']}}
   else:
-    return {'Succeeded': False,
-            'Error': f'Docker image {container_id} does not contain a git commit label.'}
-
+    return {
+        'Succeeded':
+            False,
+        'Error':
+            f'Docker image {container_id} does not contain a git commit label.'
+    }

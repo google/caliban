@@ -27,6 +27,7 @@ import sys
 
 import caliban.util.fs as ufs
 
+
 def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict[str, str]:
   """ Performs pre-build hooks (specified in the caliban_config) and:
     1) If these run without error, accumulates their outputs into a
@@ -55,7 +56,9 @@ def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict[str, str]:
 
     if not output['Succeeded']:
       # Hook errored. Stop the build and inform the user
-      raise Exception(f'Pre-build hook {hook_name} errored with the following message:\n           {output["Error"]}')
+      raise Exception(
+          f'Pre-build hook {hook_name} errored with the following message:\n           {output["Error"]}'
+      )
     else:
       all_outputs.update(output['Data'])
 
@@ -63,7 +66,9 @@ def perform_prebuild_hooks(caliban_config: Dict[str, Any]) -> Dict[str, str]:
 
   return all_outputs
 
-def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> Dict[str, str]:
+
+def perform_prerun_hooks(caliban_config: Dict[str, Any],
+                         container_id: str) -> Dict[str, str]:
   """ Performs pre-run hooks (specified in the caliban_config) and:
     1) If these run without error, accumulates their outputs into a
        combined dictionary and returns it
@@ -92,7 +97,9 @@ def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> D
 
     if not output['Succeeded']:
       # Hook errored. Stop the run and inform the user
-      raise Exception(f'Pre-run hook {hook_name} errored with the following message:\n           {output["Error"]}')
+      raise Exception(
+          f'Pre-run hook {hook_name} errored with the following message:\n           {output["Error"]}'
+      )
     else:
       all_outputs.update(output['Data'])
 
@@ -100,9 +107,10 @@ def perform_prerun_hooks(caliban_config: Dict[str, Any], container_id: str) -> D
 
   return all_outputs
 
+
 def get_image_id(image_tag: str) -> str:
   """Extracts Docker image ID from an image tag,
   i.e. the portion of the image tag between the characters
   '/' and ':'
   """
-  return image_tag[image_tag.rindex('/')+1:image_tag.index(':')]
+  return image_tag[image_tag.rindex('/') + 1:image_tag.index(':')]

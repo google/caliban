@@ -74,6 +74,7 @@ def load_json(path):
   with open(path) as f:
     return commentjson.load(f)
 
+
 def validate_hook(hook_name):
   """Validation function for hooks specified in the
   user's .calibanconfig.json file.  Specifically, checks that
@@ -90,12 +91,14 @@ def validate_hook(hook_name):
     return False
   return True
 
+
 # TODO Once a release with this patch happens:
 # https://github.com/keleshev/schema/pull/238,, Change `Or` to `Schema`. This
 # problem only occurs for callable validators.
-Hook = s.Or(validate_hook,
-            False,
-            error="""Hook '{}' does not exist in hooks module.  Check yourself!""")
+Hook = s.Or(
+    validate_hook,
+    False,
+    error="""Hook '{}' does not exist in hooks module.  Check yourself!""")
 
 Directory = s.Or(
     os.path.isdir,

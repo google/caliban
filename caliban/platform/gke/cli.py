@@ -39,6 +39,7 @@ from caliban.history.util import (create_experiments, generate_container_spec,
 from caliban.platform.cloud.core import generate_image_tag
 from caliban.platform.gke.cluster import Cluster
 
+
 # ----------------------------------------------------------------------------
 def _project_and_creds(fn):
   """wrapper to supply project and credentials from args"""
@@ -431,8 +432,7 @@ def _job_submit(args: dict, cluster: Cluster) -> None:
 
     if image_tag != 'dry_run_tag':
       image_id = hu.get_image_id(image_tag)
-      hook_outputs = hu.perform_prerun_hooks(caliban_config,
-                                                     image_id)
+      hook_outputs = hu.perform_prerun_hooks(caliban_config, image_id)
       for key, value in hook_outputs.items():
         script_args.append(f'--{key}')
         script_args.append(value)

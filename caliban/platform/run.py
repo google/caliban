@@ -272,8 +272,7 @@ def run_experiments(job_mode: c.JobMode,
         image_id = b.build_image(**docker_args)
 
     if image_id != 'dry_run_tag':
-      hook_outputs = hu.perform_prerun_hooks(caliban_config,
-                                                     image_id)
+      hook_outputs = hu.perform_prerun_hooks(caliban_config, image_id)
       for key, value in hook_outputs.items():
         script_args.append(f'--{key}')
         script_args.append(value)

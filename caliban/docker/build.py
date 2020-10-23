@@ -52,6 +52,7 @@ ArgSeq = NewType('ArgSeq', List[str])
 BuildTagKey = NewType('BuildTagKey', str)
 BuildTagValue = NewType('BuildTagValue', str)
 
+
 class DockerError(Exception):
   """Exception that passes info on a failed Docker command."""
 
@@ -720,7 +721,8 @@ def build_image(job_mode: c.JobMode,
       cache_args = ["--no-cache"] if no_cache else []
       label_args = get_docker_label_args(build_tags)
 
-      cmd = ["docker", "build"] + label_args + cache_args + ["--rm", "-f-", build_path]
+      cmd = ["docker", "build"
+            ] + label_args + cache_args + ["--rm", "-f-", build_path]
 
       dockerfile = _dockerfile_template(
           job_mode,
@@ -748,7 +750,9 @@ def build_image(job_mode: c.JobMode,
         logging.error(e.output)
         logging.error(e.stderr)
 
-def get_docker_label_args(build_tags: Dict[BuildTagKey, BuildTagValue]) -> List[str]:
+
+def get_docker_label_args(
+    build_tags: Dict[BuildTagKey, BuildTagValue]) -> List[str]:
   """Converts a dictionary mapping BuildTagKey (str) to BuildTagValue (str) into
   a list of strings which can be supplied as --label arguments to a
   'docker build' command
@@ -769,9 +773,8 @@ def get_docker_label_args(build_tags: Dict[BuildTagKey, BuildTagValue]) -> List[
   logging.info(f'build tags: {build_tags}')
 
   label_args = []
-  for k,v in build_tags.items():
+  for k, v in build_tags.items():
     label_args.append('--label')
     label_args.append(k + '=' + v)
 
   return label_args
-

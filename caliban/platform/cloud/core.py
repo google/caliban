@@ -663,8 +663,7 @@ def submit_ml_job(
 
     if image_tag != 'dry_run_tag':
       image_id = hu.get_image_id(image_tag)
-      hook_outputs = hu.perform_prerun_hooks(caliban_config,
-                                                     image_id)
+      hook_outputs = hu.perform_prerun_hooks(caliban_config, image_id)
       for key, value in hook_outputs.items():
         script_args.append(f'--{key}')
         script_args.append(value)
@@ -710,4 +709,3 @@ def submit_ml_job(
         t.green("Visit {} to see the status of all jobs.".format(
             job_url(project_id, ''))))
     logging.info("")
-
