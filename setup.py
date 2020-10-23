@@ -59,7 +59,6 @@ REQUIRED_PACKAGES = [
     'SQLAlchemy==1.3.11',
     'pg8000==1.16.1',
     'gitpython==3.1.9',
-    'docker==4.3.1'
 ]
 
 setup(name='caliban',
