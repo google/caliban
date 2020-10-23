@@ -18,6 +18,7 @@ Useful shared schemas.
 """
 import os
 import sys
+import importlib
 from contextlib import contextmanager
 from typing import Optional
 
@@ -73,10 +74,28 @@ def load_json(path):
   with open(path) as f:
     return commentjson.load(f)
 
+def validate_hook(hook_name):
+  """Validation function for hooks specified in the
+  user's .calibanconfig.json file.  Specifically, checks that
+  the hook_name exists as a function within the mdule 'hooks'
+  and that it is callable"""
+  sys.path.append('.')
+  hook = importlib.import_module('hooks')
+  sys.path.remove('.')
+
+  full_name = f'hook_{hook_name}'
+  if full_name not in dir(hook):
+    return False
+  if not callable(getattr(hook, full_name)):
+    return False
+  return True
 
 # TODO Once a release with this patch happens:
 # https://github.com/keleshev/schema/pull/238,, Change `Or` to `Schema`. This
 # problem only occurs for callable validators.
+Hook = s.Or(validate_hook,
+            False,
+            error="""Hook '{}' does not exist in hooks module.  Check yourself!""")
 
 Directory = s.Or(
     os.path.isdir,
