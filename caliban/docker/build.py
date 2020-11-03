@@ -279,6 +279,11 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
 
   if julia_version is not None:
+    print(f"Providing Julia version {julia_version}")
+  else:
+    print("Not providing Julia")
+
+  if julia_version is not None:
     # Install Julia
     # Extract major and minor version numbers
     if julia_version == "nightly":
