@@ -555,6 +555,7 @@ def generate_docker_args(job_mode: conf.JobMode,
   docker_args = {
       "extra_dirs": args.get("dir"),
       "requirements_path": reqs if os.path.exists(reqs) else None,
+      "julia_version": conf.caliban_config().get("julia_version", None),
       "conda_env_path": conda_env if os.path.exists(conda_env) else None,
       "caliban_config": conf.caliban_config(),
       "credentials_path": creds_path,
