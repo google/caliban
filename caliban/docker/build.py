@@ -279,12 +279,8 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 """
 
   if julia_version is not None:
-    print(f"Providing Julia version {julia_version}")
-  else:
-    print("Not providing Julia")
-
-  if julia_version is not None:
     # Install Julia
+    print(f"Providing Julia version {julia_version}")
     # Extract major and minor version numbers
     if julia_version == "nightly":
       julia_url = f"https://julialangnightlies-s3.julialang.org/bin/linux/x64/julia-latest-linux64.tar.gz"
