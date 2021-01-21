@@ -787,7 +787,7 @@ def parse_job_file(job_file: str) -> Optional[dict]:
         job_spec = json.load(f)
     else:
       with open(job_file, 'r') as f:
-        job_spec = yaml.load(f, Loader=yaml.FullLoader)
+        job_spec = yaml.load(f, Loader=yaml.SafeLoader)
 
   except Exception as e:
     logging.error('error loading job file {}:\n{}'.format(job_file, e))
