@@ -20,7 +20,7 @@ REQUIRED_PACKAGES = [
     "alembic==1.4.2",
     "google-cloud-storage",
     'matplotlib',
-    'mlflow==1.10.0',
+    'mlflow==2.3.1',
     "pg8000==1.16.1",
     "sqlalchemy==1.3.13",
     'tensorflow-cpu',
