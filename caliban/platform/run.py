@@ -61,7 +61,8 @@ def _run_cmd(job_mode: c.JobMode,
     run_args = []
 
   runtime = ["--runtime", "nvidia"] if c.gpu(job_mode) else []
-  return ["docker", "run"] + runtime + ["--ipc", "host"] + run_args
+  return ["docker", "run", "--platform", "linux/amd64"
+         ] + runtime + ["--ipc", "host"] + run_args
 
 
 def log_job_spec_instance(job_spec: JobSpec, i: int) -> JobSpec:

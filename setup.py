@@ -48,14 +48,10 @@ REQUIRED_PACKAGES = [
     'google-auth>=1.19.0',
     'google-cloud-core>=1.0.3',
     'google-cloud-container>=0.3.0',
-    'psycopg2-binary==2.8.5',
+    'psycopg2-binary==2.9.6',
     'schema==0.7.2',
     'urllib3>=1.25.7',
     'yaspin>=0.16.0',
-    # This is not a real dependency of ours, but we need it to override the
-    # dep that commentjson brings in. Delete once this is merged:
-    # https://github.com/vaidik/commentjson/pull/33/files
-    'lark-parser>=0.7.1,<0.8.0',
     'SQLAlchemy==1.3.11',
     'pg8000==1.16.1',
 ]

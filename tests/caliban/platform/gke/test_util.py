@@ -802,7 +802,7 @@ def test_export_job():
     assert util.export_job(j, fname)
     assert os.path.exists(fname)
     with open(fname, 'r') as f:
-      x = yaml.load(f)
+      x = yaml.safe_load(f)
     assert x == nnd
 
     fname = os.path.join(tmpdir, 'foo.xyz')
