@@ -150,7 +150,12 @@ def _ensure_non_null_project(env):
   if 'GOOGLE_CLOUD_PROJECT' in env:
     return env
 
-  _, project_id = google.auth.default()
+  project_id = None
+  try:
+    _, project_id = google.auth.default()
+  except:
+    project_id = None
+
   if project_id is not None:
     return env
 

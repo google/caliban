@@ -23,6 +23,7 @@ from __future__ import absolute_import, division, print_function
 import json
 import os
 import subprocess
+import tempfile
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, NewType, Optional, Union
@@ -46,8 +47,8 @@ CREDS_DIR = "/.creds"
 RESOURCE_DIR = "/.resources"
 CONDA_BIN = "/opt/conda/bin/conda"
 
-ImageId = NewType('ImageId', str)
-ArgSeq = NewType('ArgSeq', List[str])
+ImageId = NewType("ImageId", str)
+ArgSeq = NewType("ArgSeq", List[str])
 
 
 class DockerError(Exception):
@@ -66,9 +67,10 @@ class DockerError(Exception):
 
 class NotebookInstall(Enum):
   """Flag to decide what to do ."""
-  none = 'none'
-  lab = 'lab'
-  jupyter = 'jupyter'
+
+  none = "none"
+  lab = "lab"
+  jupyter = "jupyter"
 
   def __str__(self) -> str:
     return self.value
@@ -76,8 +78,9 @@ class NotebookInstall(Enum):
 
 class Shell(Enum):
   """Add new shells here and below, in SHELL_DICT."""
-  bash = 'bash'
-  zsh = 'zsh'
+
+  bash = "bash"
+  zsh = "zsh"
 
   def __str__(self) -> str:
     return self.value
@@ -93,7 +96,7 @@ def apt_install(*packages: str) -> str:
   """Returns a command that will install the supplied list of packages without
   requiring confirmation or any user interaction.
   """
-  package_str = ' '.join(packages)
+  package_str = " ".join(packages)
   no_prompt = "DEBIAN_FRONTEND=noninteractive"
   return f"{no_prompt} apt-get install --yes --no-install-recommends {package_str}"
 
@@ -108,11 +111,13 @@ def apt_command(commands: List[str]) -> List[str]:
   return update + commands + cleanup
 
 
-def copy_command(user_id: int,
-                 user_group: int,
-                 from_path: str,
-                 to_path: str,
-                 comment: Optional[str] = None) -> str:
+def copy_command(
+    user_id: int,
+    user_group: int,
+    from_path: str,
+    to_path: str,
+    comment: Optional[str] = None,
+) -> str:
   """Generates a Dockerfile entry that will copy the file at the directory-local
   from_path into the container at to_path.
 
@@ -136,7 +141,7 @@ def copy_command(user_id: int,
 # : Dict[Shell, ShellData]
 SHELL_DICT = {
     Shell.bash: ShellData("/bin/bash", []),
-    Shell.zsh: ShellData("/bin/zsh", ["zsh"])
+    Shell.zsh: ShellData("/bin/zsh", ["zsh"]),
 }
 
 
@@ -209,7 +214,7 @@ def extras_string(extras: List[str]) -> str:
   """
   ret = "."
   if len(extras) > 0:
-    ret += "[{}]".format(','.join(extras))
+    ret += "[{}]".format(",".join(extras))
   return ret
 
 
@@ -226,18 +231,20 @@ def base_extras(job_mode: c.JobMode, path: str,
 
   if os.path.exists(path):
     base = extras or []
-    extra = 'gpu' if c.gpu(job_mode) else 'cpu'
+    extra = "gpu" if c.gpu(job_mode) else "cpu"
     ret = base if extra in base else [extra] + base
 
   return ret
 
 
-def _dependency_entries(workdir: str,
-                        user_id: int,
-                        user_group: int,
-                        requirements_path: Optional[str] = None,
-                        conda_env_path: Optional[str] = None,
-                        setup_extras: Optional[List[str]] = None) -> str:
+def _dependency_entries(
+    workdir: str,
+    user_id: int,
+    user_group: int,
+    requirements_path: Optional[str] = None,
+    conda_env_path: Optional[str] = None,
+    setup_extras: Optional[List[str]] = None,
+) -> str:
   """Returns the Dockerfile entries required to install dependencies from either:
 
   - a requirements.txt file, path supplied by requirements_path
@@ -295,7 +302,7 @@ def _cloud_sql_proxy_entry(
 
   """
   caliban_config = caliban_config or {}
-  mlflow_cfg = caliban_config.get('mlflow_config')
+  mlflow_cfg = caliban_config.get("mlflow_config")
 
   if mlflow_cfg is None:
     return ""
@@ -323,9 +330,10 @@ def _generate_entrypoint(executable: str) -> str:
 
   """
   launcher_cmd = json.dumps([
-      'python',
-      os.path.join(RESOURCE_DIR, um.LAUNCHER_SCRIPT), '--caliban_command',
-      executable
+      "python",
+      os.path.join(RESOURCE_DIR, um.LAUNCHER_SCRIPT),
+      "--caliban_command",
+      executable,
   ])
 
   return f"""
@@ -363,7 +371,8 @@ def _package_entries(
       user_group,
       package_path,
       f"{workdir}/{package_path}",
-      comment="Copy project code into the docker container.")
+      comment="Copy project code into the docker container.",
+  )
 
   # This needs to use json so that quotes print as double quotes, not single
   # quotes.
@@ -379,9 +388,13 @@ def _package_entries(
 """
 
 
-def _service_account_entry(user_id: int, user_group: int, credentials_path: str,
-                           docker_credentials_dir: str,
-                           write_adc_placeholder: bool):
+def _service_account_entry(
+    user_id: int,
+    user_group: int,
+    credentials_path: str,
+    docker_credentials_dir: str,
+    write_adc_placeholder: bool,
+):
   """Generates the Dockerfile entries required to transfer a set of Cloud service
   account credentials into the Docker container.
 
@@ -425,11 +438,13 @@ def _adc_entry(user_id: int, user_group: int, adc_path: str):
                       adc_location(container_home()))
 
 
-def _credentials_entries(user_id: int,
-                         user_group: int,
-                         adc_path: Optional[str],
-                         credentials_path: Optional[str],
-                         docker_credentials_dir: Optional[str] = None) -> str:
+def _credentials_entries(
+    user_id: int,
+    user_group: int,
+    adc_path: Optional[str],
+    credentials_path: Optional[str],
+    docker_credentials_dir: Optional[str] = None,
+) -> str:
   """Returns the Dockerfile entries necessary to copy a user's Cloud credentials
   into the Docker container.
 
@@ -446,11 +461,13 @@ def _credentials_entries(user_id: int,
 
   ret = ""
   if credentials_path is not None:
-    ret += _service_account_entry(user_id,
-                                  user_group,
-                                  credentials_path,
-                                  docker_credentials_dir,
-                                  write_adc_placeholder=adc_path is None)
+    ret += _service_account_entry(
+        user_id,
+        user_group,
+        credentials_path,
+        docker_credentials_dir,
+        write_adc_placeholder=adc_path is None,
+    )
 
   if adc_path is not None:
     ret += _adc_entry(user_id, user_group, adc_path)
@@ -507,7 +524,7 @@ USER {user_id}:{user_group}
 """.format_map({
         "commands": " && ".join(commands),
         "user_id": user_id,
-        "user_group": user_group
+        "user_group": user_group,
     })
 
   return ret
@@ -519,11 +536,13 @@ def _copy_dir_entry(workdir: str, user_id: int, user_group: int,
   from the current directory into a docker container during build.
 
   """
-  return copy_command(user_id,
-                      user_group,
-                      dirname,
-                      f"{workdir}/{dirname}",
-                      comment=f"Copy {dirname} into the Docker container.")
+  return copy_command(
+      user_id,
+      user_group,
+      dirname,
+      f"{workdir}/{dirname}",
+      comment=f"Copy {dirname} into the Docker container.",
+  )
 
 
 def _extra_dir_entries(workdir: str,
@@ -543,10 +562,12 @@ def _extra_dir_entries(workdir: str,
   return "\n\n".join(map(copy, extra_dirs)) + "\n"
 
 
-def _resource_entries(uid: int,
-                      gid: int,
-                      resource_files: Optional[List[str]] = None,
-                      resource_dir: str = RESOURCE_DIR) -> str:
+def _resource_entries(
+    uid: int,
+    gid: int,
+    resource_files: Optional[List[str]] = None,
+    resource_dir: str = RESOURCE_DIR,
+) -> str:
   """Returns Dockerfile entries necessary to copy miscellaneous resource files
   into container. Usually these files are staged in the working directory, so
   that Docker's build context can access them.
@@ -586,7 +607,8 @@ def _dockerfile_template(
     shell: Optional[Shell] = None,
     extra_dirs: Optional[List[str]] = None,
     resource_files: Optional[List[str]] = None,
-    caliban_config: Optional[Dict[str, Any]] = None) -> str:
+    caliban_config: Optional[Dict[str, Any]] = None,
+) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
 
@@ -648,14 +670,16 @@ USER {uid}:{gid}
                                      caliban_config, job_mode),
                                  shell=shell)
 
-  dockerfile += _dependency_entries(workdir,
-                                    uid,
-                                    gid,
-                                    requirements_path=requirements_path,
-                                    conda_env_path=conda_env_path,
-                                    setup_extras=setup_extras)
+  dockerfile += _dependency_entries(
+      workdir,
+      uid,
+      gid,
+      requirements_path=requirements_path,
+      conda_env_path=conda_env_path,
+      setup_extras=setup_extras,
+  )
 
-  if inject_notebook.value != 'none':
+  if inject_notebook.value != "none":
     install_lab = inject_notebook == NotebookInstall.lab
     dockerfile += _notebook_entries(lab=install_lab, version=jupyter_version)
 
@@ -670,23 +694,14 @@ USER {uid}:{gid}
   return dockerfile
 
 
-def docker_image_id(output: str) -> ImageId:
-  """Accepts a string containing the output of a successful `docker build`
-  command and parses the Docker image ID from the stream.
-
-  NOTE this is probably quite brittle! I can imagine this breaking quite easily
-  on a Docker upgrade.
-
-  """
-  return ImageId(output.splitlines()[-1].split()[-1])
-
-
-def build_image(job_mode: c.JobMode,
-                build_path: str,
-                credentials_path: Optional[str] = None,
-                adc_path: Optional[str] = None,
-                no_cache: bool = False,
-                **kwargs) -> str:
+def build_image(
+    job_mode: c.JobMode,
+    build_path: str,
+    credentials_path: Optional[str] = None,
+    adc_path: Optional[str] = None,
+    no_cache: bool = False,
+    **kwargs,
+) -> str:
   """Builds a Docker image by generating a Dockerfile and passing it to `docker
   build` via stdin. All output from the `docker build` process prints to
   stdout.
@@ -696,7 +711,7 @@ def build_image(job_mode: c.JobMode,
   the problem.
 
   """
-  caliban_config = kwargs.get('caliban_config', {})
+  caliban_config = kwargs.get("caliban_config", {})
 
   # Paths for resource files.
   sql_proxy_path = um.cloud_sql_proxy_path()
@@ -709,35 +724,44 @@ def build_image(job_mode: c.JobMode,
       launcher_path: um.LAUNCHER_SCRIPT,
   }) as creds:
 
-    # generate our launcher configuration file
-    with um.launcher_config_file(
-        path='.', caliban_config=caliban_config) as launcher_config:
+    with tempfile.NamedTemporaryFile() as id_file:
 
-      cache_args = ["--no-cache"] if no_cache else []
-      cmd = ["docker", "build"] + cache_args + ["--rm", "-f-", build_path]
+      # generate our launcher configuration file
+      with um.launcher_config_file(
+          path=".", caliban_config=caliban_config) as launcher_config:
 
-      dockerfile = _dockerfile_template(
-          job_mode,
-          credentials_path=creds.get(credentials_path),
-          adc_path=creds.get(adc_path),
-          resource_files=[
-              creds.get(sql_proxy_path),
-              creds.get(launcher_path),
-              launcher_config,
-          ],
-          **kwargs)
+        cache_args = ["--no-cache"] if no_cache else []
+        cmd = ["docker", "build", "--platform", "linux/amd64"] + cache_args + \
+          ["--iidfile", id_file.name] + \
+          ["--rm", "-f-", build_path]
 
-      joined_cmd = " ".join(cmd)
-      logging.info("Running command: {}".format(joined_cmd))
+        dockerfile = _dockerfile_template(
+            job_mode,
+            credentials_path=creds.get(credentials_path),
+            adc_path=creds.get(adc_path),
+            resource_files=[
+                creds.get(sql_proxy_path),
+                creds.get(launcher_path),
+                launcher_config,
+            ],
+            **kwargs,
+        )
 
-      try:
-        output, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
-        if ret_code == 0:
-          return docker_image_id(output)
-        else:
-          error_msg = "Docker failed with error code {}.".format(ret_code)
-          raise DockerError(error_msg, cmd, ret_code)
+        joined_cmd = " ".join(cmd)
+        logging.info("Running command: {}".format(joined_cmd))
 
-      except subprocess.CalledProcessError as e:
-        logging.error(e.output)
-        logging.error(e.stderr)
+        try:
+          _, ret_code = ufs.capture_stdout(cmd, input_str=dockerfile)
+          if ret_code == 0:
+            image_id = None
+            with open(id_file.name) as f:
+              image_id = f.read()
+            return image_id
+
+          else:
+            error_msg = "Docker failed with error code {}.".format(ret_code)
+            raise DockerError(error_msg, cmd, ret_code)
+
+        except subprocess.CalledProcessError as e:
+          logging.error(e.output)
+          logging.error(e.stderr)

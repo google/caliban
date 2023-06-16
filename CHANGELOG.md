@@ -1,5 +1,18 @@
 # pending
 
+- #109:
+
+  - Upgrades `psycopg2-binary` and `pytest` to get tests passing again with
+    modern Python.
+
+  - Modifies `docker build` commands to get the built image ID via `--iidfile`
+    vs parsing the shell command output.
+
+  - adds `--platform linux/amd64` to `docker run` and `docker build` commands,
+    until we get support for `arm64` sorted out.
+
+  - fixes failure when GCP credentials aren't configured running in local mode.
+
 # 0.4.1
 
 Small release to archive for JOSS acceptance.
