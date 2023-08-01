@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,44 +25,45 @@
 #
 #  https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/dockerfiles/assembler.py
 
-ARG BASE_IMAGE=ubuntu:18.04
+ARG BASE_IMAGE=ubuntu:22.04
 
 FROM $BASE_IMAGE
-MAINTAINER Sam Ritchie <sritchie09@gmail.com>
+MAINTAINER Sam Ritchie <sam@mentat.org>
 
+ARG GCLOUD_ARCHIVE=google-cloud-cli-441.0.0-linux-x86_64.tar.gz
 ARG GCLOUD_LOC=/usr/local/gcloud
-ARG PYTHON_VERSION=3.7
+ARG PYTHON_VERSION=3.10
 
 # minicoda release archive is here: https://repo.anaconda.com/miniconda
 # see the docs here for managing python versions with conda:
 # https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-python.html
-ARG MINICONDA_VERSION=py37_4.8.2
+ARG MINICONDA_VERSION=py310_23.5.2-0
 
-LABEL maintainer="samritchie@google.com"
+LABEL maintainer="sam@mentat.org"
 
 # See http://bugs.python.org/issue19846
-ENV LANG C.UTF-8
+# ENV LANG C.UTF-8
 
 # Install git so that users can declare git dependencies, and python3 plus
 # python3-virtualenv so we can generate an isolated Python environment inside
 # the container.
 RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
-  python3 \
+  python${PYTHON_VERSION} \
   python3-virtualenv \
   wget && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
 # Some tools expect a "python" binary.
-RUN ln -s $(which python3) /usr/local/bin/python
+RUN ln -s $(which python${PYTHON_VERSION}) /usr/local/bin/python
 
 # install the google cloud SDK.
 RUN wget -nv \
-  https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz && \
+    https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/${GCLOUD_ARCHIVE} && \
   mkdir -m 777 ${GCLOUD_LOC} && \
-  tar xvzf google-cloud-sdk.tar.gz -C ${GCLOUD_LOC} && \
-  rm google-cloud-sdk.tar.gz && \
+  tar xvzf ${GCLOUD_ARCHIVE} -C ${GCLOUD_LOC} && \
+  rm ${GCLOUD_ARCHIVE} && \
   ${GCLOUD_LOC}/google-cloud-sdk/install.sh --usage-reporting=false \
   --path-update=false --bash-completion=false \
   --disable-installation-options && \
@@ -80,7 +81,7 @@ COPY scripts/bashrc /etc/bash.bashrc
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -O ~/miniconda.sh && \
   /bin/bash ~/miniconda.sh -b -p /opt/conda && \
   rm ~/miniconda.sh && \
-  /opt/conda/bin/conda clean -tipsy && \
+  /opt/conda/bin/conda clean -afy && \
   ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
   echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc && \
   echo "conda activate caliban" >> /etc/bash.bashrc
