@@ -210,7 +210,7 @@ def _create_image_spec(
 
 
 # ----------------------------------------------------------------------------
-def _create_specs(cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _create_specs(cfg: Dict[str, Any]) -> List[ImageSpec]:
   gpu_cfg = cfg.get('gpu_versions', {})
   python_cfg = cfg.get('python_versions', {})
   base_img_cfg = cfg.get('base_images', {})
@@ -257,7 +257,7 @@ def _create_build_step(spec: ImageSpec) -> BuildStep:
 
 
 # ----------------------------------------------------------------------------
-def main(argv):
+def main(_):
   with open(FLAGS.config, 'r') as f:
     config = json.load(f)
 

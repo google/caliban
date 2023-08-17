@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,71 +25,76 @@
 #
 #  https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/dockerfiles/assembler.py
 
-ARG BASE_IMAGE=ubuntu:18.04
+ARG BASE_IMAGE=ubuntu:22.04
 
 FROM $BASE_IMAGE
-MAINTAINER Sam Ritchie <sritchie09@gmail.com>
+MAINTAINER Sam Ritchie <sam@mentat.org>
 
+ARG GCLOUD_ARCHIVE=google-cloud-cli-441.0.0-linux-x86_64.tar.gz
 ARG GCLOUD_LOC=/usr/local/gcloud
-ARG PYTHON_VERSION=3.7
+ARG JULIA_LOC=/usr/local/julia
+ARG PYTHON_VERSION=3.10
+ARG JULIA_VERSION=1.9.2
+ARG JAXLIB_VERSION=0.4.14
+ARG ARCH=x86_64
 
 # minicoda release archive is here: https://repo.anaconda.com/miniconda
 # see the docs here for managing python versions with conda:
 # https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-python.html
-ARG MINICONDA_VERSION=py37_4.8.2
+ARG MINICONDA_VERSION=py310_23.5.2-0
 
-LABEL maintainer="samritchie@google.com"
+LABEL maintainer="sam@mentat.org"
 
-# See http://bugs.python.org/issue19846
-ENV LANG C.UTF-8
-
-# Install git so that users can declare git dependencies, and python3 plus
-# python3-virtualenv so we can generate an isolated Python environment inside
-# the container.
+# Install git so that users can declare git dependencies, and python3 so
+# miniconda we can generate an isolated Python environment inside the container.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  git \
-  python3 \
-  python3-virtualenv \
-  wget && \
-  apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
+    build-essential \
+    cmake \
+    git \
+    python${PYTHON_VERSION} \
+    python${PYTHON_VERSION}-dev \
+    ca-certificates \
+    wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Some tools expect a "python" binary.
-RUN ln -s $(which python3) /usr/local/bin/python
+RUN ln -s $(which python${PYTHON_VERSION}) /usr/local/bin/python
 
 # install the google cloud SDK.
 RUN wget -nv \
-  https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz && \
-  mkdir -m 777 ${GCLOUD_LOC} && \
-  tar xvzf google-cloud-sdk.tar.gz -C ${GCLOUD_LOC} && \
-  rm google-cloud-sdk.tar.gz && \
-  ${GCLOUD_LOC}/google-cloud-sdk/install.sh --usage-reporting=false \
-  --path-update=false --bash-completion=false \
-  --disable-installation-options && \
-  rm -rf /root/.config/* && \
-  ln -s /root/.config /config && \
-  # Remove the backup directory that gcloud creates
-  rm -rf ${GCLOUD_LOC}/google-cloud-sdk/.install/.backup
+    https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/${GCLOUD_ARCHIVE} && \
+    mkdir -m 777 ${GCLOUD_LOC} && \
+    tar xvzf ${GCLOUD_ARCHIVE} -C ${GCLOUD_LOC} && \
+    rm ${GCLOUD_ARCHIVE} && \
+    ${GCLOUD_LOC}/google-cloud-sdk/install.sh --usage-reporting=false \
+    --path-update=false --bash-completion=false \
+    --disable-installation-options && \
+    rm -rf /root/.config/* && \
+    ln -s /root/.config /config && \
+    # Remove the backup directory that gcloud creates
+    rm -rf ${GCLOUD_LOC}/google-cloud-sdk/.install/.backup
 
-# Path configuration
+# Add the Cloud SDK to the path:
 ENV PATH $PATH:${GCLOUD_LOC}/google-cloud-sdk/bin
 
 COPY scripts/bashrc /etc/bash.bashrc
 
 # Install Miniconda and prep the system to activate our custom environment.
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -O ~/miniconda.sh && \
-  /bin/bash ~/miniconda.sh -b -p /opt/conda && \
-  rm ~/miniconda.sh && \
-  /opt/conda/bin/conda clean -tipsy && \
-  ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-  echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc && \
-  echo "conda activate caliban" >> /etc/bash.bashrc
+RUN wget -nv https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-${ARCH}.sh -O ~/miniconda.sh && \
+    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    /opt/conda/bin/conda clean -afy && \
+    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc && \
+    echo "conda activate caliban" >> /etc/bash.bashrc
 
 RUN yes | /opt/conda/bin/conda create --name caliban python=${PYTHON_VERSION} && /opt/conda/bin/conda clean --all
 
-# This allows a user to install packages in the conda environment once it
-# launches.
-RUN chmod -R 757 /opt/conda/envs/caliban && mkdir /.cache && chmod -R 757 /.cache
+## This allows a user to:
+# - read the system-wide bashrc file
+# - install packages into the conda environment once it launches.
+RUN chmod -R 644 /etc/bash.bashrc && chmod -R 757 /opt/conda/envs/caliban && mkdir /.cache && chmod -R 757 /.cache
 
 # This is equivalent to activating the env.
 ENV PATH /opt/conda/envs/caliban/bin:$PATH

@@ -19,13 +19,13 @@
 # Error out if any of the commands fail.
 set -e
 
+# CPU base image for jobs.
+docker build --platform linux/x86_64 -t probcomp/caliban:cpu -f- . < dockerfiles/Dockerfile
+docker push probcomp/caliban:cpu
+
 # GPU base-base, with all CUDA dependencies required for GPU work. Built off of the NVIDIA base image.
 docker build -t gcr.io/blueshift-playground/blueshift:gpu-base -f- . <dockerfiles/Dockerfile.gpu
 docker push gcr.io/blueshift-playground/blueshift:gpu-base
-
-# CPU base image for jobs.
-docker build -t gcr.io/blueshift-playground/blueshift:cpu -f- . <dockerfiles/Dockerfile
-docker push gcr.io/blueshift-playground/blueshift:cpu
 
 # GPU image.
 docker build --build-arg BASE_IMAGE=gcr.io/blueshift-playground/blueshift:gpu-base -t gcr.io/blueshift-playground/blueshift:gpu -f- . <dockerfiles/Dockerfile
