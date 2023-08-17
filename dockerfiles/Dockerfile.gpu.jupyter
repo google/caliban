@@ -1,0 +1,38 @@
+# This is for the miniclass.
+
+FROM probcomp/caliban:gpu-ubuntu2204-py310-cuda113 as base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libegl1-mesa-dev \
+    libglu1-mesa-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    git+https://sritchie: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@github.com/probcomp/genjax.git \
+    git+https://github.com/sritchie/bayes3d.git \
+    -e git+https://sritchie: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@github.com/probcomp/chi-sight-mkl.git#egg=xsight \
+    pythreejs \
+    -e git+https://github.com/skoch9/meshplot#egg=meshplot \
+    jupyterlab
+
+# These are necessary to steal the appropriate config from Google.
+COPY ./dockerfiles/entrypoint.sh /entrypoint.sh
+
+# TODO let's see what I can slim dowwn.
+RUN pip install --no-cache-dir \
+    jupyterlab==3.4.8 \
+    sql \
+    google-api-python-client \
+    google-cloud-bigquery \
+    google-cloud-storage \
+    pyarrow \
+    pyjwt
+
+COPY ./dockerfiles/ipython_kernel_config.py /etc/ipython/ipython_kernel_config.py
+
+# Obviously the above is quite annoying. The other thing we could do is remove some kernel extensions that we don't need.
+RUN cp -r /opt/conda/lib/python3.10/site-packages/beatrix_jupyterlab* /opt/conda/envs/caliban/lib/python3.10/site-packages/
+
+cp -r /opt/conda/lib/python3.10/site-packages/* /opt/conda/envs/caliban/lib/python3.10/site-packages/

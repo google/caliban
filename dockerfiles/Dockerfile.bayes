@@ -1,0 +1,31 @@
+ARG BASE_IMAGE=probcomp/caliban:gpu-ubuntu2204-py310-cuda118
+
+FROM $BASE_IMAGE
+MAINTAINER Sam Ritchie <sam@mentat.org>
+
+# Install the latest GenJAX...
+RUN pip install --no-cache-dir \
+    "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    git+https://sritchie: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@github.com/probcomp/genjax.git
+
+# The we can go from here onward for the bayes3d stuff.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libegl1-mesa-dev \
+    libglu1-mesa-dev \
+    libglib2.0-0 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# TODO pin versions on here.
+RUN pip install --no-cache-dir \
+    torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+RUN pip install --no-cache-dir \
+    -e git+https://github.com/sritchie/bayes3d.git#egg=bayes3d \
+    -r https://raw.githubusercontent.com/probcomp/bayes3d/main/requirements.txt
+
+# chisight, this can probably be done via caliban...
+RUN pip install --no-cache-dir \
+    -e git+https://sritchie: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@github.com/probcomp/chi-sight-mkl.git#egg=xsight \
+    pythreejs \
+    -e git+https://github.com/skoch9/meshplot#egg=meshplot

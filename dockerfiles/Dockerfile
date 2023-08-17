@@ -12,19 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This builds the base images that we can use for development at Blueshift.
-# Tensorflow 2.1 by default, but we can override the image when we call docker.
-#
-# docker build -t gcr.io/blueshift-playground/blueshift:cpu -f- . <Dockerfile
-#
-# docker push gcr.io/blueshift-playground/blueshift:cpu
-#
-# docker build --build-arg BASE_IMAGE=tensorflow/tensorflow:2.1.0-gpu-py3 -t gcr.io/blueshift-playground/blueshift:gpu -f- . <Dockerfile
-#
-# docker push gcr.io/blueshift-playground/blueshift:gpu
-#
-#  https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/dockerfiles/assembler.py
-
 ARG BASE_IMAGE=ubuntu:22.04
 
 FROM $BASE_IMAGE
@@ -35,7 +22,6 @@ ARG GCLOUD_LOC=/usr/local/gcloud
 ARG JULIA_LOC=/usr/local/julia
 ARG PYTHON_VERSION=3.10
 ARG JULIA_VERSION=1.9.2
-ARG JAXLIB_VERSION=0.4.14
 ARG ARCH=x86_64
 
 # minicoda release archive is here: https://repo.anaconda.com/miniconda
@@ -49,14 +35,12 @@ LABEL maintainer="sam@mentat.org"
 # miniconda we can generate an isolated Python environment inside the container.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    cmake \
     git \
-    python${PYTHON_VERSION} \
-    python${PYTHON_VERSION}-dev \
+    cmake \
     ca-certificates \
-    wget && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Some tools expect a "python" binary.
 RUN ln -s $(which python${PYTHON_VERSION}) /usr/local/bin/python
@@ -82,19 +66,24 @@ COPY scripts/bashrc /etc/bash.bashrc
 
 # Install Miniconda and prep the system to activate our custom environment.
 RUN wget -nv https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-${ARCH}.sh -O ~/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+    /bin/bash ~/miniconda.sh -u -b -p /opt/conda && \
     rm ~/miniconda.sh && \
     /opt/conda/bin/conda clean -afy && \
     ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
     echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc && \
     echo "conda activate caliban" >> /etc/bash.bashrc
 
-RUN yes | /opt/conda/bin/conda create --name caliban python=${PYTHON_VERSION} && /opt/conda/bin/conda clean --all
+RUN yes | /opt/conda/bin/conda create \
+    --name caliban python=${PYTHON_VERSION} \
+    && /opt/conda/bin/conda clean --all
 
 ## This allows a user to:
 # - read the system-wide bashrc file
 # - install packages into the conda environment once it launches.
-RUN chmod -R 644 /etc/bash.bashrc && chmod -R 757 /opt/conda/envs/caliban && mkdir /.cache && chmod -R 757 /.cache
+RUN chmod -R 644 /etc/bash.bashrc \
+    && chmod -R 757 /opt/conda/envs/caliban \
+    && mkdir /.cache \
+    && chmod -R 757 /.cache
 
 # This is equivalent to activating the env.
 ENV PATH /opt/conda/envs/caliban/bin:$PATH
@@ -103,3 +92,6 @@ ENV PATH /opt/conda/envs/caliban/bin:$PATH
 # as a virtual environment, so it installs editables properly
 # See https://github.com/conda/conda/issues/5861 for details
 ENV PIP_SRC /opt/conda/envs/caliban/pipsrc
+
+# introduced in pip 22.1, silences the warning since we are NOT using root.
+ENV PIP_ROOT_USER_ACTION ignore

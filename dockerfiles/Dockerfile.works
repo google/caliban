@@ -1,0 +1,87 @@
+# https://hub.docker.com/r/nvidia/cuda/tags
+FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
+
+ARG PYTHON_VERSION=3.10
+ARG JAXLIB_VERSION=0.4.14
+ARG ARCH=x86_64
+
+# minicoda release archive is here: https://repo.anaconda.com/miniconda
+# see the docs here for managing python versions with conda:
+# https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-python.html
+ARG MINICONDA_VERSION=py310_23.5.2-0
+
+LABEL maintainer="sam@mentat.org"
+
+# Install git so that users can declare git dependencies, and python3 so
+# miniconda we can generate an isolated Python environment inside the container.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    cmake \
+    ca-certificates \
+    wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN ln -s $(which python${PYTHON_VERSION}) /usr/local/bin/python
+
+# Install Miniconda and prep the system to activate our custom environment.
+RUN wget -nv https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-${ARCH}.sh -O ~/miniconda.sh && \
+    /bin/bash ~/miniconda.sh -u -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    /opt/conda/bin/conda clean -afy && \
+    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc && \
+    echo "conda activate caliban" >> /etc/bash.bashrc
+
+RUN yes | /opt/conda/bin/conda create --name caliban python=${PYTHON_VERSION} && /opt/conda/bin/conda clean --all
+
+## This allows a user to:
+# - read the system-wide bashrc file
+# - install packages into the conda environment once it launches.
+RUN chmod -R 644 /etc/bash.bashrc && chmod -R 757 /opt/conda/envs/caliban && mkdir /.cache && chmod -R 757 /.cache
+
+# This is equivalent to activating the env.
+ENV PATH /opt/conda/envs/caliban/bin:$PATH
+
+# This makes pip recognize our conda environment
+# as a virtual environment, so it installs editables properly
+# See https://github.com/conda/conda/issues/5861 for details
+ENV PIP_SRC /opt/conda/envs/caliban/pipsrc
+
+RUN pip install --no-cache-dir \
+    "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    git+https://sritchie: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@github.com/probcomp/genjax.git
+
+# bayes3d
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libegl1-mesa-dev \
+    libglu1-mesa-dev \
+    libglib2.0-0 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# version for poetry: https://stackoverflow.com/a/76359919
+RUN pip install --no-cache-dir \
+    torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+    pip install --no-cache-dir \
+    git+https://github.com/sritchie/bayes3d.git
+
+# finally, for Google:
+# RUN pip install --no-cache-dir jupyterlab
+
+RUN pip install --no-cache-dir ipykernel
+
+# chisight:
+RUN pip install --no-cache-dir \
+    -e git+https://sritchie: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@github.com/probcomp/chi-sight-mkl.git#egg=xsight \
+    pythreejs \
+    -e git+https://github.com/skoch9/meshplot#egg=meshplot
+
+# !pip install --user jupyterlab-widgets==3.0.5
+#
+# AM, TODO:
+#
+# report the progress, update my tickets
+# build locally
+# push tags

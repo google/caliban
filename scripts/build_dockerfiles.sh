@@ -20,8 +20,23 @@
 set -e
 
 # CPU base image for jobs.
-docker build --platform linux/x86_64 -t probcomp/caliban:cpu -f- . < dockerfiles/Dockerfile
-docker push probcomp/caliban:cpu
+docker build --platform linux/x86_64 -t probcomp/caliban:cpu-ubuntu2204-py310 -f- . < dockerfiles/Dockerfile
+docker push probcomp/caliban:cpu-ubuntu2204-py310
+
+# test for cloud.
+docker build --platform linux/x86_64 -t probcomp/caliban:cpu-ubuntu2204-py310-jupyter -f- . < dockerfiles/Dockerfile.jupyter
+docker push probcomp/caliban:cpu-ubuntu2204-py310-jupyter
+
+# new GPU base test??
+docker build --build-arg BASE_IMAGE=gcr.io/deeplearning-platform-release/base-cu113.py310 -t probcomp/caliban:gpu-ubuntu2204-py310-cuda113 -f- . < dockerfiles/Dockerfile
+docker push probcomp/caliban:gpu-ubuntu2204-py310-cuda113
+
+# GPU image for the class
+GPU_TAG=us-east1-docker.pkg.dev/probcomp-caliban/storage/caliban:gpu-ubuntu2004-py310-cuda113-jupyter
+
+docker build --platform linux/x86_64 -t $GPU_TAG -f- . < dockerfiles/Dockerfile.gpu.jupyter
+docker push $GPU_TAG
+
 
 # GPU base-base, with all CUDA dependencies required for GPU work. Built off of the NVIDIA base image.
 docker build -t gcr.io/blueshift-playground/blueshift:gpu-base -f- . <dockerfiles/Dockerfile.gpu

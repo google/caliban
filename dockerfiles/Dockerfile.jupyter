@@ -1,0 +1,5 @@
+FROM probcomp/caliban:cpu-ubuntu2204-py310 as base
+
+# get this going...
+# TODO bake in my credentials for now :)
+RUN pip install \
