@@ -1,4 +1,7 @@
-# pending
+## [unreleased]
+
+- #112 upgrades the CPU base image to Python 3.10. The full build matrix isn't
+  generated yet, so test at your own peril.
 
 - #109:
 
@@ -13,13 +16,13 @@
 
   - fixes failure when GCP credentials aren't configured running in local mode.
 
-# 0.4.1
+## 0.4.1
 
 Small release to archive for JOSS acceptance.
 
 - Move `cloud_sql_proxy` installation before code copy (https://github.com/google/caliban/pull/87)
 
-# 0.4.0
+## 0.4.0
 
 The biggest feature in this new release is native support for logging to an
 MLFlow tracking server using the [UV
@@ -42,7 +45,7 @@ documentation soon.
   match the current state here):
   https://cloud.google.com/ai-platform/training/docs/regions
 
-# 0.3.0
+## 0.3.0
 
 - @ramasesh Added a fix that prevented `pip` git dependencies from working in
   `caliban shell` mode (https://github.com/google/caliban/pull/55) This adds a
@@ -130,7 +133,7 @@ dlvm:tf2-gpu-2.2
 Format strings work here as well! So, `"dlvm:pytorch-{}-1.4"` is a totally valid
 base image.
 
-# 0.2.6
+## 0.2.6
 
 - Prepared for a variety of base images by setting up a cloud build matrix:
   https://github.com/google/caliban/pull/25
@@ -146,7 +149,7 @@ base image.
 
 ![2020-06-26 09 48 50](https://user-images.githubusercontent.com/69635/85877300-2a3e7300-b794-11ea-9792-4cf3ae5e4263.gif)
 
-# 0.2.5
+## 0.2.5
 
 - fixes the python binary that caliban notebook points to (now that we use
   conda)
@@ -156,23 +159,23 @@ base image.
 This makes it easy to add, for example, npm and latex support to your caliban
 notebook invocations.
 
-# 0.2.4
+## 0.2.4
 
 - fixes a bug with `parse_region` not handling a lack of default.
 - converts the build to Github Actions.
 - Rolls Caliban back to requiring only python 3.6 support.
 - Removes some unused imports from a few files.
 
-# 0.2.3
+## 0.2.3
 
 - Added fix for an issue where large user IDs would crash Docker during the
   build phase. https://github.com/google/caliban/pull/8
 
-# 0.2.2
+## 0.2.2
 
 - Fix for bug with requirements.txt files.
 
-# 0.2.1
+## 0.2.1
 
 - Added support for Conda dependencies
   (https://github.com/google/caliban/pull/5). If you include `environment.yml`
@@ -181,7 +184,7 @@ notebook invocations.
 - Base images for CPU and GPU modes now use Conda to manage the container's
   virtual environment instead of `virtualenv`.
 
-# 0.2.0
+## 0.2.0
 
 - Caliban now caches the service account key and ADC file; you should see faster
   builds, BUT you might run into trouble if you try to run multiple Caliban
@@ -228,7 +231,7 @@ This works too:
 }
 ```
 
-# 0.1.15
+## 0.1.15
 
 - `caliban notebook` now attempts to search for the first free port instead of
   failing due to an already-occupied port.
@@ -240,7 +243,7 @@ This works too:
   using its build cache. This is helpful to use if you want to, say, force new
   dependencies to get installed without bumping their versions explicitly.
 
-# 0.1.14
+## 0.1.14
 
 - JSON experiment configuration files can now handle arguments which are varied
   together, by supplying a compound key, of the form e.g. `[arg1,arg2]`.
@@ -252,7 +255,7 @@ This works too:
   The colon in the project name separating domain and project ID is handled
   properly.
 
-# 0.1.13
+## 0.1.13
 
 - 'caliban run' and 'caliban shell' now take an --image_id argument; if
   provided, these commands will skip their 'docker build' phase and use the
@@ -274,7 +277,7 @@ This works too:
 - `caliban shell` has a new `--shell` argument that you can use to override the
   container's default shell.
 
-# 0.1.12
+## 0.1.12
 
 - consolidated gke tpu/gpu spec parsing with cloud types
 - modified all commands to accept as the module argument paths to arbitrary
@@ -297,26 +300,26 @@ This works too:
 - if ADC credentials are NOT present but a service account key is we write a
   placeholder. this is required to get ctpu working inside containers.
 
-# 0.1.11
+## 0.1.11
 
 - added tpu driver specification for gke jobs
 - added query for getting available tpu drivers for cluster/project
 
-# 0.1.10
+## 0.1.10
 
 - set host_ipc=True for cluster jobs
 
-# 0.1.9
+## 0.1.9
 
 - moved cluster constants to separate file
 - moved cluster gpu validation to separate file
 - added test for gpu limits validation
 
-# 0.1.8
+## 0.1.8
 
 - TPU and GPU spec now accept validate_count arg to disable count validation.
 
-# 0.1.7
+## 0.1.7
 
 - Fixed a bug where the label for the job name wasn't getting properly
   sanitized - this meant that if you provided an upper-cased job name job
@@ -325,7 +328,7 @@ This works too:
 - experiment config parsing now performs the full expansion at CLI-parse-time
   and validates every expanded config.
 
-# 0.1.6
+## 0.1.6
 
 - `--docker_run_args` allows you to pass a string of arguments directly through
   to `docker run`. This command works for `caliban run`, `caliban notebook` and
@@ -339,7 +342,7 @@ This works too:
 
 - fixed a bug in `caliban.util.TempCopy` where a `None`-valued path would fail. This affected environments where `GOOGLE_APPLICATION_CREDENTIALS` wasn't set.
 
-# 0.1.5
+## 0.1.5
 
 - `--experiment_config` can now take experiment configs via stdin (pipes, yay!);
   specify `--experiment_config stdin`, or any-cased version of that, and the
@@ -376,7 +379,7 @@ This works too:
   image ID. Useful for checking if your image can build at all with the current
   settings.
 
-# 0.1.4
+## 0.1.4
 
 - the CLI will now error if you pass any caliban keyword arguments AFTER the
   python module name, but before `--`. In previous versions, if you did something like
@@ -404,11 +407,11 @@ Instead of
 pip install .
 ```
 
-# 0.1.3.1
+## 0.1.3.1
 
 - Minor bugfix; I was calling "len" on an iterator, not a list.
 
-# 0.1.3
+## 0.1.3
 
 This version:
 
@@ -421,7 +424,7 @@ This version:
 
 If you like you can set `-v 1` to see the full spec output.
 
-# 0.1.2
+## 0.1.2
 
 - `caliban.cloud.types` has lots of enums and types that make it easier to code
   well against AI Platform.

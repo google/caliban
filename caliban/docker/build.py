@@ -38,9 +38,9 @@ import caliban.util.metrics as um
 
 t = Terminal()
 
-DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
+DEV_CONTAINER_ROOT = "probcomp/caliban"
 DEFAULT_GPU_TAG = "gpu-ubuntu1804-py37-cuda101"
-DEFAULT_CPU_TAG = "cpu-ubuntu1804-py37"
+DEFAULT_CPU_TAG = "cpu-ubuntu2204-py310"
 TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}
 DEFAULT_WORKDIR = "/usr/app"
 CREDS_DIR = "/.creds"
@@ -731,7 +731,7 @@ def build_image(
           path=".", caliban_config=caliban_config) as launcher_config:
 
         cache_args = ["--no-cache"] if no_cache else []
-        cmd = ["docker", "build", "--platform", "linux/amd64"] + cache_args + \
+        cmd = ["docker", "build", "--platform", "linux/x86_64"] + cache_args + \
           ["--iidfile", id_file.name] + \
           ["--rm", "-f-", build_path]
 
