@@ -643,7 +643,7 @@ def _dockerfile_template(
 FROM {base_image}
 
 # Create the same group we're using on the host machine.
-RUN [ $(getent group {gid}) ] || groupadd --gid {gid} {gid}
+RUN [ $(getent group {gid}) ] || groupadd --gid {gid} caliban
 
 # Create the user by name. --no-log-init guards against a crash with large user
 # IDs.
