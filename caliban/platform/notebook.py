@@ -68,14 +68,16 @@ def run_notebook(job_mode: c.JobMode,
   jupyter_args = [
     "-m", "jupyter", jupyter_cmd, \
     "--ip=0.0.0.0", \
-    "--port={}".format(port), \
+    f"--port={port}", \
     "--no-browser"
   ]
+
+  mount_args = [f"--app-dir={b.container_home()}"] if lab else []
   docker_args = ["-p", "{}:{}".format(port, port)] + run_args
 
   ps.run_interactive(job_mode,
                      entrypoint="python",
-                     entrypoint_args=jupyter_args,
+                     entrypoint_args=jupyter_args + mount_args,
                      run_args=docker_args,
                      inject_notebook=inject_arg,
                      jupyter_version=version,
