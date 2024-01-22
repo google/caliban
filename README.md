@@ -1,7 +1,7 @@
 # Caliban
 
-[![Build status](https://github.com/google/caliban/workflows/build/badge.svg?branch=master)](https://github.com/google/caliban/actions?query=workflow%3Abuild+branch%3Amaster)
-[![Codecov branch](https://img.shields.io/codecov/c/github/google/caliban/master.svg?maxAge=3600)](https://codecov.io/github/google/caliban)
+[![Build status](https://github.com/google/caliban/workflows/build/badge.svg?branch=main)](https://github.com/google/caliban/actions?query=workflow%3Abuild+branch%3Amain)
+[![Codecov branch](https://img.shields.io/codecov/c/github/google/caliban/main.svg?maxAge=3600)](https://codecov.io/github/google/caliban/tree/main)
 [![JOSS](https://joss.theoj.org/papers/c33c8b464103b2fb3b641878722bf8f3/status.svg)](https://joss.theoj.org/papers/c33c8b464103b2fb3b641878722bf8f3)
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
 [![caliban version](https://img.shields.io/pypi/v/caliban?maxAge=3600)](https://pypi.org/project/caliban)
@@ -178,12 +178,12 @@ will:
 ### Preparing your Project
 
 Create an empty directory and use `curl` to download a [python
-script](https://github.com/google/caliban/blob/master/tutorials/basic/mnist.py#L16)
+script](https://github.com/google/caliban/blob/main/tutorials/basic/mnist.py#L16)
 that trains a basic neural network.
 
 ```
 mkdir demo && cd demo
-curl --output mnist.py https://raw.githubusercontent.com/google/caliban/master/tutorials/basic/mnist.py
+curl --output mnist.py https://raw.githubusercontent.com/google/caliban/main/tutorials/basic/mnist.py
 ```
 
 Create a file called `requirements.txt` to declare `tensorflow-cpu` as a dependency:

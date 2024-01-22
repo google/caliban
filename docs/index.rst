@@ -63,7 +63,7 @@ declare some set of dependencies in either a ``requirements.txt`` or
 The rest of this document contains detailed information and guides on Caliban's
 various modes. If you want to get started in a more interactive way, head over
 to `the Caliban tutorials
-directory <https://github.com/google/caliban/blob/master/tutorials/README.md>`_.
+directory <https://github.com/google/caliban/blob/main/tutorials/README.md>`_.
 
 Caliban's code lives on `Github <https://github.com/google/caliban>`_.
 
@@ -72,7 +72,7 @@ Using Caliban
 
 If you want to practice using Caliban with a proper getting-started style guide,
 head over to `Caliban's tutorials
-<https://github.com/google/caliban/blob/master/tutorials/README.md>`_ (Coming
+<https://github.com/google/caliban/blob/main/tutorials/README.md>`_ (Coming
 Soon!).
 
 See the sidebar for information on the subcommands exposed by Caliban and a
