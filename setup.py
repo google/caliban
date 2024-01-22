@@ -19,11 +19,12 @@ from setuptools import find_packages, setup
 
 def with_versioneer(f, default=None):
   """Attempts to execute the supplied single-arg function by passing it
-versioneer if available; else, returns the default.
+  versioneer if available; else, returns the default.
 
   """
   try:
     import versioneer
+
     return f(versioneer)
   except ModuleNotFoundError:
     return default
@@ -31,48 +32,50 @@ versioneer if available; else, returns the default.
 
 def readme():
   try:
-    with open('README.md') as f:
+    with open("README.md") as f:
       return f.read()
   except Exception:
     return None
 
 
 REQUIRED_PACKAGES = [
-    'absl-py',
-    'blessings',
-    'commentjson==0.8.3',
-    'google-api-python-client',
-    'pyyaml',
-    'tqdm>=4.45.0',
-    'kubernetes>=10.0.1',
-    'google-auth>=1.19.0',
-    'google-cloud-core>=1.0.3',
-    'google-cloud-container>=0.3.0',
-    'psycopg2-binary==2.9.6',
-    'schema==0.7.5',
-    'urllib3>=1.25.7',
-    'yaspin>=0.16.0',
-    'SQLAlchemy==1.3.11',
-    'pg8000==1.16.1',
+  "absl-py",
+  "blessings",
+  "commentjson==0.8.3",
+  "google-api-python-client",
+  "pyyaml",
+  "tqdm>=4.45.0",
+  "kubernetes>=10.0.1",
+  "google-auth>=1.19.0",
+  "google-cloud-core>=1.0.3",
+  "google-cloud-container>=0.3.0",
+  "psycopg2-binary==2.9.6",
+  "schema==0.7.5",
+  "urllib3>=1.25.7",
+  "yaspin>=0.16.0",
+  "SQLAlchemy==1.3.11",
+  "pg8000==1.16.1",
 ]
 
-setup(name='caliban',
-      version=with_versioneer(lambda v: v.get_version()),
-      cmdclass=with_versioneer(lambda v: v.get_cmdclass(), {}),
-      description='Docker-based job runner for AI research.',
-      long_description=readme(),
-      long_description_content_type="text/markdown",
-      python_requires='>=3.6.0',
-      author='Caliban Team',
-      author_email='samritchie@google.com',
-      url='https://github.com/google/caliban',
-      license='Apache-2.0',
-      packages=find_packages(exclude=('tests', 'docs')),
-      install_requires=REQUIRED_PACKAGES,
-      include_package_data=True,
-      entry_points={
-          'console_scripts': [
-              'caliban = caliban.main:main',
-              'expansion = caliban.expansion:main'
-          ]
-      })
+setup(
+  name="caliban",
+  version=with_versioneer(lambda v: v.get_version()),
+  cmdclass=with_versioneer(lambda v: v.get_cmdclass(), {}),
+  description="Docker-based job runner for AI research.",
+  long_description=readme(),
+  long_description_content_type="text/markdown",
+  python_requires=">=3.6.0",
+  author="Caliban Team",
+  author_email="samritchie@google.com",
+  url="https://github.com/google/caliban",
+  license="Apache-2.0",
+  packages=find_packages(exclude=("tests", "docs")),
+  install_requires=REQUIRED_PACKAGES,
+  include_package_data=True,
+  entry_points={
+    "console_scripts": [
+      "caliban = caliban.main:main",
+      "expansion = caliban.expansion:main",
+    ]
+  },
+)

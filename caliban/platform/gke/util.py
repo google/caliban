@@ -30,8 +30,11 @@ from urllib.parse import urlencode, urlparse
 import google
 import yaml
 from google.auth._cloud_sdk import get_application_default_credentials_path
-from google.auth._default import (_AUTHORIZED_USER_TYPE, _SERVICE_ACCOUNT_TYPE,
-                                  load_credentials_from_file)
+from google.auth._default import (
+  _AUTHORIZED_USER_TYPE,
+  _SERVICE_ACCOUNT_TYPE,
+  load_credentials_from_file,
+)
 from google.cloud.container_v1 import ClusterManagerClient
 from google.cloud.container_v1.types import Cluster as GKECluster
 from google.oauth2 import service_account
@@ -59,13 +62,12 @@ def trap(error_value: Any, silent: bool = True) -> Any:
   """
 
   def check(fn):
-
     def wrapper(*args, **kwargs):
       try:
         response = fn(*args, **kwargs)
       except Exception as e:
         if not silent:
-          logging.exception('exception in call {}:\n{}'.format(fn, e))
+          logging.exception("exception in call {}:\n{}".format(fn, e))
         return error_value
       return response
 
@@ -76,9 +78,9 @@ def trap(error_value: Any, silent: bool = True) -> Any:
 
 # ----------------------------------------------------------------------------
 def validate_gpu_spec_against_limits(
-    gpu_spec: GPUSpec,
-    gpu_limits: Dict[GPU, int],
-    limit_type: str,
+  gpu_spec: GPUSpec,
+  gpu_limits: Dict[GPU, int],
+  limit_type: str,
 ) -> bool:
   """validate gpu spec against provided limits
 
@@ -92,15 +94,19 @@ def validate_gpu_spec_against_limits(
   """
 
   if gpu_spec.gpu not in gpu_limits:
-    logging.error('unsupported gpu type {}. '.format(gpu_spec.gpu.name) +
-                  'Supported types for {}: {}'.format(
-                      limit_type, [g.name for g in gpu_limits]))
+    logging.error(
+      "unsupported gpu type {}. ".format(gpu_spec.gpu.name)
+      + "Supported types for {}: {}".format(limit_type, [g.name for g in gpu_limits])
+    )
     return False
 
   if gpu_spec.count > gpu_limits[gpu_spec.gpu]:
-    logging.error('error: requested {} gpu count {} unsupported,'.format(
-        gpu_spec.gpu.name, gpu_spec.count) +
-                  ' {} max = {}'.format(limit_type, gpu_limits[gpu_spec.gpu]))
+    logging.error(
+      "error: requested {} gpu count {} unsupported,".format(
+        gpu_spec.gpu.name, gpu_spec.count
+      )
+      + " {} max = {}".format(limit_type, gpu_limits[gpu_spec.gpu])
+    )
     return False
 
   return True
@@ -108,18 +114,18 @@ def validate_gpu_spec_against_limits(
 
 # ----------------------------------------------------------------------------
 def nvidia_daemonset_url(node_image: NodeImage) -> Optional[str]:
-  '''gets nvidia driver daemonset url for given node image
+  """gets nvidia driver daemonset url for given node image
 
   Args:
   node_image: node image type
 
   Returns:
   daemonset yaml url on success, None otherwise
-  '''
+  """
 
   DAEMONSETS = {
-      NodeImage.COS: k.NVIDIA_DRIVER_COS_DAEMONSET_URL,
-      NodeImage.UBUNTU: k.NVIDIA_DRIVER_UBUNTU_DAEMONSET_URL
+    NodeImage.COS: k.NVIDIA_DRIVER_COS_DAEMONSET_URL,
+    NodeImage.UBUNTU: k.NVIDIA_DRIVER_UBUNTU_DAEMONSET_URL,
   }
 
   return DAEMONSETS.get(node_image, None)
@@ -138,14 +144,15 @@ def dashboard_cluster_url(cluster_id: str, zone: str, project_id: str):
   url string
   """
 
-  query = urlencode({'project': project_id})
-  return '{}/{}/{}?{}'.format(k.DASHBOARD_CLUSTER_URL, zone, cluster_id, query)
+  query = urlencode({"project": project_id})
+  return "{}/{}/{}?{}".format(k.DASHBOARD_CLUSTER_URL, zone, cluster_id, query)
 
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def get_tpu_drivers(tpu_api: discovery.Resource, project_id: str,
-                    zone: str) -> Optional[List[str]]:
+def get_tpu_drivers(
+  tpu_api: discovery.Resource, project_id: str, zone: str
+) -> Optional[List[str]]:
   """gets supported tpu drivers for given project, zone
 
   Args:
@@ -157,16 +164,17 @@ def get_tpu_drivers(tpu_api: discovery.Resource, project_id: str,
   list of supported drivers on success, None otherwise
   """
 
-  location = 'projects/{}/locations/{}'.format(project_id, zone)
+  location = "projects/{}/locations/{}".format(project_id, zone)
 
-  rsp = tpu_api.projects().locations().tensorflowVersions().list(
-      parent=location).execute()
+  rsp = (
+    tpu_api.projects().locations().tensorflowVersions().list(parent=location).execute()
+  )
 
   if rsp is None:
-    logging.error('error getting tpu drivers')
+    logging.error("error getting tpu drivers")
     return None
 
-  return [d['version'] for d in rsp['tensorflowVersions']]
+  return [d["version"] for d in rsp["tensorflowVersions"]]
 
 
 # ----------------------------------------------------------------------------
@@ -180,31 +188,31 @@ def user_verify(msg: str, default: bool) -> bool:
   Returns:
   boolean choice
   """
-  choice_str = '[Yn]' if default else '[yN]'
+  choice_str = "[Yn]" if default else "[yN]"
 
   while True:
-    ok = input('\n {} {}: '.format(msg, choice_str)).lower()
+    ok = input("\n {} {}: ".format(msg, choice_str)).lower()
 
     if len(ok) == 0:
       return default
 
-    if ok not in ['y', 'n']:
-      print('please enter y or n')
+    if ok not in ["y", "n"]:
+      print("please enter y or n")
       continue
 
-    return (ok == 'y')
+    return ok == "y"
 
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def wait_for_operation(cluster_api: discovery.Resource,
-                       name: str,
-                       conditions: List[OpStatus] = [
-                           OpStatus.DONE, OpStatus.ABORTING
-                       ],
-                       sleep_sec: int = 1,
-                       message: str = '',
-                       spinner: bool = True) -> Optional[dict]:
+def wait_for_operation(
+  cluster_api: discovery.Resource,
+  name: str,
+  conditions: List[OpStatus] = [OpStatus.DONE, OpStatus.ABORTING],
+  sleep_sec: int = 1,
+  message: str = "",
+  spinner: bool = True,
+) -> Optional[dict]:
   """waits for cluster operation to reach given state(s)
 
   Args:
@@ -226,10 +234,9 @@ def wait_for_operation(cluster_api: discovery.Resource,
 
   def _wait():
     while True:
-      rsp = cluster_api.projects().locations().operations().get(
-          name=name).execute()
+      rsp = cluster_api.projects().locations().operations().get(name=name).execute()
 
-      if rsp['status'] in condition_strings:
+      if rsp["status"] in condition_strings:
         return rsp
 
       sleep(sleep_sec)
@@ -253,19 +260,20 @@ def gke_tpu_to_tpuspec(tpu: str) -> Optional[TPUSpec]:
   TPUSpec on success, None otherwise
   """
 
-  tpu_re = re.compile('^(?P<tpu>(v2|v3))-(?P<count>[0-9]+)$')
+  tpu_re = re.compile("^(?P<tpu>(v2|v3))-(?P<count>[0-9]+)$")
   match = tpu_re.match(tpu)
   if match is None:
     return None
   gd = match.groupdict()
 
-  return TPUSpec(TPU[gd['tpu'].upper()], int(gd['count']))
+  return TPUSpec(TPU[gd["tpu"].upper()], int(gd["count"]))
 
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def get_zone_tpu_types(tpu_api: discovery.Resource, project_id: str,
-                       zone: str) -> Optional[List[TPUSpec]]:
+def get_zone_tpu_types(
+  tpu_api: discovery.Resource, project_id: str, zone: str
+) -> Optional[List[TPUSpec]]:
   """gets list of tpus available in given zone
 
   Args:
@@ -277,13 +285,14 @@ def get_zone_tpu_types(tpu_api: discovery.Resource, project_id: str,
   list of supported tpu specs on success, None otherwise
   """
 
-  location = 'projects/{}/locations/{}'.format(project_id, zone)
-  rsp = tpu_api.projects().locations().acceleratorTypes().list(
-      parent=location).execute()
+  location = "projects/{}/locations/{}".format(project_id, zone)
+  rsp = (
+    tpu_api.projects().locations().acceleratorTypes().list(parent=location).execute()
+  )
 
   tpus = []
-  for t in rsp['acceleratorTypes']:
-    spec = gke_tpu_to_tpuspec(t['type'])
+  for t in rsp["acceleratorTypes"]:
+    spec = gke_tpu_to_tpuspec(t["type"])
     if spec is None:
       continue
     tpus.append(spec)
@@ -303,18 +312,19 @@ def gke_gpu_to_gpu(gpu: str) -> Optional[GPU]:
   GPU on success, None otherwise
   """
 
-  gpu_re = re.compile('^nvidia-tesla-(?P<type>[a-z0-9]+)$')
+  gpu_re = re.compile("^nvidia-tesla-(?P<type>[a-z0-9]+)$")
   match = gpu_re.match(gpu)
   if match is None:
     return None
   gd = match.groupdict()
-  return GPU[gd['type'].upper()]
+  return GPU[gd["type"].upper()]
 
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def get_zone_gpu_types(compute_api: discovery.Resource, project_id: str,
-                       zone: str) -> Optional[List[GPUSpec]]:
+def get_zone_gpu_types(
+  compute_api: discovery.Resource, project_id: str, zone: str
+) -> Optional[List[GPUSpec]]:
   """gets list of gpu accelerators available in given zone
 
   Args:
@@ -326,24 +336,24 @@ def get_zone_gpu_types(compute_api: discovery.Resource, project_id: str,
   list of GPUSpec on success (count is max count), None otherwise
   """
 
-  rsp = compute_api.acceleratorTypes().list(project=project_id,
-                                            zone=zone).execute()
+  rsp = compute_api.acceleratorTypes().list(project=project_id, zone=zone).execute()
 
   gpus = []
 
-  for x in rsp['items']:
-    gpu = gke_gpu_to_gpu(x['name'])
+  for x in rsp["items"]:
+    gpu = gke_gpu_to_gpu(x["name"])
     if gpu is None:
       continue
-    gpus.append(GPUSpec(gpu, int(x['maximumCardsPerInstance'])))
+    gpus.append(GPUSpec(gpu, int(x["maximumCardsPerInstance"])))
 
   return gpus
 
 
 # ----------------------------------------------------------------------------
 @trap(None, silent=False)
-def get_region_quotas(compute_api: discovery.Resource, project_id: str,
-                      region: str) -> Optional[List[Dict[str, Any]]]:
+def get_region_quotas(
+  compute_api: discovery.Resource, project_id: str, region: str
+) -> Optional[List[Dict[str, Any]]]:
   """gets compute quotas for given region
 
   These quotas include cpu and gpu quotas for the given region.
@@ -358,14 +368,19 @@ def get_region_quotas(compute_api: discovery.Resource, project_id: str,
   list of quota dicts, with keys {'limit', 'metric', 'usage'}, None on error
   """
 
-  return compute_api.regions().get(project=project_id,
-                                   region=region).execute().get('quotas', [])
+  return (
+    compute_api.regions()
+    .get(project=project_id, region=region)
+    .execute()
+    .get("quotas", [])
+  )
 
 
 # ----------------------------------------------------------------------------
 @trap(None)
 def resource_limits_from_quotas(
-    quotas: List[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+  quotas: List[Dict[str, Any]],
+) -> Optional[List[Dict[str, Any]]]:
   """create resource limits from quota dictionary
 
   Args:
@@ -377,11 +392,11 @@ def resource_limits_from_quotas(
 
   limits = []
 
-  gpu_re = re.compile('^NVIDIA_(?P<gpu>[A-Z0-9]+)_GPUS$')
+  gpu_re = re.compile("^NVIDIA_(?P<gpu>[A-Z0-9]+)_GPUS$")
 
   for q in quotas:
-    metric = q['metric']
-    limit = int(q['limit'])
+    metric = q["metric"]
+    limit = int(q["limit"])
 
     # the api can return a limit of 0, but specifying a limit of zero
     # causes an error when configuring the cluster, so we skip any
@@ -389,12 +404,11 @@ def resource_limits_from_quotas(
     if limit < 1:
       continue
 
-    if metric == 'CPUS':
-      limits.append({'resourceType': 'cpu', 'maximum': str(limit)})
-      limits.append({
-          'resourceType': 'memory',
-          'maximum': str(limit * k.MAX_GB_PER_CPU)
-      })
+    if metric == "CPUS":
+      limits.append({"resourceType": "cpu", "maximum": str(limit)})
+      limits.append(
+        {"resourceType": "memory", "maximum": str(limit * k.MAX_GB_PER_CPU)}
+      )
       continue
 
     gpu_match = gpu_re.match(metric)
@@ -402,20 +416,23 @@ def resource_limits_from_quotas(
       continue
 
     gd = gpu_match.groupdict()
-    gpu_type = gd['gpu']
+    gpu_type = gd["gpu"]
 
-    limits.append({
-        'resourceType': 'nvidia-tesla-{}'.format(gpu_type.lower()),
-        'maximum': str(limit)
-    })
+    limits.append(
+      {
+        "resourceType": "nvidia-tesla-{}".format(gpu_type.lower()),
+        "maximum": str(limit),
+      }
+    )
 
   return limits
 
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def generate_resource_limits(compute_api: discovery.Resource, project_id: str,
-                             region: str) -> Optional[List[Dict[str, Any]]]:
+def generate_resource_limits(
+  compute_api: discovery.Resource, project_id: str, region: str
+) -> Optional[List[Dict[str, Any]]]:
   """generates resource limits from quota information
 
   Args:
@@ -473,9 +490,9 @@ def nonnull_list(lst: list) -> list:
 
     new_x: Any = x
 
-    if type(x) == dict:
+    if isinstance(x, dict):
       new_x = nonnull_dict(x)
-    elif type(x) == list:
+    elif isinstance(x, list):
       new_x = nonnull_list(x)
 
     nnl.append(new_x)
@@ -497,17 +514,17 @@ def nonnull_dict(d: dict) -> dict:
   """
 
   nnd = {}
-  for k, v in d.items():
+  for key, v in d.items():
     if v is None:
       continue
     new_val: Any = v
 
-    if type(v) == dict:
+    if isinstance(v, dict):
       new_val = nonnull_dict(v)
-    elif type(v) == list:
+    elif isinstance(v, list):
       new_val = nonnull_list(v)
 
-    nnd[k] = new_val
+    nnd[key] = new_val
 
   return nnd
 
@@ -527,25 +544,25 @@ def job_str(job: V1Job) -> str:
 
 # ----------------------------------------------------------------------------
 def valid_job_file_ext(ext: str) -> bool:
-  '''tests validity of file extension for job spec
+  """tests validity of file extension for job spec
   Args:
   ext: extension (must include '.', i.e. '.json')
   Returns:
-  True if valid, False otherwise '''
+  True if valid, False otherwise"""
   return ext in k.VALID_JOB_FILE_EXT
 
 
 # ----------------------------------------------------------------------------
 def validate_job_filename(s: str) -> str:
-  '''validates a job filename string
+  """validates a job filename string
   if invalid, raises argparse.ArgumentTypeError
-  '''
+  """
   _, ext = os.path.splitext(s)
 
   if not valid_job_file_ext(ext):
     raise argparse.ArgumentTypeError(
-        'invalid job file extension: {}, must be in {}'.format(
-            ext, k.VALID_JOB_FILE_EXT))
+      "invalid job file extension: {}, must be in {}".format(ext, k.VALID_JOB_FILE_EXT)
+    )
   return s
 
 
@@ -568,12 +585,13 @@ def export_job(job: V1Job, filename: str) -> bool:
   _, ext = os.path.splitext(filename)
 
   if not valid_job_file_ext(ext):
-    logging.error('invalid job file extension: {}, must be in {}'.format(
-        ext, k.VALID_JOB_FILE_EXT))
+    logging.error(
+      "invalid job file extension: {}, must be in {}".format(ext, k.VALID_JOB_FILE_EXT)
+    )
     return False
 
-  with open(filename, 'w') as f:
-    if ext == '.json':
+  with open(filename, "w") as f:
+    if ext == ".json":
       json.dump(nonnull_dict(job_to_dict(job)), f, indent=4)
     else:
       yaml.dump(nonnull_dict(job_to_dict(job)), f)
@@ -601,7 +619,7 @@ def sanitize_job_name(name: str) -> str:
   """
 
   if len(name) == 0:
-    return 'job'
+    return "job"
 
   name = name.lower()
 
@@ -611,8 +629,8 @@ def sanitize_job_name(name: str) -> str:
   def _valid(name):
     return k.DNS_1123_RE.match(name) is not None
 
-  alnum_re = re.compile('[a-z0-9]')
-  invalid_re = re.compile('[^a-z0-9\-\.]')
+  alnum_re = re.compile("[a-z0-9]")
+  invalid_re = re.compile("[^a-z0-9\-\.]")
 
   def _alnum(x):
     return alnum_re.match(x) is not None
@@ -623,14 +641,14 @@ def sanitize_job_name(name: str) -> str:
 
   # first char must be alnum
   if not _alnum(name[0]):
-    name = 'job-' + name
+    name = "job-" + name
 
   # last char must be alnum
   if not _alnum(name[-1]):
-    name = name + '-0'
+    name = name + "-0"
 
   # replace all invalid chars with '-'
-  return invalid_re.sub('-', name)
+  return invalid_re.sub("-", name)
 
 
 # ----------------------------------------------------------------------------
@@ -642,7 +660,7 @@ def application_default_credentials_path() -> str:
 # ----------------------------------------------------------------------------
 @trap(CredentialsData(None, None), silent=False)
 def default_credentials(
-    scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
+  scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL],
 ) -> CredentialsData:
   """gets default cloud credentials
 
@@ -664,8 +682,7 @@ def default_credentials(
 # ----------------------------------------------------------------------------
 @trap(CredentialsData(None, None), silent=False)
 def credentials_from_file(
-    cred_file: str,
-    scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
+  cred_file: str, scopes: List[str] = [k.CLOUD_PLATFORM_SCOPE_URL, k.COMPUTE_SCOPE_URL]
 ) -> CredentialsData:
   """gets cloud credentials from service account file
 
@@ -677,20 +694,21 @@ def credentials_from_file(
   CredentialsData
   """
 
-  with open(cred_file, 'r') as f:
+  with open(cred_file, "r") as f:
     info = json.load(f)
 
-  cred_type = info.get('type')
+  cred_type = info.get("type")
 
   # first we try reading as service account file
   if cred_type == _SERVICE_ACCOUNT_TYPE:
-    creds = service_account.Credentials.from_service_account_file(cred_file,
-                                                                  scopes=scopes)
-    project_id = info.get('project_id')
+    creds = service_account.Credentials.from_service_account_file(
+      cred_file, scopes=scopes
+    )
+    project_id = info.get("project_id")
   elif cred_type == _AUTHORIZED_USER_TYPE:
     creds, project_id = load_credentials_from_file(cred_file)
   else:
-    logging.error('invalid credentials file format: {}'.format(cred_type))
+    logging.error("invalid credentials file format: {}".format(cred_type))
     return CredentialsData(None, None)
 
   creds.refresh(google.auth.transport.requests.Request())
@@ -717,9 +735,9 @@ def credentials(creds_file: Optional[str] = None) -> CredentialsData:
 
 # --------------------------------------------------------------------------
 @trap(None)
-def get_gke_clusters(client: ClusterManagerClient,
-                     project_id: str,
-                     zone: str = '-') -> Optional[List[GKECluster]]:
+def get_gke_clusters(
+  client: ClusterManagerClient, project_id: str, zone: str = "-"
+) -> Optional[List[GKECluster]]:
   """gets list of gcp clusters for given project, zone
 
   Args:
@@ -736,10 +754,9 @@ def get_gke_clusters(client: ClusterManagerClient,
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def get_gke_cluster(client: ClusterManagerClient,
-                    name: str,
-                    project_id: str,
-                    zone: str = '-') -> Optional[GKECluster]:
+def get_gke_cluster(
+  client: ClusterManagerClient, name: str, project_id: str, zone: str = "-"
+) -> Optional[GKECluster]:
   """gets specific cluster instance by name
 
   Args:
@@ -753,44 +770,47 @@ def get_gke_cluster(client: ClusterManagerClient,
   """
 
   return next(
-      filter(
-          lambda x: x.name == name,
-          get_gke_clusters(client, project_id, zone),
-      ))
+    filter(
+      lambda x: x.name == name,
+      get_gke_clusters(client, project_id, zone),
+    )
+  )
 
 
 # ----------------------------------------------------------------------------
 def parse_job_file(job_file: str) -> Optional[dict]:
-  '''parses a kubernetes job spec file
+  """parses a kubernetes job spec file
 
   Args:
   job_file: path to job spec file (.json or .yaml)
 
   Returns:
   job spec dictionary on success, None otherwise
-  '''
+  """
 
   _, ext = os.path.splitext(job_file)
 
   if not valid_job_file_ext(ext):
-    logging.error('invalid job file extension: {}, '.format(ext) +
-                  'must be in {}'.format(k.VALID_JOB_FILE_EXT))
+    logging.error(
+      "invalid job file extension: {}, ".format(ext)
+      + "must be in {}".format(k.VALID_JOB_FILE_EXT)
+    )
     return None
 
   if not os.path.exists(job_file):
-    logging.error('error: job file {} not found'.format(job_file))
+    logging.error("error: job file {} not found".format(job_file))
     return None
 
   try:
-    if ext == '.json':
-      with open(job_file, 'r') as f:
+    if ext == ".json":
+      with open(job_file, "r") as f:
         job_spec = json.load(f)
     else:
-      with open(job_file, 'r') as f:
+      with open(job_file, "r") as f:
         job_spec = yaml.load(f, Loader=yaml.FullLoader)
 
   except Exception as e:
-    logging.error('error loading job file {}:\n{}'.format(job_file, e))
+    logging.error("error loading job file {}:\n{}".format(job_file, e))
     return None
 
   return job_spec
@@ -798,9 +818,10 @@ def parse_job_file(job_file: str) -> Optional[dict]:
 
 # ----------------------------------------------------------------------------
 @trap(None)
-def get_zones_in_region(compute_api: discovery.Resource, project_id: str,
-                        region: str) -> Optional[List[str]]:
-  '''get list of zones for given region
+def get_zones_in_region(
+  compute_api: discovery.Resource, project_id: str, region: str
+) -> Optional[List[str]]:
+  """get list of zones for given region
 
   Args:
   compute_api: compute_api instance
@@ -809,8 +830,8 @@ def get_zones_in_region(compute_api: discovery.Resource, project_id: str,
 
   Returns:
   list of zone strings on success, None otherwise
-  '''
+  """
 
   rsp = compute_api.regions().get(project=project_id, region=region).execute()
 
-  return [urlparse(x).path.split('/')[-1] for x in rsp['zones']]
+  return [urlparse(x).path.split("/")[-1] for x in rsp["zones"]]

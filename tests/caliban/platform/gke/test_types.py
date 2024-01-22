@@ -21,7 +21,6 @@ import hypothesis.strategies as st
 from hypothesis import given
 from kubernetes.client import V1Job, V1JobStatus
 
-import caliban.platform.gke.types as gt
 from caliban.platform.gke.types import ReleaseChannel, JobStatus
 
 
@@ -30,13 +29,15 @@ class TypesTestSuite(unittest.TestCase):
   """tests for caliban.platform.gke.types"""
 
   # --------------------------------------------------------------------------
-  @given(st.from_regex('\A(?!UNSPECIFIED\Z|RAPID\Z|REGULAR\Z|STABLE\Z).*\Z'),
-         st.sampled_from(ReleaseChannel))
+  @given(
+    st.from_regex("\A(?!UNSPECIFIED\Z|RAPID\Z|REGULAR\Z|STABLE\Z).*\Z"),
+    st.sampled_from(ReleaseChannel),
+  )
   def test_release_channel(self, invalid: str, valid: ReleaseChannel):
-    '''test ReleaseChannel'''
+    """test ReleaseChannel"""
 
-    with self.assertRaises(ValueError) as e:
-      x = ReleaseChannel(invalid)
+    with self.assertRaises(ValueError):
+      _x = ReleaseChannel(invalid)
 
     self.assertEqual(valid, ReleaseChannel(valid.value))
 
@@ -45,7 +46,7 @@ class TypesTestSuite(unittest.TestCase):
 def test_job_status():
   for s in JobStatus:
     terminal = s.is_terminal()
-    if s.name in ['FAILED', 'SUCCEEDED', 'UNAVAILABLE']:
+    if s.name in ["FAILED", "SUCCEEDED", "UNAVAILABLE"]:
       assert terminal
     else:
       assert not terminal

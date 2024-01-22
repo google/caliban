@@ -31,13 +31,13 @@ def normalize(example):
   time.
 
   """
-  example['image'] = tf.cast(example['image'], tf.float32) / 255.
+  example["image"] = tf.cast(example["image"], tf.float32) / 255.0
   return example
 
 
 def prepare_mnist(
-    batch_size: int,
-    train_shuffle_buffer: int = 1000) -> Dict[str, tf.data.Dataset]:
+  batch_size: int, train_shuffle_buffer: int = 1000
+) -> Dict[str, tf.data.Dataset]:
   """Generates a dictionary with keys measure, train, test, all from mnist.
 
   https://www.tensorflow.org/datasets/catalog/mnist
@@ -45,23 +45,21 @@ def prepare_mnist(
   Training has 60k examples, while test has 10k examples.
 
   """
-  train = tfds.load(MNIST, split=tfds.Split.TRAIN,
-                    shuffle_files=True).map(normalize)
+  train = tfds.load(MNIST, split=tfds.Split.TRAIN, shuffle_files=True).map(normalize)
   test = tfds.load(MNIST, split=tfds.Split.TEST).map(normalize)
 
   return {
-      # This will create a buffer of `train_shuffle_buffer` items in memory,
-      # then sample from these to get samples. This biases toward the first
-      # batch of examples. the "repeat" effectively lets you go forever.
-      #
-      # If you take enough batches to run out the epoch, you'll start pulling
-      # from the beginning again.
-      "batched": train.shuffle(train_shuffle_buffer).repeat().batch(batch_size),
-
-      # These are the unbatched train and test sets, used for evaluation and
-      # metric generation at the end of each batch.
-      "train": train,
-      "test": test
+    # This will create a buffer of `train_shuffle_buffer` items in memory,
+    # then sample from these to get samples. This biases toward the first
+    # batch of examples. the "repeat" effectively lets you go forever.
+    #
+    # If you take enough batches to run out the epoch, you'll start pulling
+    # from the beginning again.
+    "batched": train.shuffle(train_shuffle_buffer).repeat().batch(batch_size),
+    # These are the unbatched train and test sets, used for evaluation and
+    # metric generation at the end of each batch.
+    "train": train,
+    "test": test,
   }
 
 
@@ -89,7 +87,8 @@ def compute_loss(labels, logits):
   """
   cur_batch_size = tf.cast(labels.shape[0], tf.float32)
   cce = tf.losses.SparseCategoricalCrossentropy(
-      from_logits=True, reduction=tf.losses.Reduction.SUM)
+    from_logits=True, reduction=tf.losses.Reduction.SUM
+  )
 
   # loss here is the cce, normalized by the batch size.
   return cce(labels, logits) / cur_batch_size
@@ -107,8 +106,10 @@ def compute_accuracy(labels, logits):
   predictions = tf.argmax(logits, axis=1)
 
   # return the average number of items equal to their label.
-  return tf.reduce_sum(tf.cast(tf.equal(labels, predictions),
-                               tf.float32)) / current_batch_size
+  return (
+    tf.reduce_sum(tf.cast(tf.equal(labels, predictions), tf.float32))
+    / current_batch_size
+  )
 
 
 @tf.function
@@ -135,17 +136,14 @@ def total_metrics(model, dataset, batch_size):
 
   """
   total_loss = 0
-  total_acc = 0.
+  total_acc = 0.0
   total_samples = 0
 
   for batch in dataset.batch(batch_size):
     n = len(batch)
-    images = batch['image']
-    labels = batch['label']
-    batch_loss, batch_acc = compute_batch_loss_acc(model,
-                                                   images,
-                                                   labels,
-                                                   training=True)
+    images = batch["image"]
+    labels = batch["label"]
+    batch_loss, batch_acc = compute_batch_loss_acc(model, images, labels, training=True)
     # NON-normalized quantities. Sum of all loss.
     total_loss += batch_loss * n
     total_acc += batch_acc * n
@@ -209,11 +207,12 @@ def tensorboard_reporter(job_name: str):
 
 
 def build_reporters(
-    job_name: str,
-    m: Dict[str, float],
-    local_path: Optional[str] = None,
-    gcloud_path: Optional[str] = None,
-    tensorboard_path: Optional[str] = None) -> Dict[str, uv.AbstractReporter]:
+  job_name: str,
+  m: Dict[str, float],
+  local_path: Optional[str] = None,
+  gcloud_path: Optional[str] = None,
+  tensorboard_path: Optional[str] = None,
+) -> Dict[str, uv.AbstractReporter]:
   """Returns a dict of namespace to reporter."""
 
   # This reporter keeps all metrics in an internal dictionary of metric name
@@ -273,15 +272,20 @@ def build_reporters(
   # a few new reporters. Each one will act just like base, except each will
   # prepend a different prefix onto any metric passed in.
   return base, {
-      "test": base.with_prefix("test"),
-      "train": base.with_prefix("train"),
-      "model": base.with_prefix("model")
+    "test": base.with_prefix("test"),
+    "train": base.with_prefix("train"),
+    "model": base.with_prefix("model"),
   }
 
 
-def record_measurements(step: int, reporters: Dict[str, uv.AbstractReporter],
-                        measure_batch_size: int, model, training_data,
-                        test_data):
+def record_measurements(
+  step: int,
+  reporters: Dict[str, uv.AbstractReporter],
+  measure_batch_size: int,
+  model,
+  training_data,
+  test_data,
+):
   """This function actually records various metrics.
 
   NOTE that all of these measurements could have been recorded on the same base
@@ -306,33 +310,33 @@ def record_measurements(step: int, reporters: Dict[str, uv.AbstractReporter],
 
 
 def train_and_log(
-    model,
-    optimizer,
-    batch_size=128,
-    # this is equal to the ENTIRE test set, each time.
-    measure_batch_size=10000,
-    batches=5,
-    measure_every=1,
-    local_path: Optional[str] = None,
-    gcloud_path: Optional[str] = None,
-    tensorboard_path: Optional[str] = None):
+  model,
+  optimizer,
+  batch_size=128,
+  # this is equal to the ENTIRE test set, each time.
+  measure_batch_size=10000,
+  batches=5,
+  measure_every=1,
+  local_path: Optional[str] = None,
+  gcloud_path: Optional[str] = None,
+  tensorboard_path: Optional[str] = None,
+):
   """Run the training loop on all data and record measurements as we go."""
 
   # Get the data downloaded and prepared, batched by the supplied batch size.
   data = prepare_mnist(batch_size)
-  batched_training = data['batched']
+  batched_training = data["batched"]
 
   # These are the train and test sets, not batched at all. We have these for
   # metric reporting purposes.
-  train = data['train']
-  test = data['test']
+  train = data["train"]
+  test = data["test"]
 
   # This is equivalent to batched_training.take(batches), but wrapped with a
   # fancy progress bar.
-  meter = tqdm.tqdm(batched_training.take(batches),
-                    total=batches,
-                    unit="batch",
-                    desc="training")
+  meter = tqdm.tqdm(
+    batched_training.take(batches), total=batches, unit="batch", desc="training"
+  )
 
   job_name = f"{getpass.getuser()}_{u.uuid()}"
   tqdm.tqdm.write(f"Job Name: {job_name}")
@@ -343,11 +347,13 @@ def train_and_log(
   # This is the base reporter, plus the map of prefix => prefixed reporter. The
   # code below only uses the map to record measurements, but it could just as
   # easily have used base directly.
-  base, reporters = build_reporters(job_name,
-                                    metrics,
-                                    local_path=local_path,
-                                    gcloud_path=gcloud_path,
-                                    tensorboard_path=tensorboard_path)
+  base, reporters = build_reporters(
+    job_name,
+    metrics,
+    local_path=local_path,
+    gcloud_path=gcloud_path,
+    tensorboard_path=tensorboard_path,
+  )
 
   def should_measure(step):
     """Returns true if we should trigger a measurement for the supplied step, false
@@ -364,8 +370,7 @@ def train_and_log(
 
     """
     if should_measure(step):
-      record_measurements(step, reporters, measure_batch_size, model, train,
-                          test)
+      record_measurements(step, reporters, measure_batch_size, model, train, test)
 
   # For good measure, we make two MORE reporter instances with new prefixes.
   # We'll use batch_reporter inside the training loop to record stats on the
@@ -375,20 +380,21 @@ def train_and_log(
   # This is how we can gate the reporter itself, using filter_step. This will
   # get the same data as batch_reporter, but with a different prefix; it will
   # only send measurements down the line every measure_every steps.
-  limited_batch = reporters["train"].filter_step(
-      lambda s: s % measure_every == 0).with_prefix(
-          f"batch_every_{measure_every}")
+  limited_batch = (
+    reporters["train"]
+    .filter_step(lambda s: s % measure_every == 0)
+    .with_prefix(f"batch_every_{measure_every}")
+  )
 
   # Get initial measurements on the randomized model's performance before we've
   # trained at all.
   measure(0)
 
   # enter the training loop.
-  for (step, batch) in enumerate(meter, 1):
-
+  for step, batch in enumerate(meter, 1):
     # for every batch... go get the images and labels.
-    images = batch['image']
-    labels = batch['label']
+    images = batch["image"]
+    labels = batch["label"]
 
     # Perform the training step, and get back loss and accuracy for the current
     # batch.
@@ -407,7 +413,7 @@ def train_and_log(
   return metrics
 
 
-def model_main(activation='relu', width=1000, depth=2, lr=0.5, **kwargs):
+def model_main(activation="relu", width=1000, depth=2, lr=0.5, **kwargs):
   """Main method; this sequences the basic steps often
 
   - create the model and optimizer,
@@ -415,22 +421,15 @@ def model_main(activation='relu', width=1000, depth=2, lr=0.5, **kwargs):
   - plot all metrics.
 
   """
-  print(f'Building model with width = {width}, learning rate = {lr}')
+  print(f"Building model with width = {width}, learning rate = {lr}")
 
   model = build_model(activation, width, depth)
   optimizer = tf.optimizers.SGD(lr)
 
-  with uv.start_run() as r:
-
-    MLFlowReporter().report_params({
-        **kwargs,
-        **{
-            "depth": depth,
-            "width": width,
-            "lr": lr,
-            "activation": activation
-        }
-    })
+  with uv.start_run() as _r:
+    MLFlowReporter().report_params(
+      {**kwargs, **{"depth": depth, "width": width, "lr": lr, "activation": activation}}
+    )
 
     train_and_log(model, optimizer, **kwargs)
 
@@ -440,18 +439,20 @@ def run_app(args):
   argparse argument parser.
 
   """
-  model_main(activation=args.activation,
-             width=args.width,
-             depth=args.depth,
-             lr=args.learning_rate,
-             local_path=args.local_path,
-             gcloud_path=args.gcloud_path,
-             tensorboard_path=args.tensorboard_path)
+  model_main(
+    activation=args.activation,
+    width=args.width,
+    depth=args.depth,
+    lr=args.learning_rate,
+    local_path=args.local_path,
+    gcloud_path=args.gcloud_path,
+    tensorboard_path=args.tensorboard_path,
+  )
 
 
 def main():
   app.run(run_app, flags_parser=cli.parse_flags)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   main()

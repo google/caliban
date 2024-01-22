@@ -28,9 +28,7 @@ def test_expand_args():
 
 
 def test_is_key():
-  """A key is anything that starts with a dash; nothing else!
-
-  """
+  """A key is anything that starts with a dash; nothing else!"""
   assert ua.is_key("--face")
   assert ua.is_key("-f")
   assert not ua.is_key("")

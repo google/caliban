@@ -40,8 +40,13 @@ import caliban.util as u
 import caliban.util.auth as ua
 import caliban.util.metrics as um
 import caliban.util.tqdm as ut
-from caliban.history.util import (create_experiments, generate_container_spec,
-                                  get_mem_engine, get_sql_engine, session_scope)
+from caliban.history.util import (
+  create_experiments,
+  generate_container_spec,
+  get_mem_engine,
+  get_sql_engine,
+  session_scope,
+)
 
 t = Terminal()
 
@@ -91,7 +96,7 @@ def logging_callback(spec: Dict[str, Any], project_id: str):
 
   def callback(_, exception):
     logging.debug("spec for job {}: {}".format(job_id, spec))
-    prefix = "Request for job '{}'".format(spec['jobId'])
+    prefix = "Request for job '{}'".format(spec["jobId"])
 
     if exception is None:
       url = job_url(project_id, job_id)
@@ -99,8 +104,7 @@ def logging_callback(spec: Dict[str, Any], project_id: str):
 
       logging.info(t.green("{} succeeded!".format(prefix)))
       logging.info(t.green("Job URL: {}".format(url)))
-      logging.info(
-          t.green("Streaming log CLI command: $ {}".format(stream_command)))
+      logging.info(t.green("Streaming log CLI command: $ {}".format(stream_command)))
     else:
       logging.error(t.red("{} failed! Details:".format(prefix)))
       logging.error(t.red(exception._get_reason()))
@@ -109,7 +113,7 @@ def logging_callback(spec: Dict[str, Any], project_id: str):
 
 
 def job_callback(spec: ht.JobSpec, project_id: str, body: Dict[str, Any]):
-  '''callback for job submission
+  """callback for job submission
 
   This returns a function that accepts a response object from a caip
   job submission request and an optional exception argument, and logs
@@ -123,7 +127,7 @@ def job_callback(spec: ht.JobSpec, project_id: str, body: Dict[str, Any]):
 
   Returns:
   callable taking response and optional exception
-  '''
+  """
   logging_cb = logging_callback(spec=body, project_id=project_id)
 
   def callback(resp, exception):
@@ -134,42 +138,43 @@ def job_callback(spec: ht.JobSpec, project_id: str, body: Dict[str, Any]):
       status = ht.JobStatus.SUBMITTED
     # create and persist Job
     _ = ht.Job(
-        spec=spec,
-        container=spec.spec['trainingInput']['masterConfig']['imageUri'],
-        details={
-            'jobId': body['jobId'],
-            'project_id': project_id
-        },
-        status=status,
+      spec=spec,
+      container=spec.spec["trainingInput"]["masterConfig"]["imageUri"],
+      details={"jobId": body["jobId"], "project_id": project_id},
+      status=status,
     )
 
   return callback
 
 
 def log_spec(spec: ht.JobSpec, i: int) -> ht.JobSpec:
-  """Returns the input spec after triggering logging side-effects.
-
-  """
-  job_id = spec.spec['jobId']
-  training_input = spec.spec['trainingInput']
-  machine_type = training_input['masterType']
-  region = training_input['region']
-  masterConf = training_input['masterConfig']
-  accelerator = masterConf['acceleratorConfig']
-  image_uri = masterConf['imageUri']
-  workerConf = training_input.get('workerConfig')
-  args = training_input['args']
+  """Returns the input spec after triggering logging side-effects."""
+  job_id = spec.spec["jobId"]
+  training_input = spec.spec["trainingInput"]
+  machine_type = training_input["masterType"]
+  region = training_input["region"]
+  masterConf = training_input["masterConfig"]
+  accelerator = masterConf["acceleratorConfig"]
+  image_uri = masterConf["imageUri"]
+  workerConf = training_input.get("workerConfig")
+  args = training_input["args"]
 
   def prefixed(s: str, level=logging.INFO):
     logging.log(level, "Job {} - {}".format(i, s))
 
   prefixed("Spec: {}".format(spec), logging.DEBUG)
   prefixed("jobId: {}, image: {}".format(t.yellow(job_id), image_uri))
-  prefixed("Accelerator: {}, machine: '{}', region: '{}'".format(
-      accelerator, machine_type, region))
+  prefixed(
+    "Accelerator: {}, machine: '{}', region: '{}'".format(
+      accelerator, machine_type, region
+    )
+  )
   if workerConf is not None:
-    prefixed("Worker config: {}, machine: '{}'".format(
-        workerConf, training_input['workerType']))
+    prefixed(
+      "Worker config: {}, machine: '{}'".format(
+        workerConf, training_input["workerType"]
+      )
+    )
 
   prefixed("Experiment arguments: {}".format(t.yellow(str(args))))
   prefixed(f'labels: {spec.spec["labels"]}\n')
@@ -196,8 +201,9 @@ def log_specs(specs: Iterable[ht.JobSpec]) -> List[ht.JobSpec]:
   return list(logged_specs(specs))
 
 
-def logged_batches(specs: Iterable[ht.JobSpec],
-                   limit: int) -> Iterable[Iterable[ht.JobSpec]]:
+def logged_batches(
+  specs: Iterable[ht.JobSpec], limit: int
+) -> Iterable[Iterable[ht.JobSpec]]:
   """Accepts an iterable of specs and a 'chunk limit'; returns an iterable of
   iterable of JobSpec, each of which is guaranteed to contain at most 'chunk
   limit' items.
@@ -227,15 +233,19 @@ def logged_batches(specs: Iterable[ht.JobSpec],
   # Go the extra mile.
   plural_batch = "batch" if total_chunks == 1 else "batches"
   plural_job = "job" if total_specs == 1 else "jobs"
-  logging.info("Generating {} {} for {} {}.".format(total_chunks, plural_batch,
-                                                    total_specs, plural_job))
+  logging.info(
+    "Generating {} {} for {} {}.".format(
+      total_chunks, plural_batch, total_specs, plural_job
+    )
+  )
   for i, chunk in enumerate(chunked_seq, 1):
     logging.info("Batch {} of {}:".format(i, total_chunks))
     yield logged_specs(chunk)
 
 
-def log_batch_parameters(specs: Iterable[ht.JobSpec],
-                         limit: int) -> List[List[ht.JobSpec]]:
+def log_batch_parameters(
+  specs: Iterable[ht.JobSpec], limit: int
+) -> List[List[ht.JobSpec]]:
   """Equivalent to logged_batches, except all logging side effects are forced to
   occur immediately before return.
 
@@ -261,16 +271,11 @@ def ml_api(credentials_path: Optional[str] = None):
 
   """
   credentials = ua.gcloud_credentials(credentials_path)
-  return discovery.build('ml',
-                         'v1',
-                         cache_discovery=False,
-                         credentials=credentials)
+  return discovery.build("ml", "v1", cache_discovery=False, credentials=credentials)
 
 
 def create_requests(
-    specs: List[ht.JobSpec],
-    project_id: str,
-    credentials_path: Optional[str] = None
+  specs: List[ht.JobSpec], project_id: str, credentials_path: Optional[str] = None
 ) -> Iterable[Tuple[Any, ht.JobSpec, Any]]:
   """Returns an iterator of (HttpRequest, ht.JobSpec, Callback).
 
@@ -298,10 +303,10 @@ def create_requests(
   for job_spec in logged_specs(specs):
     # replace the jobId field with a uid-appended id upon request creation
     spec = deepcopy(job_spec.spec)
-    uid = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    index = spec['jobId'].split('_')[-1]
-    job_name = '_'.join(spec['jobId'].split('_')[:-1])
-    spec['jobId'] = f'{job_name}_{uid}_{index}'
+    uid = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    index = spec["jobId"].split("_")[-1]
+    job_name = "_".join(spec["jobId"].split("_")[:-1])
+    spec["jobId"] = f"{job_name}_{uid}_{index}"
     cb = job_callback(spec=job_spec, project_id=project_id, body=spec)
     yield jobs.create(body=spec, parent=parent), job_spec, cb
 
@@ -329,9 +334,9 @@ def execute(req, callback, num_retries: Optional[int] = None):
 
 
 def execute_requests(
-    requests: Iterable[Tuple[Any, ht.JobSpec, Any]],
-    count: Optional[int] = None,
-    num_retries: Optional[int] = None,
+  requests: Iterable[Tuple[Any, ht.JobSpec, Any]],
+  count: Optional[int] = None,
+  num_retries: Optional[int] = None,
 ) -> None:
   """Execute all batches in the supplied generator of batch requests. Results
   aren't returned directly; the callbacks passed to each request when it was
@@ -340,33 +345,33 @@ def execute_requests(
   """
   with ut.tqdm_logging() as orig_stream:
     pbar = tqdm.tqdm(
-        requests,
-        file=orig_stream,
-        total=count,
-        unit="requests",
-        desc="submitting",
-        ascii=True,
+      requests,
+      file=orig_stream,
+      total=count,
+      unit="requests",
+      desc="submitting",
+      ascii=True,
     )
     for req, spec, cb in pbar:
       pbar.set_description(f'Submitting {spec.spec["jobId"]}')
       execute(req, cb, num_retries=num_retries)
 
 
-def base_training_input(image_tag: str, region: ct.Region,
-                        machine_type: ct.MachineType,
-                        accelerator_conf: Dict[str, Any]) -> Dict[str, Any]:
+def base_training_input(
+  image_tag: str,
+  region: ct.Region,
+  machine_type: ct.MachineType,
+  accelerator_conf: Dict[str, Any],
+) -> Dict[str, Any]:
   """Returns a dictionary that represents a complete TrainingInput with every
   field except for 'args'.
 
   """
   return {
-      "masterConfig": {
-          "imageUri": image_tag,
-          "acceleratorConfig": accelerator_conf
-      },
-      "scaleTier": "CUSTOM",
-      "masterType": machine_type.value,
-      "region": region.value
+    "masterConfig": {"imageUri": image_tag, "acceleratorConfig": accelerator_conf},
+    "scaleTier": "CUSTOM",
+    "masterType": machine_type.value,
+    "region": region.value,
   }
 
 
@@ -379,48 +384,45 @@ def tpu_fields(tpu_spec: Optional[ct.TPUSpec]) -> Dict[str, str]:
     return {}
 
   return {
-      "workerCount": 1,
-      "workerType": "cloud_tpu",
-      "workerConfig": {
-          "acceleratorConfig": tpu_spec.accelerator_config(),
-          "tpuTfVersion": "1.14"
-      }
+    "workerCount": 1,
+    "workerType": "cloud_tpu",
+    "workerConfig": {
+      "acceleratorConfig": tpu_spec.accelerator_config(),
+      "tpuTfVersion": "1.14",
+    },
   }
 
 
 def _job_spec(
-    job_name: str,
-    idx: int,
-    training_input: Dict[str, Any],
-    labels: Dict[str, str],
-    experiment: ht.Experiment,
+  job_name: str,
+  idx: int,
+  training_input: Dict[str, Any],
+  labels: Dict[str, str],
+  experiment: ht.Experiment,
 ) -> ht.JobSpec:
   """Returns the final object required by the Google AI Platform training job
   submission endpoint.
 
   """
-  job_id = f'{job_name}_{idx}'
+  job_id = f"{job_name}_{idx}"
   job_args = training_input.get("args")
   return ht.JobSpec.get_or_create(
-      experiment=experiment,
-      spec={
-          "jobId": job_id,
-          "trainingInput": training_input,
-          "labels": {
-              **cu.sanitize_labels(labels),
-              **cu.script_args_to_labels(job_args)
-          }
-      },
-      platform=ht.Platform.CAIP,
+    experiment=experiment,
+    spec={
+      "jobId": job_id,
+      "trainingInput": training_input,
+      "labels": {**cu.sanitize_labels(labels), **cu.script_args_to_labels(job_args)},
+    },
+    platform=ht.Platform.CAIP,
   )
 
 
 def _job_specs(
-    job_name: str,
-    training_input: Dict[str, Any],
-    labels: Dict[str, str],
-    experiments: Iterable[ht.Experiment],
-    caliban_config: Optional[Dict[str, Any]] = None,
+  job_name: str,
+  training_input: Dict[str, Any],
+  labels: Dict[str, str],
+  experiments: Iterable[ht.Experiment],
+  caliban_config: Optional[Dict[str, Any]] = None,
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
@@ -434,15 +436,14 @@ def _job_specs(
   caliban_config = caliban_config or {}
 
   for idx, m in enumerate(experiments, 1):
-
     launcher_args = um.mlflow_args(
-        caliban_config=caliban_config,
-        experiment_name=m.xgroup.name,
-        index=idx,
-        tags={
-            um.PLATFORM_TAG: ht.Platform.CAIP.value,
-            **labels,
-        },
+      caliban_config=caliban_config,
+      experiment_name=m.xgroup.name,
+      index=idx,
+      tags={
+        um.PLATFORM_TAG: ht.Platform.CAIP.value,
+        **labels,
+      },
     )
 
     cmd_args = ce.experiment_to_args(m.kwargs, m.args)
@@ -450,25 +451,25 @@ def _job_specs(
     # cmd args *must* be last in order for the launcher to pass them through
     args = launcher_args + cmd_args
 
-    yield _job_spec(job_name=job_name,
-                    idx=idx,
-                    training_input={
-                        **training_input, "args": args
-                    },
-                    labels=labels,
-                    experiment=m)
+    yield _job_spec(
+      job_name=job_name,
+      idx=idx,
+      training_input={**training_input, "args": args},
+      labels=labels,
+      experiment=m,
+    )
 
 
 def build_job_specs(
-    job_name: str,
-    image_tag: str,
-    region: ct.Region,
-    machine_type: ct.MachineType,
-    experiments: Iterable[ht.Experiment],
-    user_labels: Dict[str, str],
-    gpu_spec: Optional[ct.GPUSpec],
-    tpu_spec: Optional[ct.TPUSpec],
-    caliban_config: Optional[Dict[str, Any]] = None,
+  job_name: str,
+  image_tag: str,
+  region: ct.Region,
+  machine_type: ct.MachineType,
+  experiments: Iterable[ht.Experiment],
+  user_labels: Dict[str, str],
+  gpu_spec: Optional[ct.GPUSpec],
+  tpu_spec: Optional[ct.TPUSpec],
+  caliban_config: Optional[Dict[str, Any]] = None,
 ) -> Iterable[ht.JobSpec]:
   """Returns a generator that yields a JobSpec instance for every possible
   combination of parameters in the supplied experiment config.
@@ -479,12 +480,13 @@ def build_job_specs(
   Each job in the batch will have a unique jobId.
 
   """
-  logging.info(f'Building jobs for name: {job_name}')
+  logging.info(f"Building jobs for name: {job_name}")
 
   caliban_config = caliban_config or {}
   accelerator_conf = get_accelerator_config(gpu_spec)
-  training_input = base_training_input(image_tag, region, machine_type,
-                                       accelerator_conf)
+  training_input = base_training_input(
+    image_tag, region, machine_type, accelerator_conf
+  )
 
   # Add in TPU, potentially.
   training_input.update(tpu_fields(tpu_spec))
@@ -492,18 +494,20 @@ def build_job_specs(
   gpu_enabled = gpu_spec is not None
   tpu_enabled = tpu_spec is not None
   base_labels = {
-      "gpu_enabled": str(gpu_enabled).lower(),
-      "tpu_enabled": str(tpu_enabled).lower(),
-      "job_name": job_name,
-      "docker_image": image_tag,
-      **user_labels
+    "gpu_enabled": str(gpu_enabled).lower(),
+    "tpu_enabled": str(tpu_enabled).lower(),
+    "job_name": job_name,
+    "docker_image": image_tag,
+    **user_labels,
   }
 
-  return _job_specs(job_name,
-                    training_input=training_input,
-                    labels=base_labels,
-                    experiments=experiments,
-                    caliban_config=caliban_config)
+  return _job_specs(
+    job_name,
+    training_input=training_input,
+    labels=base_labels,
+    experiments=experiments,
+    caliban_config=caliban_config,
+  )
 
 
 def generate_image_tag(project_id, docker_args, dry_run: bool = False):
@@ -530,22 +534,25 @@ def generate_image_tag(project_id, docker_args, dry_run: bool = False):
 def execute_dry_run(specs: List[ht.JobSpec]) -> None:
   log_specs(specs)
 
-  logging.info('')
+  logging.info("")
   logging.info(
-      t.yellow("To build your image and submit these jobs, \
-run your command again without {}.".format(conf.DRY_RUN_FLAG)))
-  logging.info('')
+    t.yellow(
+      "To build your image and submit these jobs, \
+run your command again without {}.".format(conf.DRY_RUN_FLAG)
+    )
+  )
+  logging.info("")
   return None
 
 
 def submit_job_specs(
-    specs: Iterable[ht.JobSpec],
-    project_id: str,
-    credentials_path: Optional[str] = None,
-    num_specs: Optional[int] = None,
-    request_retries: Optional[int] = 10,
+  specs: Iterable[ht.JobSpec],
+  project_id: str,
+  credentials_path: Optional[str] = None,
+  num_specs: Optional[int] = None,
+  request_retries: Optional[int] = 10,
 ) -> None:
-  '''submit job specs to CAIP
+  """submit job specs to CAIP
 
   Args:
   specs: iterable of job specs
@@ -553,34 +560,34 @@ def submit_job_specs(
   credentials_path: path to credentials
   num_specs: used for progress bar if supplied
   request_retries: number of times to retry submission request
-  '''
+  """
 
   requests = create_requests(
-      specs,
-      project_id=project_id,
-      credentials_path=credentials_path,
+    specs,
+    project_id=project_id,
+    credentials_path=credentials_path,
   )
 
   execute_requests(requests, num_specs, num_retries=request_retries)
 
 
 def submit_ml_job(
-    job_mode: conf.JobMode,
-    docker_args: Dict[str, Any],
-    region: ct.Region,
-    project_id: str,
-    credentials_path: Optional[str] = None,
-    dry_run: bool = False,
-    job_name: Optional[str] = None,
-    machine_type: Optional[ct.MachineType] = None,
-    gpu_spec: Optional[ct.GPUSpec] = None,
-    tpu_spec: Optional[ct.TPUSpec] = None,
-    image_tag: Optional[str] = None,
-    labels: Optional[Dict[str, str]] = None,
-    experiment_config: Optional[ce.ExpConf] = None,
-    script_args: Optional[List[str]] = None,
-    request_retries: Optional[int] = None,
-    xgroup: Optional[str] = None,
+  job_mode: conf.JobMode,
+  docker_args: Dict[str, Any],
+  region: ct.Region,
+  project_id: str,
+  credentials_path: Optional[str] = None,
+  dry_run: bool = False,
+  job_name: Optional[str] = None,
+  machine_type: Optional[ct.MachineType] = None,
+  gpu_spec: Optional[ct.GPUSpec] = None,
+  tpu_spec: Optional[ct.TPUSpec] = None,
+  image_tag: Optional[str] = None,
+  labels: Optional[Dict[str, str]] = None,
+  experiment_config: Optional[ce.ExpConf] = None,
+  script_args: Optional[List[str]] = None,
+  request_retries: Optional[int] = None,
+  xgroup: Optional[str] = None,
 ) -> None:
   """Top level function in the module. This function:
 
@@ -650,7 +657,7 @@ def submit_ml_job(
   if request_retries is None:
     request_retries = 10
 
-  caliban_config = docker_args.get('caliban_config', {})
+  caliban_config = docker_args.get("caliban_config", {})
 
   engine = get_mem_engine() if dry_run else get_sql_engine()
 
@@ -661,23 +668,23 @@ def submit_ml_job(
       image_tag = generate_image_tag(project_id, docker_args, dry_run=dry_run)
 
     experiments = create_experiments(
-        session=session,
-        container_spec=container_spec,
-        script_args=script_args,
-        experiment_config=experiment_config,
-        xgroup=xgroup,
+      session=session,
+      container_spec=container_spec,
+      script_args=script_args,
+      experiment_config=experiment_config,
+      xgroup=xgroup,
     )
 
     specs = build_job_specs(
-        job_name=job_name,
-        image_tag=image_tag,
-        region=region,
-        machine_type=machine_type,
-        experiments=experiments,
-        user_labels=labels,
-        gpu_spec=gpu_spec,
-        tpu_spec=tpu_spec,
-        caliban_config=caliban_config,
+      job_name=job_name,
+      image_tag=image_tag,
+      region=region,
+      machine_type=machine_type,
+      experiments=experiments,
+      user_labels=labels,
+      gpu_spec=gpu_spec,
+      tpu_spec=tpu_spec,
+      caliban_config=caliban_config,
     )
 
     if dry_run:
@@ -685,19 +692,19 @@ def submit_ml_job(
 
     try:
       submit_job_specs(
-          specs=specs,
-          project_id=project_id,
-          credentials_path=credentials_path,
-          num_specs=len(experiments),
-          request_retries=request_retries,
+        specs=specs,
+        project_id=project_id,
+        credentials_path=credentials_path,
+        num_specs=len(experiments),
+        request_retries=request_retries,
       )
     except Exception as e:
-      logging.error(f'exception: {e}')
-      logging.error(f'{traceback.format_exc()}')
+      logging.error(f"exception: {e}")
+      logging.error(f"{traceback.format_exc()}")
       session.commit()  # commit here, otherwise will be rolled back
 
     logging.info("")
     logging.info(
-        t.green("Visit {} to see the status of all jobs.".format(
-            job_url(project_id, ''))))
+      t.green("Visit {} to see the status of all jobs.".format(job_url(project_id, "")))
+    )
     logging.info("")

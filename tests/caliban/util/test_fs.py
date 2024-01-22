@@ -27,15 +27,13 @@ def test_module_to_path():
 
   """
   m = {
-      # normal modules get nesting.
-      "face.cake": "face/cake.py",
-
-      # root-level modules just get a py extension.
-      "face": "face.py",
-
-      # This will get treated as a module nested inside of a folder, which is
-      # clearly invalid; marking this behavior in the tests.
-      "face/cake.py": "face/cake/py.py"
+    # normal modules get nesting.
+    "face.cake": "face/cake.py",
+    # root-level modules just get a py extension.
+    "face": "face.py",
+    # This will get treated as a module nested inside of a folder, which is
+    # clearly invalid; marking this behavior in the tests.
+    "face/cake.py": "face/cake/py.py",
   }
   for k in m:
     assert ufs.module_to_path(k) == m[k]
@@ -47,40 +45,26 @@ def test_generate_package():
 
   """
   m = {
-      # normal module syntax should just work.
-      "caliban.cli":
-          ufs.module_package("caliban.cli"),
-
-      # This one is controversial, maybe... if something exists as a module
-      # if you replace slashes with dots, THEN it will also parse as a
-      # module. If it exists as a file in its own right this won't happen.
-      #
-      # TODO get a test in for this final claim using temp directories.
-      "caliban/cli":
-          ufs.module_package("caliban.cli"),
-
-      # root scripts or packages should require the entire local directory.
-      "setup":
-          ufs.module_package("setup"),
-      "cake.py":
-          ufs.script_package("cake.py", "python"),
-
-      # This is busted but should still parse.
-      "face.cake.py":
-          ufs.script_package("face.cake.py", "python"),
-
-      # Paths into directories should parse properly into modules and include
-      # the root as their required package to import.
-      "face/cake.py":
-          ufs.script_package("face/cake.py", "python"),
-
-      # Deeper nesting works.
-      "face/cake/cheese.py":
-          ufs.script_package("face/cake/cheese.py", "python"),
-
-      # Other executables work.
-      "face/cake/cheese.sh":
-          ufs.script_package("face/cake/cheese.sh"),
+    # normal module syntax should just work.
+    "caliban.cli": ufs.module_package("caliban.cli"),
+    # This one is controversial, maybe... if something exists as a module
+    # if you replace slashes with dots, THEN it will also parse as a
+    # module. If it exists as a file in its own right this won't happen.
+    #
+    # TODO get a test in for this final claim using temp directories.
+    "caliban/cli": ufs.module_package("caliban.cli"),
+    # root scripts or packages should require the entire local directory.
+    "setup": ufs.module_package("setup"),
+    "cake.py": ufs.script_package("cake.py", "python"),
+    # This is busted but should still parse.
+    "face.cake.py": ufs.script_package("face.cake.py", "python"),
+    # Paths into directories should parse properly into modules and include
+    # the root as their required package to import.
+    "face/cake.py": ufs.script_package("face/cake.py", "python"),
+    # Deeper nesting works.
+    "face/cake/cheese.py": ufs.script_package("face/cake/cheese.py", "python"),
+    # Other executables work.
+    "face/cake/cheese.sh": ufs.script_package("face/cake/cheese.sh"),
   }
   for k in m:
     assert ufs.generate_package(k) == m[k]
@@ -88,16 +72,16 @@ def test_generate_package():
 
 def test_tmp_copy(tmpdir):
   # from and to exist.
-  from_a_path = str(tmpdir.join('from_a.json'))
-  to_a_path = str(tmpdir.join('to_a.json'))
+  from_a_path = str(tmpdir.join("from_a.json"))
+  to_a_path = str(tmpdir.join("to_a.json"))
 
   # to doesn't exist; test that this still works.
-  from_b_path = str(tmpdir.join('from_b.json'))
+  from_b_path = str(tmpdir.join("from_b.json"))
   to_b_path = None
 
   # this should be ignored!
   from_c_path = None
-  to_c_path = str(tmpdir.join('to_c.json'))
+  to_c_path = str(tmpdir.join("to_c.json"))
 
   # same here.
   from_d_path = None
@@ -106,28 +90,29 @@ def test_tmp_copy(tmpdir):
   # prepare valid data in the a and b sources.
   a_data = {"apt_packages": ["face"]}
 
-  with open(from_a_path, 'w') as f:
+  with open(from_a_path, "w") as f:
     json.dump(a_data, f)
 
   b_data = {"key": ["value"]}
 
-  with open(from_b_path, 'w') as f:
+  with open(from_b_path, "w") as f:
     json.dump(b_data, f)
 
   # note that a duplicate None key is fine.
-  tmpcopy = ufs.TempCopy({
+  tmpcopy = ufs.TempCopy(
+    {
       from_a_path: to_a_path,
       from_b_path: to_b_path,
       from_c_path: to_c_path,
-      from_d_path: to_d_path
-  })
+      from_d_path: to_d_path,
+    }
+  )
   assert not tmpcopy.active
 
-  frozen_m = None
+  _frozen_m = None
   with tmpcopy as m:
-
     # save the m for later inspection.
-    frozen_m = m
+    _frozen_m = m
 
     # inside the context manager, tmpcopy is active.
     assert tmpcopy.active
@@ -139,16 +124,16 @@ def test_tmp_copy(tmpdir):
     assert from_d_path not in m
 
     # data exists in the location we specified:
-    with open(to_a_path, 'r') as a_file:
+    with open(to_a_path, "r") as a_file:
       assert a_data == json.load(a_file)
 
     # the reference is correct too, inside the map:
-    with open(m[from_a_path], 'r') as a_file:
+    with open(m[from_a_path], "r") as a_file:
       assert a_data == json.load(a_file)
 
     # We provided None for to_b_path, but the data still makes it into the
     # correct location.
-    with open(m[from_b_path], 'r') as b_file:
+    with open(m[from_b_path], "r") as b_file:
       assert b_data == json.load(b_file)
 
   # Outside the manager, no longer active.

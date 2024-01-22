@@ -17,21 +17,21 @@
 from setuptools import find_packages, setup
 
 REQUIRED_PACKAGES = [
-    "alembic==1.4.2",
-    "google-cloud-storage",
-    'matplotlib',
-    'mlflow==1.10.0',
-    "pg8000==1.16.1",
-    "sqlalchemy==1.3.13",
-    'tensorflow-cpu',
-    'tensorflow_datasets',
-    'uv-metrics>=0.4.2',
+  "alembic==1.4.2",
+  "google-cloud-storage",
+  "matplotlib",
+  "mlflow==1.10.0",
+  "pg8000==1.16.1",
+  "sqlalchemy==1.3.13",
+  "tensorflow-cpu",
+  "tensorflow_datasets",
+  "uv-metrics>=0.4.2",
 ]
 
 setup(
-    version="0.0.1",
-    name='uv-metrics-tutorial',
-    description='UV Metrics example.',
-    packages=find_packages(exclude=('tests', 'docs')),
-    install_requires=REQUIRED_PACKAGES,
+  version="0.0.1",
+  name="uv-metrics-tutorial",
+  description="UV Metrics example.",
+  packages=find_packages(exclude=("tests", "docs")),
+  install_requires=REQUIRED_PACKAGES,
 )

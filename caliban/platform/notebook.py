@@ -30,12 +30,14 @@ import caliban.util.fs as ufs
 t = Terminal()
 
 
-def run_notebook(job_mode: c.JobMode,
-                 port: Optional[int] = None,
-                 lab: Optional[bool] = None,
-                 version: Optional[bool] = None,
-                 run_args: Optional[List[str]] = None,
-                 **run_interactive_kwargs) -> None:
+def run_notebook(
+  job_mode: c.JobMode,
+  port: Optional[int] = None,
+  lab: Optional[bool] = None,
+  version: Optional[bool] = None,
+  run_args: Optional[List[str]] = None,
+  **run_interactive_kwargs,
+) -> None:
   """Start a notebook in the current working directory; the process will run
   inside of a Docker container that's identical to the environment available to
   Cloud jobs that are submitted by `caliban cloud`, or local jobs run with
@@ -66,17 +68,21 @@ def run_notebook(job_mode: c.JobMode,
   inject_arg = b.NotebookInstall.lab if lab else b.NotebookInstall.jupyter
   jupyter_cmd = "lab" if lab else "notebook"
   jupyter_args = [
-    "-m", "jupyter", jupyter_cmd, \
-    "--ip=0.0.0.0", \
-    "--port={}".format(port), \
-    "--no-browser"
+    "-m",
+    "jupyter",
+    jupyter_cmd,
+    "--ip=0.0.0.0",
+    "--port={}".format(port),
+    "--no-browser",
   ]
   docker_args = ["-p", "{}:{}".format(port, port)] + run_args
 
-  ps.run_interactive(job_mode,
-                     entrypoint="python",
-                     entrypoint_args=jupyter_args,
-                     run_args=docker_args,
-                     inject_notebook=inject_arg,
-                     jupyter_version=version,
-                     **run_interactive_kwargs)
+  ps.run_interactive(
+    job_mode,
+    entrypoint="python",
+    entrypoint_args=jupyter_args,
+    run_args=docker_args,
+    inject_notebook=inject_arg,
+    jupyter_version=version,
+    **run_interactive_kwargs,
+  )

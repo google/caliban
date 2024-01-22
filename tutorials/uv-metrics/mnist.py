@@ -72,15 +72,17 @@ def build_reporters(m: Dict[str, float]) -> Dict[str, r.AbstractReporter]:
   return base.map_values(lambda step, v: u.to_metric(v))
 
 
-def get_keras_model(width=128, activation='relu'):
+def get_keras_model(width=128, activation="relu"):
   """Returns an instance of a Keras Sequential model.
-https://www.tensorflow.org/api_docs/python/tf/keras/Sequential"""
-  return tf.keras.models.Sequential([
+  https://www.tensorflow.org/api_docs/python/tf/keras/Sequential"""
+  return tf.keras.models.Sequential(
+    [
       tf.keras.layers.Flatten(input_shape=(28, 28)),
       tf.keras.layers.Dense(width, activation=activation),
       tf.keras.layers.Dense(width, activation=activation),
       tf.keras.layers.Dense(10, activation=None),
-  ])
+    ]
+  )
 
 
 def model_main(learning_rate=0.01, epochs=3, **kwargs):
@@ -95,42 +97,36 @@ def model_main(learning_rate=0.01, epochs=3, **kwargs):
   loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
   optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-  model.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
+  model.compile(optimizer=optimizer, loss=loss_fn, metrics=["accuracy"])
 
   # this is the mutable map where the MemoryReporter will keep its data.
   metrics = {}
-  base = build_reporters(metrics)
+  build_reporters(metrics)
 
   with mlflow.start_run():
-    mlflow.log_params({
-        **kwargs,
-        **{
-            "learning_rate": learning_rate,
-            "epochs": epochs
-        }
-    })
-    print(
-        f'Training model with learning rate={learning_rate} for {epochs} epochs.'
-    )
+    mlflow.log_params({**kwargs, **{"learning_rate": learning_rate, "epochs": epochs}})
+    print(f"Training model with learning rate={learning_rate} for {epochs} epochs.")
     model.fit(x_train, y_train, epochs=epochs)
 
-    print('Model performance: ')
+    print("Model performance: ")
     score, accuracy = model.evaluate(x_test, y_test)
     mlflow.log_params({"final_score": score, "accuracy": accuracy})
 
 
 def run_app(args):
   """Main function to begin training."""
-  model_main(learning_rate=args.learning_rate,
-             epochs=args.epochs,
-             local_path=args.local_path,
-             gcloud_path=args.gcloud_path,
-             tensorboard_path=args.tensorboard_path)
+  model_main(
+    learning_rate=args.learning_rate,
+    epochs=args.epochs,
+    local_path=args.local_path,
+    gcloud_path=args.gcloud_path,
+    tensorboard_path=args.tensorboard_path,
+  )
 
 
 def main():
   app.run(run_app, flags_parser=cli.parse_flags)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   main()

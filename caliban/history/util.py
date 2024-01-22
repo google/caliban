@@ -30,26 +30,34 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import caliban.config.experiment as ce
 import caliban.util.auth as ua
-from caliban.history.types import (ContainerSpec, Experiment, ExperimentGroup,
-                                   Job, JobSpec, JobStatus, Platform, init_db)
+from caliban.history.types import (
+  ContainerSpec,
+  Experiment,
+  ExperimentGroup,
+  Job,
+  JobSpec,
+  JobStatus,
+  Platform,
+  init_db,
+)
 from caliban.platform.cloud.types import JobStatus as CloudStatus
 from caliban.platform.gke.cluster import Cluster
 from caliban.platform.gke.types import JobStatus as GkeStatus
 from caliban.platform.gke.util import default_credentials
 
-DB_URL_ENV = 'CALIBAN_DB_URL'
-MEMORY_DB_URL = 'sqlite:///:memory:'
-SQLITE_FILE_DB_URL = 'sqlite:///~/.caliban/caliban.db'
+DB_URL_ENV = "CALIBAN_DB_URL"
+MEMORY_DB_URL = "sqlite:///:memory:"
+SQLITE_FILE_DB_URL = "sqlite:///~/.caliban/caliban.db"
 
 t = Terminal()
 
 
 # ----------------------------------------------------------------------------
 def _create_sqa_engine(
-    url: str = SQLITE_FILE_DB_URL,
-    echo: bool = False,
+  url: str = SQLITE_FILE_DB_URL,
+  echo: bool = False,
 ) -> Engine:
-  '''creates a sqlalchemy Engine instance
+  """creates a sqlalchemy Engine instance
 
   Args:
   url: url of database
@@ -57,15 +65,15 @@ def _create_sqa_engine(
 
   Returns:
   sqlalchemy Engine instance
-  '''
+  """
 
   # this is a local sqlite db
-  if url.startswith('sqlite:///') and url != 'sqlite:///:memory:':
-    path, db = os.path.split(url.replace('sqlite:///', ''))
+  if url.startswith("sqlite:///") and url != "sqlite:///:memory:":
+    path, db = os.path.split(url.replace("sqlite:///", ""))
     path = os.path.expanduser(path)
     os.makedirs(path, exist_ok=True)
     full_path = os.path.join(path, db)
-    url = f'sqlite:///{full_path}'
+    url = f"sqlite:///{full_path}"
 
   engine = create_engine(url, echo=echo)
   init_db(engine)
@@ -74,24 +82,24 @@ def _create_sqa_engine(
 
 # ----------------------------------------------------------------------------
 def get_mem_engine(echo: bool = False) -> Engine:
-  '''gets a sqlalchemy engine connection to an in-memory sqlite instance
+  """gets a sqlalchemy engine connection to an in-memory sqlite instance
 
   Args:
   echo: if True, will echo all SQL commands to terminal
 
   Returns:
   sqlalchemy Engine instance
-  '''
+  """
   return _create_sqa_engine(url=MEMORY_DB_URL, echo=echo)
 
 
 # ----------------------------------------------------------------------------
 def get_sql_engine(
-    url: Optional[str] = None,
-    strict=False,
-    echo: bool = False,
+  url: Optional[str] = None,
+  strict=False,
+  echo: bool = False,
 ) -> Engine:
-  '''gets a sqlalchemy Engine instance
+  """gets a sqlalchemy Engine instance
 
   Args:
   url: url of database, if None, uses DB_URL_ENV environment variable or
@@ -101,7 +109,7 @@ def get_sql_engine(
 
   Returns:
   sqlalchemy Engine instance
-  '''
+  """
   if url is None:
     url = os.environ.get(DB_URL_ENV) or SQLITE_FILE_DB_URL
 
@@ -111,9 +119,8 @@ def get_sql_engine(
   except (OperationalError, OSError) as e:
     logging.error("")
     logging.error(
-        t.red(
-            f"Caliban failed to connect to its experiment tracking database! Details:"
-        ))
+      t.red("Caliban failed to connect to its experiment tracking database! Details:")
+    )
     logging.error("")
     logging.error(t.red(str(e)))
     logging.error(t.red(f"Caliban attempted to connect to '{url}'."))
@@ -133,27 +140,26 @@ def get_sql_engine(
       # fail is if your system doesn't support SQLite at all.
 
       if url == SQLITE_FILE_DB_URL:
-        logging.warning(
-            t.yellow(f"Attempting to proceed with in-memory database."))
+        logging.warning(t.yellow("Attempting to proceed with in-memory database."))
 
         # TODO when we add our strict flag, bail here and don't even allow
         # in-memory.
         logging.warning(
-            t.yellow(
-                f"WARNING! This means that your job's history won't be accessible "
-                f"via any of the `caliban history` commands. Proceed at your future self's peril."
-            ))
+          t.yellow(
+            "WARNING! This means that your job's history won't be accessible "
+            "via any of the `caliban history` commands. Proceed at your future self's peril."
+          )
+        )
         return get_sql_engine(url=MEMORY_DB_URL, strict=True, echo=echo)
 
-      logging.info(
-          t.yellow(f"Falling back to local sqlite db: {SQLITE_FILE_DB_URL}"))
+      logging.info(t.yellow(f"Falling back to local sqlite db: {SQLITE_FILE_DB_URL}"))
       return get_sql_engine(url=SQLITE_FILE_DB_URL, strict=False, echo=echo)
 
 
 # ----------------------------------------------------------------------------
 @contextmanager
 def session_scope(engine: Engine) -> Session:
-  '''returns a sqlalchemy session using the provided engine
+  """returns a sqlalchemy session using the provided engine
 
   This contextmanager commits all pending session changes on scope exit,
   and on an exception rolls back pending changes. The returned session is
@@ -164,7 +170,7 @@ def session_scope(engine: Engine) -> Session:
 
   Returns:
   Session
-  '''
+  """
   session = sessionmaker(bind=engine)()
   try:
     yield session
@@ -177,11 +183,11 @@ def session_scope(engine: Engine) -> Session:
 
 
 def generate_container_spec(
-    session: Session,
-    docker_args: Dict[str, Any],
-    image_tag: Optional[str] = None,
+  session: Session,
+  docker_args: Dict[str, Any],
+  image_tag: Optional[str] = None,
 ) -> ContainerSpec:
-  '''generates a container spec
+  """generates a container spec
 
   Args:
   session: sqlalchemy session
@@ -190,24 +196,24 @@ def generate_container_spec(
 
   Returns:
   ContainerSpec instance
-  '''
+  """
 
   if image_tag is None:
     spec = docker_args
   else:
-    spec = {'image_id': image_tag}
+    spec = {"image_id": image_tag}
 
   return ContainerSpec.get_or_create(session=session, spec=spec)
 
 
 def create_experiments(
-    session: Session,
-    container_spec: ContainerSpec,
-    script_args: List[str],
-    experiment_config: ce.ExpConf,
-    xgroup: Optional[str] = None,
+  session: Session,
+  container_spec: ContainerSpec,
+  script_args: List[str],
+  experiment_config: ce.ExpConf,
+  xgroup: Optional[str] = None,
 ) -> List[Experiment]:
-  '''create experiment instances
+  """create experiment instances
 
   Args:
   session: sqlalchemy session
@@ -220,68 +226,69 @@ def create_experiments(
     job will be submitted for every combination of parameters in the experiment
     config.
   xgroup: experiment group name for the generated experiments
-  '''
+  """
 
   xg = ExperimentGroup.get_or_create(session=session, name=xgroup)
   session.add(xg)  # this ensures that any new objects get persisted
 
   return [
-      Experiment.get_or_create(
-          xgroup=xg,
-          container_spec=container_spec,
-          args=script_args,
-          kwargs=kwargs,
-      ) for kwargs in ce.expand_experiment_config(experiment_config)
+    Experiment.get_or_create(
+      xgroup=xg,
+      container_spec=container_spec,
+      args=script_args,
+      kwargs=kwargs,
+    )
+    for kwargs in ce.expand_experiment_config(experiment_config)
   ]
 
 
 # ----------------------------------------------------------------------------
 def _get_caip_job_name(j: Job) -> str:
-  '''gets job name for use with caip rest api'''
-  job_id = j.details['jobId']
-  project_id = j.details['project_id']
-  return f'projects/{project_id}/jobs/{job_id}'
+  """gets job name for use with caip rest api"""
+  job_id = j.details["jobId"]
+  project_id = j.details["project_id"]
+  return f"projects/{project_id}/jobs/{job_id}"
 
 
 # ----------------------------------------------------------------------------
 def _get_caip_job_api(credentials_path: Optional[str] = None) -> Any:
   credentials = ua.gcloud_credentials(credentials_path)
-  return discovery.build('ml',
-                         'v1',
-                         cache_discovery=False,
-                         credentials=credentials).projects().jobs()
+  return (
+    discovery.build("ml", "v1", cache_discovery=False, credentials=credentials)
+    .projects()
+    .jobs()
+  )
 
 
 # ----------------------------------------------------------------------------
 def get_caip_job_status(j: Job) -> JobStatus:
-  '''gets caip job status
+  """gets caip job status
 
-    https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs#State
+  https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs#State
 
-    Returns:
-    JobStatus
-'''
+  Returns:
+  JobStatus"""
 
   CAIP_TO_JOB_STATUS = {
-      CloudStatus.STATE_UNSPECIFIED: JobStatus.UNKNOWN,
-      CloudStatus.QUEUED: JobStatus.SUBMITTED,
-      CloudStatus.PREPARING: JobStatus.SUBMITTED,
-      CloudStatus.RUNNING: JobStatus.RUNNING,
-      CloudStatus.SUCCEEDED: JobStatus.SUCCEEDED,
-      CloudStatus.FAILED: JobStatus.FAILED,
-      CloudStatus.CANCELLING: JobStatus.RUNNING,
-      CloudStatus.CANCELLED: JobStatus.STOPPED
+    CloudStatus.STATE_UNSPECIFIED: JobStatus.UNKNOWN,
+    CloudStatus.QUEUED: JobStatus.SUBMITTED,
+    CloudStatus.PREPARING: JobStatus.SUBMITTED,
+    CloudStatus.RUNNING: JobStatus.RUNNING,
+    CloudStatus.SUCCEEDED: JobStatus.SUCCEEDED,
+    CloudStatus.FAILED: JobStatus.FAILED,
+    CloudStatus.CANCELLING: JobStatus.RUNNING,
+    CloudStatus.CANCELLED: JobStatus.STOPPED,
   }
 
   api = _get_caip_job_api()
-  job_id = j.details['jobId']
+  job_id = j.details["jobId"]
   name = _get_caip_job_name(j)
 
   try:
     rsp = api.get(name=name).execute()
-    caip_status = CloudStatus[rsp['state']]
-  except Exception as e:
-    logging.error(f'error getting job status for {job_id}')
+    caip_status = CloudStatus[rsp["state"]]
+  except Exception:
+    logging.error(f"error getting job status for {job_id}")
     return JobStatus.UNKNOWN
 
   return CAIP_TO_JOB_STATUS.get(caip_status) or JobStatus.UNKNOWN
@@ -289,55 +296,60 @@ def get_caip_job_status(j: Job) -> JobStatus:
 
 # ----------------------------------------------------------------------------
 def get_gke_job_name(j: Job) -> str:
-  '''gets gke job name from Job object'''
-  return j.details['job']['metadata']['name']
+  """gets gke job name from Job object"""
+  return j.details["job"]["metadata"]["name"]
 
 
 # ----------------------------------------------------------------------------
 def get_job_cluster(j: Job) -> Optional[Cluster]:
-  '''gets the cluster name from a Job object'''
+  """gets the cluster name from a Job object"""
   if j.spec.platform != Platform.GKE:
     return None
 
-  return Cluster.get(name=j.details['cluster_name'],
-                     project_id=j.details['project_id'],
-                     zone=j.details['cluster_zone'],
-                     creds=default_credentials().credentials)
+  return Cluster.get(
+    name=j.details["cluster_name"],
+    project_id=j.details["project_id"],
+    zone=j.details["cluster_zone"],
+    creds=default_credentials().credentials,
+  )
 
 
 # ----------------------------------------------------------------------------
 def get_gke_job_status(j: Job) -> JobStatus:
-  '''get gke job status
+  """get gke job status
 
-    see:
-    https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#jobcondition-v1-batch
+  see:
+  https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#jobcondition-v1-batch
 
-    Returns:
-    JobStatus
-  '''
+  Returns:
+  JobStatus
+  """
 
   GKE_TO_JOB_STATUS = {
-      GkeStatus.STATE_UNSPECIFIED: JobStatus.SUBMITTED,
-      GkeStatus.PENDING: JobStatus.SUBMITTED,
-      GkeStatus.RUNNING: JobStatus.RUNNING,
-      GkeStatus.FAILED: JobStatus.FAILED,
-      GkeStatus.SUCCEEDED: JobStatus.SUCCEEDED,
-      GkeStatus.UNAVAILABLE: JobStatus.UNKNOWN
+    GkeStatus.STATE_UNSPECIFIED: JobStatus.SUBMITTED,
+    GkeStatus.PENDING: JobStatus.SUBMITTED,
+    GkeStatus.RUNNING: JobStatus.RUNNING,
+    GkeStatus.FAILED: JobStatus.FAILED,
+    GkeStatus.SUCCEEDED: JobStatus.SUCCEEDED,
+    GkeStatus.UNAVAILABLE: JobStatus.UNKNOWN,
   }
 
-  cluster_name = j.details['cluster_name']
+  cluster_name = j.details["cluster_name"]
   job_name = get_gke_job_name(j)
 
   cluster = get_job_cluster(j)
   if cluster is None:
-    logging.error(f'unable to connect to cluster {cluster_name}, '
-                  f'so unable to update run status')
+    logging.error(
+      f"unable to connect to cluster {cluster_name}, " f"so unable to update run status"
+    )
     return JobStatus.UNKNOWN
 
   job_info = cluster.get_job(job_name)
   if job_info is None:
-    logging.error(f'unable to get job info from cluster {cluster_name}, '
-                  f'so unable to update run status')
+    logging.error(
+      f"unable to get job info from cluster {cluster_name}, "
+      f"so unable to update run status"
+    )
     return JobStatus.UNKNOWN
 
   return GKE_TO_JOB_STATUS[GkeStatus.from_job_info(job_info)]
@@ -345,11 +357,11 @@ def get_gke_job_status(j: Job) -> JobStatus:
 
 # ----------------------------------------------------------------------------
 def update_job_status(j: Job) -> JobStatus:
-  '''updates and returns job status
+  """updates and returns job status
 
-    Returns:
-    current status for this job
-    '''
+  Returns:
+  current status for this job
+  """
 
   if j.status is not None and j.status.is_terminal():
     return j.status
@@ -370,7 +382,7 @@ def update_job_status(j: Job) -> JobStatus:
 
 # ----------------------------------------------------------------------------
 def _stop_caip_job(j: Job) -> bool:
-  '''stops a running caip job
+  """stops a running caip job
 
   see:
   https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs/cancel
@@ -380,19 +392,19 @@ def _stop_caip_job(j: Job) -> bool:
 
   Returns:
   True on success, False otherwise
-  '''
+  """
 
   api = _get_caip_job_api()
   name = _get_caip_job_name(j)
 
   try:
     rsp = api.cancel(name=name).execute()
-  except Exception as e:
-    logging.error('error stopping CAIP job {name}: {e}')
+  except Exception:
+    logging.error("error stopping CAIP job {name}: {e}")
     return False
 
   if rsp != {}:
-    logging.error('error stopping CAIP job {name}: {pp.format(rsp)}')
+    logging.error("error stopping CAIP job {name}: {pp.format(rsp)}")
     return False
 
   return True
@@ -400,7 +412,7 @@ def _stop_caip_job(j: Job) -> bool:
 
 # ----------------------------------------------------------------------------
 def _stop_gke_job(j: Job) -> bool:
-  '''stops a running gke job
+  """stops a running gke job
 
   see:
   https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#delete-job-v1-batch
@@ -410,15 +422,17 @@ def _stop_gke_job(j: Job) -> bool:
 
   Returns:
   True on success, False otherwise
-  '''
+  """
 
-  cluster_name = j.details['cluster_name']
+  cluster_name = j.details["cluster_name"]
   job_name = get_gke_job_name(j)
 
   cluster = get_job_cluster(j)
   if cluster is None:
-    logging.error(f'unable to connect to cluster {cluster_name}, '
-                  f'so unable to delete job {job_name}')
+    logging.error(
+      f"unable to connect to cluster {cluster_name}, "
+      f"so unable to delete job {job_name}"
+    )
     return False
 
   status = cluster.delete_job(job_name=job_name)
@@ -433,14 +447,14 @@ def _stop_gke_job(j: Job) -> bool:
 
 # ----------------------------------------------------------------------------
 def stop_job(j: Job) -> bool:
-  '''stops a running job
+  """stops a running job
 
   Args:
   j: job to stop
 
   Returns:
   True on success, False otherwise
-  '''
+  """
 
   current_status = update_job_status(j)
 
@@ -461,7 +475,7 @@ def stop_job(j: Job) -> bool:
 
 # ----------------------------------------------------------------------------
 def replace_local_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
-  '''generates a new JobSpec based on an existing one, but replacing the
+  """generates a new JobSpec based on an existing one, but replacing the
   image id
 
   Args:
@@ -470,25 +484,25 @@ def replace_local_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
 
   Returns:
   new JobSpec
-  '''
+  """
 
-  old_image = spec.spec['container']
-  old_cmd = spec.spec['command']
+  old_image = spec.spec["container"]
+  old_cmd = spec.spec["command"]
   new_cmd = list(map(lambda x: x if x != old_image else image_id, old_cmd))
 
   return JobSpec.get_or_create(
-      experiment=spec.experiment,
-      spec={
-          'command': new_cmd,
-          'container': image_id,
-      },
-      platform=Platform.LOCAL,
+    experiment=spec.experiment,
+    spec={
+      "command": new_cmd,
+      "container": image_id,
+    },
+    platform=Platform.LOCAL,
   )
 
 
 # ----------------------------------------------------------------------------
 def replace_caip_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
-  '''generates a new JobSpec based on an existing one, but replacing the
+  """generates a new JobSpec based on an existing one, but replacing the
   image id
 
   Args:
@@ -497,19 +511,19 @@ def replace_caip_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
 
   Returns:
   new JobSpec
-  '''
+  """
 
   new_spec = deepcopy(spec.spec)
-  new_spec['trainingInput']['masterConfig']['imageUri'] = image_id
+  new_spec["trainingInput"]["masterConfig"]["imageUri"] = image_id
 
-  return JobSpec.get_or_create(experiment=spec.experiment,
-                               spec=new_spec,
-                               platform=Platform.CAIP)
+  return JobSpec.get_or_create(
+    experiment=spec.experiment, spec=new_spec, platform=Platform.CAIP
+  )
 
 
 # ----------------------------------------------------------------------------
 def replace_gke_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
-  '''generates a new JobSpec based on an existing one, but replacing the
+  """generates a new JobSpec based on an existing one, but replacing the
   image id
 
   Args:
@@ -518,23 +532,23 @@ def replace_gke_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
 
   Returns:
   new JobSpec
-  '''
+  """
 
   new_spec = deepcopy(spec.spec)
-  for i in range(len(new_spec['template']['spec']['containers'])):
-    new_spec['template']['spec']['containers'][i]['image'] = image_id
+  for i in range(len(new_spec["template"]["spec"]["containers"])):
+    new_spec["template"]["spec"]["containers"][i]["image"] = image_id
 
   print
   return JobSpec.get_or_create(
-      experiment=spec.experiment,
-      spec=new_spec,
-      platform=Platform.GKE,
+    experiment=spec.experiment,
+    spec=new_spec,
+    platform=Platform.GKE,
   )
 
 
 # ----------------------------------------------------------------------------
 def replace_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
-  '''generates a new JobSpec based on an existing one, but replacing the
+  """generates a new JobSpec based on an existing one, but replacing the
   image id
 
   Args:
@@ -543,7 +557,7 @@ def replace_job_spec_image(spec: JobSpec, image_id: str) -> JobSpec:
 
   Returns:
   new JobSpec
-  '''
+  """
 
   if spec.platform == Platform.LOCAL:
     return replace_local_job_spec_image(spec=spec, image_id=image_id)

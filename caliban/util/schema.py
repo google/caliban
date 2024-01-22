@@ -29,7 +29,7 @@ import schema as s
 
 class FatalSchemaError(Exception):
   """Wrapper for an exception that can bubble itself up to the top level of the
-program."""
+  program."""
 
   def __init__(self, message, context):
     self.message = message
@@ -75,14 +75,18 @@ def load_json(path):
 
 
 Directory = s.Schema(
-    os.path.isdir,
-    error="""Directory '{}' doesn't exist in this directory. Check yourself!""")
+  os.path.isdir,
+  error="""Directory '{}' doesn't exist in this directory. Check yourself!""",
+)
 
 File = s.Schema(
-    lambda path: os.path.isfile(os.path.expanduser(path)),
-    error="""File '{}' isn't a valid file on your system. Try again!""")
+  lambda path: os.path.isfile(os.path.expanduser(path)),
+  error="""File '{}' isn't a valid file on your system. Try again!""",
+)
 
 Json = s.And(
-    File,
-    s.Use(load_json,
-          error="""File '{}' doesn't seem to contain valid JSON. Try again!"""))
+  File,
+  s.Use(
+    load_json, error="""File '{}' doesn't seem to contain valid JSON. Try again!"""
+  ),
+)

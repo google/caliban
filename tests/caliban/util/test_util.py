@@ -40,7 +40,7 @@ def non_empty_dict(vgen):
 def test_enum_vals(ks, vs):
   """Setup ensures that the values are unique."""
   m = dict(zip(ks, vs))
-  enum = Enum('TestEnum', m)
+  enum = Enum("TestEnum", m)
 
   # enum_vals returns the values from the enum.
   assert list(m.values()) == u.enum_vals(enum)
@@ -56,7 +56,7 @@ def test_resource_path():
 
   # Now write some data...
   resource_data = {"apt_packages": ["face"]}
-  with open(full_path, 'w') as f:
+  with open(full_path, "w") as f:
     json.dump(resource_data, f)
 
   # now we see the full path.
@@ -69,8 +69,8 @@ def test_resource_path():
 
 
 def test_any_of_unit():
-  MyEnum = Enum('MyEnum', {"a": "a_string", "b": "b_string"})
-  SecondEnum = Enum('SecondEnum', {"c": "c_cake", "d": "d_face"})
+  MyEnum = Enum("MyEnum", {"a": "a_string", "b": "b_string"})
+  SecondEnum = Enum("SecondEnum", {"c": "c_cake", "d": "d_face"})
   SomeEnum = Union[MyEnum, SecondEnum]
 
   # Asking for a value not in ANY enum raises a value error.
@@ -82,8 +82,8 @@ def test_any_of_unit():
 def test_any_of(k1, v1, k2, v2):
   m1 = dict(zip(k1, v1))
   m2 = dict(zip(k2, v2))
-  enum1 = Enum('enum1', m1)
-  enum2 = Enum('enum2', m2)
+  enum1 = Enum("enum1", m1)
+  enum2 = Enum("enum2", m2)
   union = Union[enum1, enum2]
 
   # If the item appears in the first map any_of will return it.
@@ -105,37 +105,19 @@ def test_dict_product():
   input_m = OrderedDict([("a", [1, 2, 3]), ("b", [4, 5]), ("c", "d")])
   result = list(u.dict_product(input_m))
 
-  expected = [{
-      'a': 1,
-      'b': 4,
-      'c': 'd'
-  }, {
-      'a': 1,
-      'b': 5,
-      'c': 'd'
-  }, {
-      'a': 2,
-      'b': 4,
-      'c': 'd'
-  }, {
-      'a': 2,
-      'b': 5,
-      'c': 'd'
-  }, {
-      'a': 3,
-      'b': 4,
-      'c': 'd'
-  }, {
-      'a': 3,
-      'b': 5,
-      'c': 'd'
-  }]
+  expected = [
+    {"a": 1, "b": 4, "c": "d"},
+    {"a": 1, "b": 5, "c": "d"},
+    {"a": 2, "b": 4, "c": "d"},
+    {"a": 2, "b": 5, "c": "d"},
+    {"a": 3, "b": 4, "c": "d"},
+    {"a": 3, "b": 5, "c": "d"},
+  ]
 
   assert result == expected
 
 
-@given(st.dictionaries(st.text(), st.text()),
-       st.dictionaries(st.text(), st.text()))
+@given(st.dictionaries(st.text(), st.text()), st.dictionaries(st.text(), st.text()))
 def test_merge(m1, m2):
   merged = u.merge(m1, m2)
 
@@ -151,26 +133,13 @@ def test_merge(m1, m2):
 
 def test_flipm_unit():
   m = {"a": {1: "a_one", 2: "a_two"}, "b": {1: "b_one", 3: "b_three"}}
-  expected = {
-      1: {
-          "a": "a_one",
-          "b": "b_one"
-      },
-      2: {
-          "a": "a_two"
-      },
-      3: {
-          "b": "b_three"
-      }
-  }
+  expected = {1: {"a": "a_one", "b": "b_one"}, 2: {"a": "a_two"}, 3: {"b": "b_three"}}
 
   # Flipping does what we expect!
   assert u.flipm(m) == expected
 
 
-@given(
-    st.dictionaries(st.text(), st.dictionaries(st.text(), st.text(),
-                                               min_size=1)))
+@given(st.dictionaries(st.text(), st.dictionaries(st.text(), st.text(), min_size=1)))
 def test_flipm(m):
   # As long as an inner dictionary isn't empty, flipping is invertible.
   assert m == u.flipm(u.flipm(m))
@@ -186,17 +155,16 @@ def test_flipm_empty_values(ks):
 def test_invertm_unit():
   m = {"a": [1, 2, 3], "b": [2, 3, 4]}
   expected = {
-      1: {"a"},
-      2: {"a", "b"},
-      3: {"a", "b"},
-      4: {"b"},
+    1: {"a"},
+    2: {"a", "b"},
+    3: {"a", "b"},
+    4: {"b"},
   }
   assert u.invertm(m) == expected
 
 
 @given(non_empty_dict(non_empty_dict(text_set)))
 def test_reorderm(m):
-
   def invert_inner(d):
     return {k: u.invertm(v) for k, v in d.items()}
 

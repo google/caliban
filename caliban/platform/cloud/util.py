@@ -46,12 +46,12 @@ def _clean_label(s: Optional[str], is_key: bool) -> str:
 
   # periods are not allowed by AI Platform labels, but often occur in,
   # e.g., learning rates
-  DECIMAL_REPLACEMENT = '_'
-  s = s.replace('.', DECIMAL_REPLACEMENT)
+  DECIMAL_REPLACEMENT = "_"
+  s = s.replace(".", DECIMAL_REPLACEMENT)
 
   # lowercase, letters, - and _ are valid, so strip the leading dashes, make
   # everything lowercase and then kill any remaining unallowed characters.
-  cleaned = re.sub(r'[^a-z0-9_-]', '', s.lower()).lstrip("-")
+  cleaned = re.sub(r"[^a-z0-9_-]", "", s.lower()).lstrip("-")
 
   # Keys must start with a letter. If is_key is set and the cleaned version
   # starts with something else, append `k`.
@@ -108,7 +108,8 @@ def script_args_to_labels(script_args: Optional[List[str]]) -> Dict[str, str]:
 
 
 def sanitize_labels(
-    pairs: Union[Dict[str, str], List[Tuple[str, str]]]) -> Dict[str, str]:
+  pairs: Union[Dict[str, str], List[Tuple[str, str]]],
+) -> Dict[str, str]:
   """Turns a dict, or a list of unsanitized key-value pairs (each represented by
   a tuple) into a dictionary suitable to submit to Cloud as a label dict.
 

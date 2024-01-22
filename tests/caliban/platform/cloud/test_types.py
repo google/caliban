@@ -26,8 +26,9 @@ import caliban.platform.cloud.types as ct
 class TypesTestSuite(unittest.TestCase):
   """Tests for caliban.platform.cloud.types."""
 
-  @given(st.integers(min_value=0, max_value=40),
-         st.sampled_from(list(ct.GPU) + list(ct.TPU)))
+  @given(
+    st.integers(min_value=0, max_value=40), st.sampled_from(list(ct.GPU) + list(ct.TPU))
+  )
   def test_validate_accelerator_count(self, i, accel):
     valid_counts = ct.accelerator_counts(accel)
     if i in valid_counts:
@@ -41,8 +42,7 @@ class TypesTestSuite(unittest.TestCase):
     NOT the name string for the enum.
 
     """
-    self.assertEqual(ct.MachineType.standard_8,
-                     ct.parse_machine_type("n1-standard-8"))
+    self.assertEqual(ct.MachineType.standard_8, ct.parse_machine_type("n1-standard-8"))
 
     with self.assertRaises(ArgumentTypeError):
       ct.parse_machine_type("random-string")
@@ -64,8 +64,9 @@ class TypesTestSuite(unittest.TestCase):
       # Invalid number for the valid GPU type.
       ct.GPUSpec.parse_arg("15xV100")
 
-    self.assertEqual(ct.GPUSpec(ct.GPU.V100, 7),
-                     ct.GPUSpec.parse_arg("7xV100", validate_count=False))
+    self.assertEqual(
+      ct.GPUSpec(ct.GPU.V100, 7), ct.GPUSpec.parse_arg("7xV100", validate_count=False)
+    )
 
     # Valid!
     self.assertEqual(ct.GPUSpec(ct.GPU.V100, 8), ct.GPUSpec.parse_arg("8xV100"))
@@ -87,8 +88,9 @@ class TypesTestSuite(unittest.TestCase):
       # Invalid number for the valid TPU type.
       ct.TPUSpec.parse_arg("15xV3")
 
-    self.assertEqual(ct.TPUSpec(ct.TPU.V3, 7),
-                     ct.TPUSpec.parse_arg("7xV3", validate_count=False))
+    self.assertEqual(
+      ct.TPUSpec(ct.TPU.V3, 7), ct.TPUSpec.parse_arg("7xV3", validate_count=False)
+    )
 
     # Valid!
     self.assertEqual(ct.TPUSpec(ct.TPU.V3, 8), ct.TPUSpec.parse_arg("8xV3"))

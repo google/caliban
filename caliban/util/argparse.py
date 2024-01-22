@@ -68,36 +68,38 @@ def validated_package(path: str) -> u.Package:
 
   if not os.path.isdir(p.package_path):
     raise argparse.ArgumentTypeError(
-        """Directory '{}' doesn't exist in directory. Code must be
-nested in a folder that exists in the current directory.""".format(
-            p.package_path))
+      """Directory '{}' doesn't exist in directory. Code must be
+nested in a folder that exists in the current directory.""".format(p.package_path)
+    )
 
   filename = p.script_path
   if not ufs.file_exists_in_cwd(filename):
     raise argparse.ArgumentTypeError(
-        """File '{}' doesn't exist locally as a script or python module; code
-must live inside the current directory.""".format(filename))
+      """File '{}' doesn't exist locally as a script or python module; code
+must live inside the current directory.""".format(filename)
+    )
 
   return p
 
 
 def parse_kv_pair(s: str) -> Tuple[str, str]:
   """
-    Parse a key, value pair, separated by '='
+  Parse a key, value pair, separated by '='
 
-    On the command line (argparse) a declaration will typically look like:
-        foo=hello
-    or
-        foo="hello world"
-    """
-  items = s.split('=')
+  On the command line (argparse) a declaration will typically look like:
+      foo=hello
+  or
+      foo="hello world"
+  """
+  items = s.split("=")
   k = items[0].strip()  # Remove whitespace around keys
 
   if len(items) <= 1:
     raise argparse.ArgumentTypeError(
-        "Couldn't parse label '{}' into k=v format.".format(s))
+      "Couldn't parse label '{}' into k=v format.".format(s)
+    )
 
-  v = '='.join(items[1:])
+  v = "=".join(items[1:])
   return (k, v)
 
 

@@ -30,8 +30,9 @@ import caliban.util.schema as us
 
 class JobMode(str, Enum):
   """Represents the two modes that you can use to execute a Caliban job."""
-  CPU = 'CPU'
-  GPU = 'GPU'
+
+  CPU = "CPU"
+  GPU = "GPU"
 
   @staticmethod
   def parse(label):
@@ -47,24 +48,21 @@ DEFAULT_REGION = ct.US.central1
 
 # : Dict[JobMode, ct.MachineType]
 DEFAULT_MACHINE_TYPE = {
-    JobMode.CPU: ct.MachineType.highcpu_32,
-    JobMode.GPU: ct.MachineType.standard_8
+  JobMode.CPU: ct.MachineType.highcpu_32,
+  JobMode.GPU: ct.MachineType.standard_8,
 }
 DEFAULT_GPU = ct.GPU.P100
 
 # Config to supply for CPU jobs.
-DEFAULT_ACCELERATOR_CONFIG = {
-    "count": 0,
-    "type": "ACCELERATOR_TYPE_UNSPECIFIED"
-}
+DEFAULT_ACCELERATOR_CONFIG = {"count": 0, "type": "ACCELERATOR_TYPE_UNSPECIFIED"}
 
 # Dictionary of the DLVM "Platform" to a sequence of versions that are
 # currently available as DLVMs. The full list of images is here:
 # https://console.cloud.google.com/gcr/images/deeplearning-platform-release/GLOBAL/
 DLVMS = {
-    "pytorch": [None, "1.0", "1.1", "1.2", "1.3", "1.4"],
-    "tf": [None, "1.0", "1.13", "1.14", "1.15"],
-    "tf2": [None, "2.0", "2.1", "2.2"],
+  "pytorch": [None, "1.0", "1.1", "1.2", "1.3", "1.4"],
+  "tf": [None, "1.0", "1.13", "1.14", "1.15"],
+  "tf2": [None, "2.0", "2.1", "2.2"],
 }
 
 # Schema for Caliban Config
@@ -83,18 +81,17 @@ def _dlvm_config(job_mode: JobMode) -> Dict[str, str]:
   def image(lib: str, version: Optional[str]) -> Tuple[str, str]:
     base = f"gcr.io/deeplearning-platform-release/{lib}-{mode}"
     k = with_version(f"dlvm:{lib}-{mode}", version, "-")
-    v = with_version(base, version.replace('.', '-') if version else None, ".")
+    v = with_version(base, version.replace(".", "-") if version else None, ".")
     return (k, v)
 
-  return dict(
-      [image(lib, v) for lib, versions in DLVMS.items() for v in versions])
+  return dict([image(lib, v) for lib, versions in DLVMS.items() for v in versions])
 
 
 # This is a dictionary of some identifier like 'dlvm:pytorch-1.0' to the actual
 # Docker image ID.
 DLVM_CONFIG = {
-    **_dlvm_config(JobMode.CPU),
-    **_dlvm_config(JobMode.GPU),
+  **_dlvm_config(JobMode.CPU),
+  **_dlvm_config(JobMode.GPU),
 }
 
 
@@ -107,68 +104,60 @@ def expand_image(image: str) -> str:
 
 
 AptPackages = s.Or(
-    [str], {
-        s.Optional("gpu", default=list): [str],
-        s.Optional("cpu", default=list): [str]
-    },
-    error=""""apt_packages" entry must be a dictionary or list, not '{}'""")
+  [str],
+  {s.Optional("gpu", default=list): [str], s.Optional("cpu", default=list): [str]},
+  error=""""apt_packages" entry must be a dictionary or list, not '{}'""",
+)
 
 Image = s.And(str, s.Use(expand_image))
 
 BaseImage = s.Or(
-    Image, {
-        s.Optional("gpu", default=None): Image,
-        s.Optional("cpu", default=None): Image
-    },
-    error=
-    """"base_image" entry must be a string OR dict with 'cpu' and 'gpu' keys, not '{}'"""
+  Image,
+  {s.Optional("gpu", default=None): Image, s.Optional("cpu", default=None): Image},
+  error=""""base_image" entry must be a string OR dict with 'cpu' and 'gpu' keys, not '{}'""",
 )
 
 GCloudConfig = {
-    s.Optional("project_id"): s.And(str, len),
-    s.Optional("cloud_key"): s.And(str, len)
+  s.Optional("project_id"): s.And(str, len),
+  s.Optional("cloud_key"): s.And(str, len),
 }
 
 MLFlowConfig = {
-    'project': str,
-    'region': str,
-    'db': str,
-    'user': str,
-    'password': str,
-    'artifact_root': str,
-    s.Optional('debug'): bool,
+  "project": str,
+  "region": str,
+  "db": str,
+  "user": str,
+  "password": str,
+  "artifact_root": str,
+  s.Optional("debug"): bool,
 }
 
 UVMLFlowConfig = {
-    s.Optional('pubsub_project'): str,  # default = mlflow_config.project
-    s.Optional('pubsub_topic', default='mlflow'): str,
+  s.Optional("pubsub_project"): str,  # default = mlflow_config.project
+  s.Optional("pubsub_topic", default="mlflow"): str,
 }
 
 UVConfig = {
-    s.Optional('mlflow'): UVMLFlowConfig,
+  s.Optional("mlflow"): UVMLFlowConfig,
 }
 
 # Config items that are project-specific, and don't belong in a global
 # .calibanconfig shared between projects.
 ProjectConfig = {
-    s.Optional("build_time_credentials", default=False):
-        bool,
-    s.Optional("base_image", default=None):
-        BaseImage,
-    s.Optional("apt_packages", default=AptPackages.validate({})):
-        AptPackages,
-    # If present, Caliban will attempt to install Julia into the base container.
-    s.Optional("julia_version", default=None):
-        s.And(str, s.Use(lambda s: s.strip())),
+  s.Optional("build_time_credentials", default=False): bool,
+  s.Optional("base_image", default=None): BaseImage,
+  s.Optional("apt_packages", default=AptPackages.validate({})): AptPackages,
+  # If present, Caliban will attempt to install Julia into the base container.
+  s.Optional("julia_version", default=None): s.And(str, s.Use(lambda s: s.strip())),
 }
 
 # Elements of calibanconfig that are fair game to share between projects.
 #
 SystemConfig = {
-    s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
-    s.Optional("gcloud", default={}): GCloudConfig,
-    s.Optional("mlflow_config", default=None): MLFlowConfig,
-    s.Optional("uv", default={}): UVConfig,
+  s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
+  s.Optional("gcloud", default={}): GCloudConfig,
+  s.Optional("mlflow_config", default=None): MLFlowConfig,
+  s.Optional("uv", default={}): UVConfig,
 }
 
 # The final, parsed calibanconfig.
@@ -178,9 +167,7 @@ CalibanConfig = s.Schema({**ProjectConfig, **SystemConfig})
 
 
 def gpu(job_mode: JobMode) -> bool:
-  """Returns True if the supplied JobMode is JobMode.GPU, False otherwise.
-
-  """
+  """Returns True if the supplied JobMode is JobMode.GPU, False otherwise."""
   return job_mode == JobMode.GPU
 
 
@@ -206,9 +193,10 @@ def extract_project_id(m: Dict[str, Any]) -> str:
   if project_id is None:
     print()
     print(
-        "\nNo project_id found. 'caliban cloud' requires that you either set a \n\
+      "\nNo project_id found. 'caliban cloud' requires that you either set a \n\
 $PROJECT_ID environment variable with the ID of your Cloud project, or pass one \n\
-explicitly via --project_id. Try again, please!")
+explicitly via --project_id. Try again, please!"
+    )
     print()
 
     sys.exit(1)
@@ -235,8 +223,7 @@ def extract_cloud_key(m: Dict[str, Any]) -> Optional[str]:
   defaults to the $GOOGLE_APPLICATION_CREDENTIALS variable.
 
   """
-  return m.get("cloud_key") or \
-    os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+  return m.get("cloud_key") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
 
 def apt_packages(conf: CalibanConfig, mode: JobMode) -> List[str]:

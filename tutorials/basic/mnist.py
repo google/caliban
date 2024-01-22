@@ -28,19 +28,21 @@ FLAGS = flags.FLAGS
 
 # Define a command-line argument using the Abseil library:
 # https://abseil.io/docs/python/guides/flags
-flags.DEFINE_float('learning_rate', 0.1, 'Learning rate.')
-flags.DEFINE_integer('epochs', 3, 'Epochs to train.')
+flags.DEFINE_float("learning_rate", 0.1, "Learning rate.")
+flags.DEFINE_integer("epochs", 3, "Epochs to train.")
 
 
-def get_keras_model(width=128, activation='relu'):
+def get_keras_model(width=128, activation="relu"):
   """Returns an instance of a Keras Sequential model.
-https://www.tensorflow.org/api_docs/python/tf/keras/Sequential"""
-  return tf.keras.models.Sequential([
+  https://www.tensorflow.org/api_docs/python/tf/keras/Sequential"""
+  return tf.keras.models.Sequential(
+    [
       tf.keras.layers.Flatten(input_shape=(28, 28)),
       tf.keras.layers.Dense(width, activation=activation),
       tf.keras.layers.Dense(width, activation=activation),
       tf.keras.layers.Dense(10, activation=None),
-  ])
+    ]
+  )
 
 
 def main(_):
@@ -55,16 +57,16 @@ def main(_):
   loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
   optimizer = tf.keras.optimizers.Adam(learning_rate=FLAGS.learning_rate)
 
-  model.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
+  model.compile(optimizer=optimizer, loss=loss_fn, metrics=["accuracy"])
 
   print(
-      f'Training model with learning rate={FLAGS.learning_rate} for {FLAGS.epochs} epochs.'
+    f"Training model with learning rate={FLAGS.learning_rate} for {FLAGS.epochs} epochs."
   )
   model.fit(x_train, y_train, epochs=FLAGS.epochs)
 
-  print('Model performance: ')
+  print("Model performance: ")
   model.evaluate(x_test, y_test, verbose=2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   app.run(main)
