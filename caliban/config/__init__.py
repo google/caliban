@@ -77,10 +77,10 @@ def _dlvm_config(job_mode: JobMode) -> Dict[str, str]:
   """
   mode = job_mode.lower()
 
-  def with_version(s: str, version: Optional[str], sep: str) -> Tuple[str, str]:
+  def with_version(s: str, version: Optional[str], sep: str) -> str:
     return f"{s}{sep}{version}" if version else s
 
-  def image(lib: str, version: Optional[str]) -> str:
+  def image(lib: str, version: Optional[str]) -> Tuple[str, str]:
     base = f"gcr.io/deeplearning-platform-release/{lib}-{mode}"
     k = with_version(f"dlvm:{lib}-{mode}", version, "-")
     v = with_version(base, version.replace('.', '-') if version else None, ".")
@@ -107,21 +107,19 @@ def expand_image(image: str) -> str:
 
 
 AptPackages = s.Or(
-    s.Schema([str]),
-    s.Schema({
-        s.Optional("gpu", default=list): s.Schema([str]),
-        s.Optional("cpu", default=list): s.Schema([str])
-    }),
+    [str], {
+        s.Optional("gpu", default=list): [str],
+        s.Optional("cpu", default=list): [str]
+    },
     error=""""apt_packages" entry must be a dictionary or list, not '{}'""")
 
 Image = s.And(str, s.Use(expand_image))
 
 BaseImage = s.Or(
-    Image,
-    s.Schema({
+    Image, {
         s.Optional("gpu", default=None): Image,
         s.Optional("cpu", default=None): Image
-    }),
+    },
     error=
     """"base_image" entry must be a string OR dict with 'cpu' and 'gpu' keys, not '{}'"""
 )
