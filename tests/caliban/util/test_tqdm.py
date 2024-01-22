@@ -22,7 +22,6 @@ import caliban.util.tqdm as ut
 
 
 def test_carriage_return():
-
   def through(xs):
     buf = io.StringIO()
     f = ut.TqdmFile(file=buf)

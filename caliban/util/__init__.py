@@ -22,17 +22,33 @@ import os
 import platform
 import sys
 from enum import Enum
-from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
-                    Set, Tuple, Union)
+from typing import (
+  Any,
+  Callable,
+  Dict,
+  Iterable,
+  List,
+  NamedTuple,
+  Optional,
+  Set,
+  Tuple,
+  Union,
+)
 
 from blessings import Terminal
 from pkg_resources import resource_filename
 
 t = Terminal()
 
-Package = NamedTuple("Package", [("executable", List[str]),
-                                 ("package_path", str), ("script_path", str),
-                                 ("main_module", Optional[str])])
+Package = NamedTuple(
+  "Package",
+  [
+    ("executable", List[str]),
+    ("package_path", str),
+    ("script_path", str),
+    ("main_module", Optional[str]),
+  ],
+)
 
 
 def err(s: str) -> None:
@@ -45,9 +61,7 @@ def current_user() -> str:
 
 
 def is_mac() -> bool:
-  """Returns True if the current code is executing on a Mac, False otherwise.
-
-  """
+  """Returns True if the current code is executing on a Mac, False otherwise."""
   return platform.system() == "Darwin"
 
 
@@ -142,8 +156,9 @@ def invertm(table: Dict[Any, Iterable[Any]]) -> Dict[Any, Set[Any]]:
   return ret
 
 
-def reorderm(table: Dict[Any, Dict[Any, Iterable[Any]]],
-             order: Tuple[int, int, int]) -> Dict[Any, Dict[Any, Set[Any]]]:
+def reorderm(
+  table: Dict[Any, Dict[Any, Iterable[Any]]], order: Tuple[int, int, int]
+) -> Dict[Any, Dict[Any, Set[Any]]]:
   """Handles shuffles for a particular kind of table."""
   ret = {}
   for k, m in table.items():
@@ -157,10 +172,10 @@ def reorderm(table: Dict[Any, Dict[Any, Iterable[Any]]],
   return ret
 
 
-def merge(l: Dict[Any, Any], r: Dict[Any, Any]) -> Dict[Any, Any]:
+def merge(l_dict: Dict[Any, Any], r_dict: Dict[Any, Any]) -> Dict[Any, Any]:
   """Returns a new dictionary by merging the two supplied dictionaries."""
-  ret = l.copy()
-  ret.update(r)
+  ret = l_dict.copy()
+  ret.update(r_dict)
   return ret
 
 
@@ -172,8 +187,9 @@ def dict_by(keys: Set[str], f: Callable[[str], Any]) -> Dict[str, Any]:
   return {k: f(k) for k in keys}
 
 
-def split_by(items: List[str],
-             separator: Optional[str] = None) -> Tuple[List[str], List[str]]:
+def split_by(
+  items: List[str], separator: Optional[str] = None
+) -> Tuple[List[str], List[str]]:
   """If the separator is present in the list, returns a 2-tuple of
 
   - the items before the separator,
@@ -185,11 +201,11 @@ def split_by(items: List[str],
 
   """
   if separator is None:
-    separator = '--'
+    separator = "--"
 
   try:
     idx = items.index(separator)
-    return items[0:idx], items[idx + 1:]
+    return items[0:idx], items[idx + 1 :]
   except ValueError:
     return (items, [])
 
@@ -212,4 +228,4 @@ def partition(seq: List[str], n: int) -> List[List[str]]:
   taking chunks of n, offset by 1.
   """
   for i in range(0, max(1, len(seq) - n + 1), 1):
-    yield seq[i:i + n]
+    yield seq[i : i + n]

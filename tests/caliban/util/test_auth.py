@@ -22,8 +22,7 @@ import caliban.util.auth as a
 
 
 def register_auth(process, **kwargs):
-  process.register_subprocess(["gcloud", "auth", "print-access-token"],
-                              **kwargs)
+  process.register_subprocess(["gcloud", "auth", "print-access-token"], **kwargs)
 
 
 def fail_process(process):

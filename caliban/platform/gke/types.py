@@ -25,30 +25,35 @@ from kubernetes.client import V1Job
 # Node image types
 # see https://cloud.google.com/kubernetes-engine/docs/concepts/node-images
 NodeImage = Enum(
-    'NODE_IMAGE', {
-        'COS': 'cos',
-        'UBUNTU': 'ubuntu',
-        'COS_CONTAINERD': 'cos_containerd',
-        'UBUNTU_CONTAINERD': 'ubuntu_containerd'
-    })
+  "NODE_IMAGE",
+  {
+    "COS": "cos",
+    "UBUNTU": "ubuntu",
+    "COS_CONTAINERD": "cos_containerd",
+    "UBUNTU_CONTAINERD": "ubuntu_containerd",
+  },
+)
 
 # ----------------------------------------------------------------------------
 # GKE operation status, see:
 # https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.operations
 OpStatus = Enum(
-    'OP_STATUS', {
-        'STATUS_UNSPECIFIED': 'STATUS_UNSPECIFIED',
-        'PENDING': 'PENDING',
-        'RUNNING': 'RUNNING',
-        'DONE': 'DONE',
-        'ABORTING': 'ABORTING'
-    })
+  "OP_STATUS",
+  {
+    "STATUS_UNSPECIFIED": "STATUS_UNSPECIFIED",
+    "PENDING": "PENDING",
+    "RUNNING": "RUNNING",
+    "DONE": "DONE",
+    "ABORTING": "ABORTING",
+  },
+)
 
 # ----------------------------------------------------------------------------
 # Credentials data (credentials, project id)
-CredentialsData = NamedTuple("CredentialsData",
-                             [("credentials", Optional[Credentials]),
-                              ("project_id", Optional[str])])
+CredentialsData = NamedTuple(
+  "CredentialsData",
+  [("credentials", Optional[Credentials]), ("project_id", Optional[str])],
+)
 
 # ----------------------------------------------------------------------------
 # GKE release channel, see:
@@ -56,17 +61,20 @@ CredentialsData = NamedTuple("CredentialsData",
 # https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters#Cluster.ReleaseChannel
 # https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters#channel
 ReleaseChannel = Enum(
-    'RELEASE_CHANNEL', {
-        'UNSPECIFIED': 'UNSPECIFIED',
-        'RAPID': 'RAPID',
-        'REGULAR': 'REGULAR',
-        'STABLE': 'STABLE'
-    })
+  "RELEASE_CHANNEL",
+  {
+    "UNSPECIFIED": "UNSPECIFIED",
+    "RAPID": "RAPID",
+    "REGULAR": "REGULAR",
+    "STABLE": "STABLE",
+  },
+)
 
 
 # ----------------------------------------------------------------------------
 class JobStatus(Enum):
-  '''gke job status'''
+  """gke job status"""
+
   STATE_UNSPECIFIED = 0
   PENDING = 1
   RUNNING = 2
@@ -75,7 +83,7 @@ class JobStatus(Enum):
   UNAVAILABLE = 5
 
   def is_terminal(self) -> bool:
-    return self.name in ['FAILED', 'SUCCEEDED', 'UNAVAILABLE']
+    return self.name in ["FAILED", "SUCCEEDED", "UNAVAILABLE"]
 
   @classmethod
   def from_job_info(cls, job_info: V1Job) -> "JobStatus":

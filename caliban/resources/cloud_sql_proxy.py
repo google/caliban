@@ -42,9 +42,10 @@ logging.basicConfig(level=logging.INFO)
 # ----------------------------------------------------------------------------
 def _parser():
   parser = argparse.ArgumentParser(
-      description='cloud_sql_proxy wrapper that allows JSON configuration.',
-      prog='cloud_sql_proxy',
-      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    description="cloud_sql_proxy wrapper that allows JSON configuration.",
+    prog="cloud_sql_proxy",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+  )
 
   parser.add_argument("config", type=json.loads)
   return parser
@@ -56,34 +57,27 @@ def _parse_flags(argv):
 
 
 # ----------------------------------------------------------------------------
-def main(proxy="",
-         path="",
-         project="",
-         region="",
-         db="",
-         creds=None,
-         debug=False):
+def main(proxy="", path="", project="", region="", db="", creds=None, debug=False):
   cmd = [
-      proxy,
-      '-dir',
-      path,
-      '-instances',
-      f"{project}:{region}:{db}",
+    proxy,
+    "-dir",
+    path,
+    "-instances",
+    f"{project}:{region}:{db}",
   ]
 
   if not debug:
-    cmd.append('-quiet')
+    cmd.append("-quiet")
 
   env = copy.copy(dict(os.environ))
 
   if creds is not None:
-    env['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.abspath(
-        os.path.expanduser(creds))
+    env["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath(os.path.expanduser(creds))
 
   subprocess.check_call(cmd, env=env)
 
 
 # ----------------------------------------------------------------------------
-if __name__ == '__main__':
+if __name__ == "__main__":
   m = _parse_flags(sys.argv)
   main(**m.config)

@@ -30,8 +30,9 @@ def auth_access_token() -> Optional[str]:
 
   """
   try:
-    ret = check_output(['gcloud', 'auth', 'print-access-token'],
-                       encoding='utf8').rstrip()
+    ret = check_output(
+      ["gcloud", "auth", "print-access-token"], encoding="utf8"
+    ).rstrip()
     return ret if len(ret) > 0 else None
   except CalledProcessError:
     return None
@@ -47,13 +48,13 @@ def gcloud_auth_credentials() -> Optional[Credentials]:
     return Credentials(token)
 
 
-def gcloud_credentials(
-    credentials_path: Optional[str] = None) -> Optional[Credentials]:
+def gcloud_credentials(credentials_path: Optional[str] = None) -> Optional[Credentials]:
   credentials = None
 
   if credentials_path is not None:
     credentials = service_account.Credentials.from_service_account_file(
-        credentials_path)
+      credentials_path
+    )
   else:
     # attempt to fetch credentials acquired via `gcloud auth login`. If this
     # fails, the following API object will attempt to use application default

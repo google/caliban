@@ -29,16 +29,16 @@ import pytest
 
 
 def test_parse_job_mode():
-  assert c.JobMode.parse('CpU') == c.JobMode.CPU
-  assert c.JobMode.parse('cpu') == c.JobMode.CPU
-  assert c.JobMode.parse('cpU  ') == c.JobMode.CPU
+  assert c.JobMode.parse("CpU") == c.JobMode.CPU
+  assert c.JobMode.parse("cpu") == c.JobMode.CPU
+  assert c.JobMode.parse("cpU  ") == c.JobMode.CPU
 
-  assert c.JobMode.parse('  GpU') == c.JobMode.GPU
-  assert c.JobMode.parse('gpu') == c.JobMode.GPU
-  assert c.JobMode.parse('GPU') == c.JobMode.GPU
+  assert c.JobMode.parse("  GpU") == c.JobMode.GPU
+  assert c.JobMode.parse("gpu") == c.JobMode.GPU
+  assert c.JobMode.parse("GPU") == c.JobMode.GPU
 
   with pytest.raises(Exception):
-    c.JobMode.parse('random')
+    c.JobMode.parse("random")
 
 
 @given(st.text() | st.sampled_from(sorted(c.DLVM_CONFIG.keys())))
@@ -63,8 +63,8 @@ def test_extract_script_args():
   # Basic cases. If there are NO script args, or if the default is present,
   # they're passed back out.
   assert c.extract_script_args({}) is None
-  assert c.extract_script_args({'script_args': None}) is None
-  assert c.extract_script_args({'script_args': []}) == []
+  assert c.extract_script_args({"script_args": None}) is None
+  assert c.extract_script_args({"script_args": []}) == []
 
   args = ["--carrot", "stick"]
 
@@ -74,8 +74,8 @@ def test_extract_script_args():
 
 
 def test_extract_project_id(monkeypatch):
-  if os.environ.get('PROJECT_ID'):
-    monkeypatch.delenv('PROJECT_ID')
+  if os.environ.get("PROJECT_ID"):
+    monkeypatch.delenv("PROJECT_ID")
 
   # if NO project ID is specified on the environment OR in the supplied config,
   # the system attempts to exit.
@@ -86,20 +86,20 @@ def test_extract_project_id(monkeypatch):
   assert wrapped_e.value.code == 1
 
   # the project ID gets mirrored back if it exists in the config.
-  assert c.extract_project_id({'project_id': "face"}) == "face"
+  assert c.extract_project_id({"project_id": "face"}) == "face"
 
-  monkeypatch.setenv('PROJECT_ID', "env_id")
+  monkeypatch.setenv("PROJECT_ID", "env_id")
 
   # If the env variable is set it's returned:
-  assert c.extract_project_id({'project_id': None}) == "env_id"
+  assert c.extract_project_id({"project_id": None}) == "env_id"
 
   # Unless the project ID's set in the config.
-  assert c.extract_project_id({'project_id': "face"}) == "face"
+  assert c.extract_project_id({"project_id": "face"}) == "face"
 
 
 def test_extract_region(monkeypatch):
-  if os.environ.get('REGION'):
-    monkeypatch.delenv('REGION')
+  if os.environ.get("REGION"):
+    monkeypatch.delenv("REGION")
 
   assert c.extract_region({}) == c.DEFAULT_REGION
 
@@ -108,19 +108,19 @@ def test_extract_region(monkeypatch):
     c.extract_region({"region": "face"})
 
   # Same goes for the environment variable setting approach.
-  monkeypatch.setenv('REGION', "face")
+  monkeypatch.setenv("REGION", "face")
   with pytest.raises(ArgumentTypeError):
     c.extract_region({})
 
   # an empty string is fine, and ignored.
-  monkeypatch.setenv('REGION', "")
+  monkeypatch.setenv("REGION", "")
   assert c.extract_region({}) == c.DEFAULT_REGION
 
   assert c.extract_region({"region": "us-west1"}) == ct.US.west1
 
 
 def test_extract_cloud_key(monkeypatch):
-  k = 'GOOGLE_APPLICATION_CREDENTIALS'
+  k = "GOOGLE_APPLICATION_CREDENTIALS"
   if os.environ.get(k):
     monkeypatch.delenv(k)
 
@@ -144,16 +144,12 @@ def test_base_image():
   dlvm = c.CalibanConfig.validate({"base_image": "dlvm:pytorch-{}-1.4"})
 
   # If you leave a {} format block, base_image will splice in the job mode.
-  assert c.base_image(dlvm,
-                      c.JobMode.CPU) == c.DLVM_CONFIG["dlvm:pytorch-cpu-1.4"]
-  assert c.base_image(dlvm,
-                      c.JobMode.GPU) == c.DLVM_CONFIG["dlvm:pytorch-gpu-1.4"]
+  assert c.base_image(dlvm, c.JobMode.CPU) == c.DLVM_CONFIG["dlvm:pytorch-cpu-1.4"]
+  assert c.base_image(dlvm, c.JobMode.GPU) == c.DLVM_CONFIG["dlvm:pytorch-gpu-1.4"]
 
   conf = c.CalibanConfig.validate(
-      {"base_image": {
-          "cpu": "dlvm:tf2-{}-2.1",
-          "gpu": "random:latest"
-      }})
+    {"base_image": {"cpu": "dlvm:tf2-{}-2.1", "gpu": "random:latest"}}
+  )
 
   # Same trick works even nested in dicts. If the image is NOT a specially
   # keyed DLVM, it's untouched.
@@ -167,21 +163,21 @@ def test_caliban_config(tmpdir):
 
   """
   valid = {"apt_packages": {"cpu": ["face"]}}
-  valid_path = tmpdir.join('valid.json')
+  valid_path = tmpdir.join("valid.json")
 
-  with open(valid_path, 'w') as f:
+  with open(valid_path, "w") as f:
     json.dump(valid, f)
 
   valid_shared = {"apt_packages": ["face"]}
-  valid_shared_path = tmpdir.join('valid_shared.json')
+  valid_shared_path = tmpdir.join("valid_shared.json")
 
-  with open(valid_shared_path, 'w') as f:
+  with open(valid_shared_path, "w") as f:
     json.dump(valid_shared, f)
 
   invalid = {"apt_packages": "face"}
-  invalid_path = tmpdir.join('invalid.json')
+  invalid_path = tmpdir.join("invalid.json")
 
-  with open(invalid_path, 'w') as f:
+  with open(invalid_path, "w") as f:
     json.dump(invalid, f)
 
   # Failing the schema raises an error.
@@ -189,7 +185,7 @@ def test_caliban_config(tmpdir):
     c.caliban_config(invalid_path)
 
   # paths that don't exist return an empty map:
-  assert c.caliban_config('random_path') == {}
+  assert c.caliban_config("random_path") == {}
 
   # If the config is valid, c.apt_packages can fetch the packages we specified.
   config = c.caliban_config(valid_path)

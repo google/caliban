@@ -41,25 +41,28 @@ def _home_mount_cmds(enable_home_mount: bool) -> List[str]:
 
 
 def _interactive_opts(workdir: str) -> List[str]:
-  """Returns the basic arguments we want to run a docker process locally.
-
-  """
+  """Returns the basic arguments we want to run a docker process locally."""
   return [
-      "-w", workdir,
-      "-u", "{}:{}".format(os.getuid(), os.getgid()), \
-      "-v", "{}:{}".format(os.getcwd(), workdir) \
+    "-w",
+    workdir,
+    "-u",
+    "{}:{}".format(os.getuid(), os.getgid()),
+    "-v",
+    "{}:{}".format(os.getcwd(), workdir),
   ]
 
 
-def run_interactive(job_mode: c.JobMode,
-                    workdir: Optional[str] = None,
-                    image_id: Optional[str] = None,
-                    run_args: Optional[List[str]] = None,
-                    mount_home: Optional[bool] = None,
-                    shell: Optional[b.Shell] = None,
-                    entrypoint: Optional[str] = None,
-                    entrypoint_args: Optional[List[str]] = None,
-                    **build_image_kwargs) -> None:
+def run_interactive(
+  job_mode: c.JobMode,
+  workdir: Optional[str] = None,
+  image_id: Optional[str] = None,
+  run_args: Optional[List[str]] = None,
+  mount_home: Optional[bool] = None,
+  shell: Optional[b.Shell] = None,
+  entrypoint: Optional[str] = None,
+  entrypoint_args: Optional[List[str]] = None,
+  **build_image_kwargs,
+) -> None:
   """Start a live shell in the terminal, with all dependencies installed and the
   current working directory (and optionally the user's home directory) mounted.
 
@@ -99,15 +102,19 @@ def run_interactive(job_mode: c.JobMode,
   if entrypoint is None:
     entrypoint = b.SHELL_DICT[shell].executable
 
-  interactive_run_args = _interactive_opts(workdir) + [
-      "-it", \
-      "--entrypoint", entrypoint
-  ] + _home_mount_cmds(mount_home) + run_args
+  interactive_run_args = (
+    _interactive_opts(workdir)
+    + ["-it", "--entrypoint", entrypoint]
+    + _home_mount_cmds(mount_home)
+    + run_args
+  )
 
-  r.run(job_mode=job_mode,
-        run_args=interactive_run_args,
-        script_args=entrypoint_args,
-        image_id=image_id,
-        shell=shell,
-        workdir=workdir,
-        **build_image_kwargs)
+  r.run(
+    job_mode=job_mode,
+    run_args=interactive_run_args,
+    script_args=entrypoint_args,
+    image_id=image_id,
+    shell=shell,
+    workdir=workdir,
+    **build_image_kwargs,
+  )

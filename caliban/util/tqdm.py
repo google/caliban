@@ -31,8 +31,9 @@ t = Terminal()
 
 class TqdmFile(object):
   """Dummy file-like that will write to tqdm"""
+
   file = None
-  prefix = _term_move_up() + '\r'
+  prefix = _term_move_up() + "\r"
 
   def __init__(self, file):
     self.file = file
@@ -43,11 +44,11 @@ class TqdmFile(object):
       line = self.prefix + line
       self._carriage_pending = False
 
-    if line.endswith('\r'):
+    if line.endswith("\r"):
       self._carriage_pending = True
-      line = line[:-1] + '\n'
+      line = line[:-1] + "\n"
 
-    tqdm.tqdm.write(line, file=self.file, end='')
+    tqdm.tqdm.write(line, file=self.file, end="")
 
   def flush(self):
     return getattr(self.file, "flush", lambda: None)()
@@ -67,7 +68,7 @@ def config_logging():
 
   """
   h = logging.get_absl_handler()
-  old = h.python_handler
+  _old = h.python_handler
   h._python_handler = logging.PythonHandler(stream=TqdmFile(sys.stderr))
   logging.use_python_logging()
 

@@ -49,25 +49,26 @@ Experiment = Dict[str, ExpValue]
 
 
 def _is_compound_key(s: Any) -> bool:
-  """ compound key is defined as a string which uses square brackets to enclose
+  """compound key is defined as a string which uses square brackets to enclose
   a comma-separated list, e.g. "[batch_size,learning_rate]" or "[a,b,c]"
   """
 
-  if type(s) is not str or len(s) <= 2:
+  if (not isinstance(s, str)) or len(s) <= 2:
     return False
   else:
-    return s[0] == '[' and s[-1] == ']'
+    return s[0] == "[" and s[-1] == "]"
 
 
 def _tupleize_compound_key(k: str) -> List[str]:
-  """ converts a JSON-input compound key into a tuple """
+  """converts a JSON-input compound key into a tuple"""
   assert _is_compound_key(k), "{} must be a valid compound key".format(k)
-  return tuple([x.strip() for x in k.strip('][').split(',')])
+  return tuple([x.strip() for x in k.strip("][").split(",")])
 
 
 def _tupleize_compound_value(
-    v: Union[List, bool, str, int, float]) -> Union[List, Tuple]:
-  """ list of lists -> list of tuples
+  v: Union[List, bool, str, int, float],
+) -> Union[List, Tuple]:
+  """list of lists -> list of tuples
       list of primitives -> tuple of primitives
       single primitive -> length-1 tuple of that primitive
 
@@ -88,7 +89,7 @@ def _tupleize_compound_value(
 
 
 def _tupleize_compound_item(k: Union[Tuple, str], v: Any) -> Dict:
-  """ converts a JSON-input compound key/value pair into a dictionary of tuples """
+  """converts a JSON-input compound key/value pair into a dictionary of tuples"""
   if _is_compound_key(k):
     return {_tupleize_compound_key(k): _tupleize_compound_value(v)}
   else:
@@ -96,7 +97,7 @@ def _tupleize_compound_item(k: Union[Tuple, str], v: Any) -> Dict:
 
 
 def tupleize_dict(m: Dict) -> Dict:
-  """ given a dictionary with compound keys, converts those keys to tuples, and
+  """given a dictionary with compound keys, converts those keys to tuples, and
   converts the corresponding values to a tuple or list of tuples
 
   Compound key: a string which uses square brackets to enclose
@@ -108,17 +109,18 @@ def tupleize_dict(m: Dict) -> Dict:
 
 
 def _expand_compound_pair(k: Union[Tuple, str], v: Any) -> Dict:
-  """ given a key-value pair k v, where k is either:
-      a) a primitive representing a single, e.g. k = 'key', v = 'value', or
-      b) a tuple of primitives representing multiple keys, e.g. k = ('key1','key2'), v = ('value1', 'value2')
-      this function returns the corresponding dictionary without compound keys
+  """given a key-value pair k v, where k is either:
+  a) a primitive representing a single, e.g. k = 'key', v = 'value', or
+  b) a tuple of primitives representing multiple keys, e.g. k = ('key1','key2'), v = ('value1', 'value2')
+  this function returns the corresponding dictionary without compound keys
   """
 
   if isinstance(k, tuple):
     if not isinstance(v, tuple):
       raise argparse.ArgumentTypeError(
-          """function _expand_compound_pair(k, v) requires that if type(k) is tuple,
-             type(v) must also be tuple.""")
+        """function _expand_compound_pair(k, v) requires that if type(k) is tuple,
+             type(v) must also be tuple."""
+      )
     else:
       return dict(zip(k, v))
   else:
@@ -126,7 +128,7 @@ def _expand_compound_pair(k: Union[Tuple, str], v: Any) -> Dict:
 
 
 def expand_compound_dict(m: Union[Dict, List]) -> Union[Dict, List]:
-  """ given a dictionary with some compound keys, aka tuples,
+  """given a dictionary with some compound keys, aka tuples,
   returns a dictionary which each compound key separated into primitives
 
   given a list of such dictionaries, will apply the transformation
@@ -142,13 +144,11 @@ def expand_compound_dict(m: Union[Dict, List]) -> Union[Dict, List]:
 
 
 def expand_experiment_config(items: ExpConf) -> List[Experiment]:
-  """Expand out the experiment config for job submission to Cloud.
-
-  """
+  """Expand out the experiment config for job submission to Cloud."""
   if isinstance(items, list):
     return list(
-        itertools.chain.from_iterable(
-            [expand_experiment_config(m) for m in items]))
+      itertools.chain.from_iterable([expand_experiment_config(m) for m in items])
+    )
 
   tupleized_items = tupleize_dict(items)
   return [expand_compound_dict(d) for d in u.dict_product(tupleized_items)]
@@ -169,44 +169,56 @@ def validate_compound_keys(m: ExpConf) -> ExpConf:
   def check_k(k):
     if not isinstance(k, str):
       raise argparse.ArgumentTypeError(
-          "Key '{}' is invalid! Keys must be strings.".format(k))
+        "Key '{}' is invalid! Keys must be strings.".format(k)
+      )
 
     valid_re_str = "[^\s\,\]\[]+"
-    list_re = re.compile('\A({}|\[\s*({})(\s*,\s*{})*\s*\])\Z'.format(
-        valid_re_str, valid_re_str, valid_re_str))
+    list_re = re.compile(
+      "\A({}|\[\s*({})(\s*,\s*{})*\s*\])\Z".format(
+        valid_re_str, valid_re_str, valid_re_str
+      )
+    )
 
     if list_re.match(k) is None:
       raise argparse.ArgumentTypeError(
-          "Key '{}' is invalid! Not a valid compound key.".format(k))
+        "Key '{}' is invalid! Not a valid compound key.".format(k)
+      )
 
   def check_v(v):
     types = [list, bool, str, int, float]
     if not any(map(lambda t: isinstance(v, t), types)):
-      raise argparse.ArgumentTypeError("Value '{}' in the expanded \
+      raise argparse.ArgumentTypeError(
+        "Value '{}' in the expanded \
     experiment config '{}' is invalid! Values must be strings, \
-    lists, ints, floats or bools.".format(v, m))
+    lists, ints, floats or bools.".format(v, m)
+      )
 
   def check_kv_compatibility(k, v):
-    """ For already validated k and v, check that
+    """For already validated k and v, check that
     if k is a compound key, the number of arguments in each sublist must match the
-    number of arguments in k """
+    number of arguments in k"""
 
-    if k[0] == '[':
-      n_args = len(k.strip('][').split(','))
+    if k[0] == "[":
+      n_args = len(k.strip("][").split(","))
       if not (isinstance(v, list)):
         raise argparse.ArgumentTypeError(
-            "Key '{}' and value '{}' are incompatible: \
-                key is compound, but value is not.".format(k, v))
+          "Key '{}' and value '{}' are incompatible: \
+                key is compound, but value is not.".format(k, v)
+        )
       else:
         if isinstance(v[0], list):
           for vi in v:
             if len(vi) != n_args:
-              raise argparse.ArgumentTypeError("Key '{}' and value '{}' have \
-                              incompatible arities.".format(k, vi))
+              raise argparse.ArgumentTypeError(
+                "Key '{}' and value '{}' have \
+                              incompatible arities.".format(k, vi)
+              )
         else:
           if len(v) != n_args:
-            raise argparse.ArgumentTypeError("Key '{}' and value '{}' have \
-                            incompatible arities.".format(k, v))
+            raise argparse.ArgumentTypeError(
+              "Key '{}' and value '{}' have \
+                            incompatible arities.".format(k, v)
+            )
 
   if isinstance(m, list):
     return [validate_compound_keys(i) for i in m]
@@ -236,12 +248,15 @@ def validate_expansion(m: Expansion) -> Expansion:
   for k, v in m.items():
     if not valid_k(k):
       raise argparse.ArgumentTypeError(
-          "Key '{}' is invalid! Keys must be strings.".format(k))
+        "Key '{}' is invalid! Keys must be strings.".format(k)
+      )
 
     if not valid_v(v):
-      raise argparse.ArgumentTypeError("Value '{}' in the expanded \
+      raise argparse.ArgumentTypeError(
+        "Value '{}' in the expanded \
 experiment config '{}' is invalid! Values must be strings, \
-lists, ints, floats or bools.".format(v, m))
+lists, ints, floats or bools.".format(v, m)
+      )
 
   return m
 
@@ -256,8 +271,10 @@ def validate_experiment_config(items: ExpConf) -> ExpConf:
   if isinstance(items, list) or isinstance(items, dict):
     validate_compound_keys(items)
   else:
-    raise argparse.ArgumentTypeError("The experiment config is invalid! \
-    The JSON file must contain either a dict or a list.")
+    raise argparse.ArgumentTypeError(
+      "The experiment config is invalid! \
+    The JSON file must contain either a dict or a list."
+    )
 
   for item in expand_experiment_config(items):
     validate_expansion(item)
@@ -265,7 +282,7 @@ def validate_experiment_config(items: ExpConf) -> ExpConf:
 
 
 def load_experiment_config(s):
-  if isinstance(s, str) and s.lower() == 'stdin':
+  if isinstance(s, str) and s.lower() == "stdin":
     json = commentjson.load(sys.stdin)
   else:
     json = ua.argparse_schema(us.Json)(s)
@@ -273,8 +290,7 @@ def load_experiment_config(s):
   return validate_experiment_config(json)
 
 
-def experiment_to_args(m: Experiment,
-                       base: Optional[List[str]] = None) -> List[str]:
+def experiment_to_args(m: Experiment, base: Optional[List[str]] = None) -> List[str]:
   """Returns the list of flag keys and values that corresponds to the supplied
   experiment.
 

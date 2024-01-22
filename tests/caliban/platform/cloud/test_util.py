@@ -53,7 +53,7 @@ def assert_valid_label(label):
   if label != "":
     # check that the output has only lowercase, letters, dashes or
     # underscores.
-    assert re.match('^[a-z0-9_-]+$', label)
+    assert re.match("^[a-z0-9_-]+$", label)
 
 
 def assert_valid_key_label(k):
@@ -92,29 +92,31 @@ def test_script_args_to_labels():
 
   # Args like --!!! that parse keys to the empty string should not make it
   # through.
-  assert_script_args_to_labels("--lr 1 --!!! 2 --face 3", {
-      "lr": "1",
-      "face": "3"
-  })
+  assert_script_args_to_labels("--lr 1 --!!! 2 --face 3", {"lr": "1", "face": "3"})
 
   # Duplicates get overwritten.
   assert_script_args_to_labels("--lr 1 --lr 2", {"lr": "2"})
 
-  assert_script_args_to_labels("--LR 1 --item-label --fa!!ce cake --a", {
+  assert_script_args_to_labels(
+    "--LR 1 --item-label --fa!!ce cake --a",
+    {
       "lr": "1",
       "item-label": "",
       "face": "cake",
       "a": "",
-  })
+    },
+  )
 
   # Multiple values are dropped for now, for the purpose of creating labels.
-  assert_script_args_to_labels("--lr 1 2 3 --item_underscoRE!! --face cake --a",
-                               {
-                                   "lr": "1",
-                                   "item_underscore": "",
-                                   "face": "cake",
-                                   "a": "",
-                               })
+  assert_script_args_to_labels(
+    "--lr 1 2 3 --item_underscoRE!! --face cake --a",
+    {
+      "lr": "1",
+      "item_underscore": "",
+      "face": "cake",
+      "a": "",
+    },
+  )
 
   assert_script_args_to_labels("--face", {"face": ""})
 
@@ -127,9 +129,7 @@ def test_sanitize_labels_kill_empty():
   assert {} == u.sanitize_labels([["--!!", "face"]])
 
 
-@given(
-    st.one_of(non_empty_dict(st.text()),
-              st.lists(st.tuples(st.text(), st.text()))))
+@given(st.one_of(non_empty_dict(st.text()), st.lists(st.tuples(st.text(), st.text()))))
 def test_sanitize_labels(pairs):
   """Test that any input we could possibly be provided, as long as it parses into
   kv pairs, will only make it into a dict of labels if it's properly

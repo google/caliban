@@ -36,7 +36,7 @@ import caliban.platform.run as pr
 import caliban.platform.shell as ps
 import caliban.util.schema as cs
 
-ll.getLogger('caliban.main').setLevel(logging.ERROR)
+ll.getLogger("caliban.main").setLevel(logging.ERROR)
 t = Terminal()
 
 
@@ -58,40 +58,44 @@ def run_app(arg_input):
   docker_run_args = args.get("docker_run_args", [])
 
   if command == "shell":
-    mount_home = not args['bare']
+    mount_home = not args["bare"]
     image_id = args.get("image_id")
-    shell = args['shell']
-    ps.run_interactive(job_mode,
-                       image_id=image_id,
-                       run_args=docker_run_args,
-                       mount_home=mount_home,
-                       shell=shell,
-                       **docker_args)
+    shell = args["shell"]
+    ps.run_interactive(
+      job_mode,
+      image_id=image_id,
+      run_args=docker_run_args,
+      mount_home=mount_home,
+      shell=shell,
+      **docker_args,
+    )
 
   elif command == "notebook":
     port = args.get("port")
     lab = args.get("lab")
     version = args.get("jupyter_version")
-    mount_home = not args['bare']
-    pn.run_notebook(job_mode,
-                    port=port,
-                    lab=lab,
-                    version=version,
-                    run_args=docker_run_args,
-                    mount_home=mount_home,
-                    **docker_args)
+    mount_home = not args["bare"]
+    pn.run_notebook(
+      job_mode,
+      port=port,
+      lab=lab,
+      version=version,
+      run_args=docker_run_args,
+      mount_home=mount_home,
+      **docker_args,
+    )
 
   elif command == "build":
     package = args["module"]
     b.build_image(job_mode, package=package, **docker_args)
 
-  elif command == 'status':
+  elif command == "status":
     caliban.history.cli.get_status(args)
 
-  elif command == 'stop':
+  elif command == "stop":
     caliban.history.cli.stop(args)
 
-  elif command == 'resubmit':
+  elif command == "resubmit":
     caliban.history.cli.resubmit(args)
 
   elif command == "run":
@@ -99,17 +103,19 @@ def run_app(arg_input):
     package = args["module"]
     image_id = args.get("image_id")
     exp_config = args.get("experiment_config")
-    xgroup = args.get('xgroup')
+    xgroup = args.get("xgroup")
 
-    pr.run_experiments(job_mode,
-                       run_args=docker_run_args,
-                       script_args=script_args,
-                       image_id=image_id,
-                       experiment_config=exp_config,
-                       dry_run=dry_run,
-                       package=package,
-                       xgroup=xgroup,
-                       **docker_args)
+    pr.run_experiments(
+      job_mode,
+      run_args=docker_run_args,
+      script_args=script_args,
+      image_id=image_id,
+      experiment_config=exp_config,
+      dry_run=dry_run,
+      package=package,
+      xgroup=xgroup,
+      **docker_args,
+    )
 
   elif command == "cloud":
     project_id = c.extract_project_id(args)
@@ -125,27 +131,27 @@ def run_app(arg_input):
     machine_type = args.get("machine_type")
     exp_config = args.get("experiment_config")
     labels = cu.sanitize_labels(args.get("label") or [])
-    xgroup = args.get('xgroup')
+    xgroup = args.get("xgroup")
 
     # Arguments to internally build the image required to submit to Cloud.
     docker_m = {"job_mode": job_mode, "package": package, **docker_args}
 
     cloud.submit_ml_job(
-        job_mode=job_mode,
-        docker_args=docker_m,
-        region=region,
-        project_id=project_id,
-        credentials_path=cloud_key,
-        dry_run=dry_run,
-        job_name=job_name,
-        machine_type=machine_type,
-        gpu_spec=gpu_spec,
-        tpu_spec=tpu_spec,
-        image_tag=image_tag,
-        labels=labels,
-        script_args=script_args,
-        experiment_config=exp_config,
-        xgroup=xgroup,
+      job_mode=job_mode,
+      docker_args=docker_m,
+      region=region,
+      project_id=project_id,
+      credentials_path=cloud_key,
+      dry_run=dry_run,
+      job_name=job_name,
+      machine_type=machine_type,
+      gpu_spec=gpu_spec,
+      tpu_spec=tpu_spec,
+      image_tag=image_tag,
+      labels=labels,
+      script_args=script_args,
+      experiment_config=exp_config,
+      xgroup=xgroup,
     )
   else:
     logging.info("Unknown command: {}".format(command))
@@ -158,7 +164,7 @@ def main():
     with cs.fatal_errors():
       app.run(run_app, flags_parser=cli.parse_flags)
   except KeyboardInterrupt:
-    logging.info('Shutting down.')
+    logging.info("Shutting down.")
     sys.exit(0)
   except b.DockerError as e:
     # Handle a failed Docker command.
@@ -167,5 +173,5 @@ def main():
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   main()

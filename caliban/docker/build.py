@@ -88,8 +88,7 @@ class Shell(Enum):
 
 # Tuple to track the information required to install and execute some custom
 # shell into a container.
-ShellData = NamedTuple("ShellData", [("executable", str),
-                                     ("packages", List[str])])
+ShellData = NamedTuple("ShellData", [("executable", str), ("packages", List[str])])
 
 
 def apt_install(*packages: str) -> str:
@@ -112,11 +111,11 @@ def apt_command(commands: List[str]) -> List[str]:
 
 
 def copy_command(
-    user_id: int,
-    user_group: int,
-    from_path: str,
-    to_path: str,
-    comment: Optional[str] = None,
+  user_id: int,
+  user_group: int,
+  from_path: str,
+  to_path: str,
+  comment: Optional[str] = None,
 ) -> str:
   """Generates a Dockerfile entry that will copy the file at the directory-local
   from_path into the container at to_path.
@@ -140,8 +139,8 @@ def copy_command(
 #
 # : Dict[Shell, ShellData]
 SHELL_DICT = {
-    Shell.bash: ShellData("/bin/bash", []),
-    Shell.zsh: ShellData("/bin/zsh", ["zsh"]),
+  Shell.bash: ShellData("/bin/bash", []),
+  Shell.zsh: ShellData("/bin/zsh", ["zsh"]),
 }
 
 
@@ -167,8 +166,7 @@ def adc_location(home_dir: Optional[str] = None) -> str:
   if home_dir is None:
     home_dir = Path.home()
 
-  return "{}/.config/gcloud/application_default_credentials.json".format(
-      home_dir)
+  return "{}/.config/gcloud/application_default_credentials.json".format(home_dir)
 
 
 def container_home():
@@ -188,8 +186,10 @@ def tf_base_image(job_mode: c.JobMode, tensorflow_version: str) -> str:
 
   """
   if tensorflow_version not in TF_VERSIONS:
-    raise Exception("""{} is not a valid tensorflow version.
-    Try one of: {}""".format(tensorflow_version, TF_VERSIONS))
+    raise Exception(
+      """{} is not a valid tensorflow version.
+    Try one of: {}""".format(tensorflow_version, TF_VERSIONS)
+    )
 
   gpu = "-gpu" if c.gpu(job_mode) else ""
   return "tensorflow/tensorflow:{}{}-py3".format(tensorflow_version, gpu)
@@ -218,8 +218,9 @@ def extras_string(extras: List[str]) -> str:
   return ret
 
 
-def base_extras(job_mode: c.JobMode, path: str,
-                extras: Optional[List[str]]) -> Optional[List[str]]:
+def base_extras(
+  job_mode: c.JobMode, path: str, extras: Optional[List[str]]
+) -> Optional[List[str]]:
   """Returns None if the supplied path doesn't exist (it's assumed it points to a
   setup.py file).
 
@@ -238,12 +239,12 @@ def base_extras(job_mode: c.JobMode, path: str,
 
 
 def _dependency_entries(
-    workdir: str,
-    user_id: int,
-    user_group: int,
-    requirements_path: Optional[str] = None,
-    conda_env_path: Optional[str] = None,
-    setup_extras: Optional[List[str]] = None,
+  workdir: str,
+  user_id: int,
+  user_group: int,
+  requirements_path: Optional[str] = None,
+  conda_env_path: Optional[str] = None,
+  setup_extras: Optional[List[str]] = None,
 ) -> str:
   """Returns the Dockerfile entries required to install dependencies from either:
 
@@ -285,9 +286,9 @@ RUN /bin/bash -c "pip install --no-cache-dir -r {requirements_path}"
 
 
 def _cloud_sql_proxy_entry(
-    user_id: int,
-    user_group: int,
-    caliban_config: Optional[Dict[str, Any]] = None,
+  user_id: int,
+  user_group: int,
+  caliban_config: Optional[Dict[str, Any]] = None,
 ) -> str:
   """returns dockerfile entry to fetch cloud_sql_proxy, installing in /usr/bin.
 
@@ -329,12 +330,14 @@ def _generate_entrypoint(executable: str) -> str:
   string with Dockerfile directives to set ENTRYPOINT
 
   """
-  launcher_cmd = json.dumps([
+  launcher_cmd = json.dumps(
+    [
       "python",
       os.path.join(RESOURCE_DIR, um.LAUNCHER_SCRIPT),
       "--caliban_command",
       executable,
-  ])
+    ]
+  )
 
   return f"""
 ENTRYPOINT {launcher_cmd}
@@ -342,11 +345,11 @@ ENTRYPOINT {launcher_cmd}
 
 
 def _package_entries(
-    workdir: str,
-    user_id: int,
-    user_group: int,
-    package: u.Package,
-    caliban_config: Optional[Dict[str, Any]] = None,
+  workdir: str,
+  user_id: int,
+  user_group: int,
+  package: u.Package,
+  caliban_config: Optional[Dict[str, Any]] = None,
 ) -> str:
   """Returns the Dockerfile entries required to:
 
@@ -362,16 +365,16 @@ def _package_entries(
   arg = package.main_module or package.script_path
   package_path = package.package_path
 
-  sql_proxy_code = _cloud_sql_proxy_entry(user_id,
-                                          user_group,
-                                          caliban_config=caliban_config)
+  sql_proxy_code = _cloud_sql_proxy_entry(
+    user_id, user_group, caliban_config=caliban_config
+  )
 
   copy_code = copy_command(
-      user_id,
-      user_group,
-      package_path,
-      f"{workdir}/{package_path}",
-      comment="Copy project code into the docker container.",
+    user_id,
+    user_group,
+    package_path,
+    f"{workdir}/{package_path}",
+    comment="Copy project code into the docker container.",
   )
 
   # This needs to use json so that quotes print as double quotes, not single
@@ -389,11 +392,11 @@ def _package_entries(
 
 
 def _service_account_entry(
-    user_id: int,
-    user_group: int,
-    credentials_path: str,
-    docker_credentials_dir: str,
-    write_adc_placeholder: bool,
+  user_id: int,
+  user_group: int,
+  credentials_path: str,
+  docker_credentials_dir: str,
+  write_adc_placeholder: bool,
 ):
   """Generates the Dockerfile entries required to transfer a set of Cloud service
   account credentials into the Docker container.
@@ -434,16 +437,15 @@ def _adc_entry(user_id: int, user_group: int, adc_path: str):
   directory.
 
   """
-  return copy_command(user_id, user_group, adc_path,
-                      adc_location(container_home()))
+  return copy_command(user_id, user_group, adc_path, adc_location(container_home()))
 
 
 def _credentials_entries(
-    user_id: int,
-    user_group: int,
-    adc_path: Optional[str],
-    credentials_path: Optional[str],
-    docker_credentials_dir: Optional[str] = None,
+  user_id: int,
+  user_group: int,
+  adc_path: Optional[str],
+  credentials_path: Optional[str],
+  docker_credentials_dir: Optional[str] = None,
 ) -> str:
   """Returns the Dockerfile entries necessary to copy a user's Cloud credentials
   into the Docker container.
@@ -462,11 +464,11 @@ def _credentials_entries(
   ret = ""
   if credentials_path is not None:
     ret += _service_account_entry(
-        user_id,
-        user_group,
-        credentials_path,
-        docker_credentials_dir,
-        write_adc_placeholder=adc_path is None,
+      user_id,
+      user_group,
+      credentials_path,
+      docker_credentials_dir,
+      write_adc_placeholder=adc_path is None,
     )
 
   if adc_path is not None:
@@ -494,10 +496,10 @@ RUN pip install {}{}
 
 
 def _custom_packages(
-    user_id: int,
-    user_group: int,
-    packages: Optional[List[str]] = None,
-    shell: Optional[Shell] = None,
+  user_id: int,
+  user_group: int,
+  packages: Optional[List[str]] = None,
+  shell: Optional[Shell] = None,
 ) -> str:
   """Returns the Dockerfile entries necessary to install custom dependencies for
   the supplied shell and sequence of aptitude packages.
@@ -521,34 +523,34 @@ USER root
 RUN {commands}
 
 USER {user_id}:{user_group}
-""".format_map({
+""".format_map(
+      {
         "commands": " && ".join(commands),
         "user_id": user_id,
         "user_group": user_group,
-    })
+      }
+    )
 
   return ret
 
 
-def _copy_dir_entry(workdir: str, user_id: int, user_group: int,
-                    dirname: str) -> str:
+def _copy_dir_entry(workdir: str, user_id: int, user_group: int, dirname: str) -> str:
   """Returns the Dockerfile entry necessary to copy a single extra subdirectory
   from the current directory into a docker container during build.
 
   """
   return copy_command(
-      user_id,
-      user_group,
-      dirname,
-      f"{workdir}/{dirname}",
-      comment=f"Copy {dirname} into the Docker container.",
+    user_id,
+    user_group,
+    dirname,
+    f"{workdir}/{dirname}",
+    comment=f"Copy {dirname} into the Docker container.",
   )
 
 
-def _extra_dir_entries(workdir: str,
-                       user_id: int,
-                       user_group: int,
-                       extra_dirs: Optional[List[str]] = None) -> str:
+def _extra_dir_entries(
+  workdir: str, user_id: int, user_group: int, extra_dirs: Optional[List[str]] = None
+) -> str:
   """Returns the Dockerfile entries necessary to copy all directories in the
   extra_dirs list into a docker container during build.
 
@@ -563,10 +565,10 @@ def _extra_dir_entries(workdir: str,
 
 
 def _resource_entries(
-    uid: int,
-    gid: int,
-    resource_files: Optional[List[str]] = None,
-    resource_dir: str = RESOURCE_DIR,
+  uid: int,
+  gid: int,
+  resource_files: Optional[List[str]] = None,
+  resource_dir: str = RESOURCE_DIR,
 ) -> str:
   """Returns Dockerfile entries necessary to copy miscellaneous resource files
   into container. Usually these files are staged in the working directory, so
@@ -594,20 +596,20 @@ def _resource_entries(
 
 
 def _dockerfile_template(
-    job_mode: c.JobMode,
-    workdir: Optional[str] = None,
-    package: Optional[Union[List, u.Package]] = None,
-    requirements_path: Optional[str] = None,
-    conda_env_path: Optional[str] = None,
-    setup_extras: Optional[List[str]] = None,
-    adc_path: Optional[str] = None,
-    credentials_path: Optional[str] = None,
-    jupyter_version: Optional[str] = None,
-    inject_notebook: NotebookInstall = NotebookInstall.none,
-    shell: Optional[Shell] = None,
-    extra_dirs: Optional[List[str]] = None,
-    resource_files: Optional[List[str]] = None,
-    caliban_config: Optional[Dict[str, Any]] = None,
+  job_mode: c.JobMode,
+  workdir: Optional[str] = None,
+  package: Optional[Union[List, u.Package]] = None,
+  requirements_path: Optional[str] = None,
+  conda_env_path: Optional[str] = None,
+  setup_extras: Optional[List[str]] = None,
+  adc_path: Optional[str] = None,
+  credentials_path: Optional[str] = None,
+  jupyter_version: Optional[str] = None,
+  inject_notebook: NotebookInstall = NotebookInstall.none,
+  shell: Optional[Shell] = None,
+  extra_dirs: Optional[List[str]] = None,
+  resource_files: Optional[List[str]] = None,
+  caliban_config: Optional[Dict[str, Any]] = None,
 ) -> str:
   """Returns a Dockerfile that builds on a local CPU or GPU base image (depending
   on the value of job_mode) to create a container that:
@@ -659,24 +661,21 @@ WORKDIR {workdir}
 
 USER {uid}:{gid}
 """
-  dockerfile += _credentials_entries(uid,
-                                     gid,
-                                     adc_path=adc_path,
-                                     credentials_path=credentials_path)
+  dockerfile += _credentials_entries(
+    uid, gid, adc_path=adc_path, credentials_path=credentials_path
+  )
 
-  dockerfile += _custom_packages(uid,
-                                 gid,
-                                 packages=c.apt_packages(
-                                     caliban_config, job_mode),
-                                 shell=shell)
+  dockerfile += _custom_packages(
+    uid, gid, packages=c.apt_packages(caliban_config, job_mode), shell=shell
+  )
 
   dockerfile += _dependency_entries(
-      workdir,
-      uid,
-      gid,
-      requirements_path=requirements_path,
-      conda_env_path=conda_env_path,
-      setup_extras=setup_extras,
+    workdir,
+    uid,
+    gid,
+    requirements_path=requirements_path,
+    conda_env_path=conda_env_path,
+    setup_extras=setup_extras,
   )
 
   if inject_notebook.value != "none":
@@ -695,12 +694,12 @@ USER {uid}:{gid}
 
 
 def build_image(
-    job_mode: c.JobMode,
-    build_path: str,
-    credentials_path: Optional[str] = None,
-    adc_path: Optional[str] = None,
-    no_cache: bool = False,
-    **kwargs,
+  job_mode: c.JobMode,
+  build_path: str,
+  credentials_path: Optional[str] = None,
+  adc_path: Optional[str] = None,
+  no_cache: bool = False,
+  **kwargs,
 ) -> str:
   """Builds a Docker image by generating a Dockerfile and passing it to `docker
   build` via stdin. All output from the `docker build` process prints to
@@ -717,34 +716,37 @@ def build_image(
   sql_proxy_path = um.cloud_sql_proxy_path()
   launcher_path = um.launcher_path()
 
-  with ufs.TempCopy({
+  with ufs.TempCopy(
+    {
       credentials_path: ".caliban_default_creds.json",
       adc_path: ".caliban_adc_creds.json",
       sql_proxy_path: um.CLOUD_SQL_WRAPPER_SCRIPT,
       launcher_path: um.LAUNCHER_SCRIPT,
-  }) as creds:
-
+    }
+  ) as creds:
     with tempfile.NamedTemporaryFile() as id_file:
-
       # generate our launcher configuration file
       with um.launcher_config_file(
-          path=".", caliban_config=caliban_config) as launcher_config:
-
+        path=".", caliban_config=caliban_config
+      ) as launcher_config:
         cache_args = ["--no-cache"] if no_cache else []
-        cmd = ["docker", "build", "--platform", "linux/amd64"] + cache_args + \
-          ["--iidfile", id_file.name] + \
-          ["--rm", "-f-", build_path]
+        cmd = (
+          ["docker", "build", "--platform", "linux/amd64"]
+          + cache_args
+          + ["--iidfile", id_file.name]
+          + ["--rm", "-f-", build_path]
+        )
 
         dockerfile = _dockerfile_template(
-            job_mode,
-            credentials_path=creds.get(credentials_path),
-            adc_path=creds.get(adc_path),
-            resource_files=[
-                creds.get(sql_proxy_path),
-                creds.get(launcher_path),
-                launcher_config,
-            ],
-            **kwargs,
+          job_mode,
+          credentials_path=creds.get(credentials_path),
+          adc_path=creds.get(adc_path),
+          resource_files=[
+            creds.get(sql_proxy_path),
+            creds.get(launcher_path),
+            launcher_config,
+          ],
+          **kwargs,
         )
 
         joined_cmd = " ".join(cmd)

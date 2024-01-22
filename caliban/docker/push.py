@@ -24,9 +24,9 @@ import subprocess
 from absl import logging
 
 
-def _image_tag_for_project(project_id: str,
-                           image_id: str,
-                           include_tag: bool = True) -> str:
+def _image_tag_for_project(
+  project_id: str, image_id: str, include_tag: bool = True
+) -> str:
   """Generate the GCR Docker image tag for the supplied pair of project_id and
   image_id.
 
@@ -47,8 +47,13 @@ def _gcr_list_tags(project_id: str, image_id: str):
   """
   image_tag = _image_tag_for_project(project_id, image_id, include_tag=False)
   cmd = [
-      "gcloud", "container", "images", "list-tags", f"--project={project_id}",
-      "--format=json", image_tag
+    "gcloud",
+    "container",
+    "images",
+    "list-tags",
+    f"--project={project_id}",
+    "--format=json",
+    image_tag,
   ]
   return json.loads(subprocess.check_output(cmd))
 
@@ -72,8 +77,7 @@ def push_uuid_tag(project_id: str, image_id: str, force: bool = False) -> str:
   def missing_remotely():
     missing = not gcr_image_pushed(project_id, image_id)
     if not missing:
-      logging.info(
-          f"Skipping docker push, as {image_tag} already exists remotely.")
+      logging.info(f"Skipping docker push, as {image_tag} already exists remotely.")
     return missing
 
   if force or missing_remotely():

@@ -31,9 +31,15 @@ from blessings import Terminal
 
 t = Terminal()
 
-Package = NamedTuple("Package", [("executable", List[str]),
-                                 ("package_path", str), ("script_path", str),
-                                 ("main_module", Optional[str])])
+Package = NamedTuple(
+  "Package",
+  [
+    ("executable", List[str]),
+    ("package_path", str),
+    ("script_path", str),
+    ("main_module", Optional[str]),
+  ],
+)
 
 
 def file_exists_in_cwd(path: str) -> bool:
@@ -57,19 +63,18 @@ def module_package(main_module: str) -> Package:
   """
   script_path = module_to_path(main_module)
   root = extract_root_directory(script_path)
-  return Package(["python", "-m"],
-                 package_path=root,
-                 script_path=script_path,
-                 main_module=main_module)
+  return Package(
+    ["python", "-m"],
+    package_path=root,
+    script_path=script_path,
+    main_module=main_module,
+  )
 
 
 def script_package(path: str, executable: str = "/bin/bash") -> Package:
   """Generates a Package instance for a non-python-module executable."""
   root = extract_root_directory(path)
-  return Package([executable],
-                 package_path=root,
-                 script_path=path,
-                 main_module=None)
+  return Package([executable], package_path=root, script_path=path, main_module=None)
 
 
 def path_to_module(path_str: str) -> str:
@@ -84,9 +89,9 @@ def module_to_path(module_name: str) -> str:
   return module_name.replace(".", os.path.sep) + ".py"
 
 
-def generate_package(path: str,
-                     executable: Optional[List[str]] = None,
-                     main_module: Optional[str] = None) -> Package:
+def generate_package(
+  path: str, executable: Optional[List[str]] = None, main_module: Optional[str] = None
+) -> Package:
   """Takes in a string and generates a package instance that we can use for
   imports.
   """
@@ -98,9 +103,11 @@ def generate_package(path: str,
     module_path = module_to_path(path)
 
     if file_exists_in_cwd(module_path):
-      return generate_package(module_path,
-                              executable=["python", "-m"],
-                              main_module=path_to_module(module_path))
+      return generate_package(
+        module_path,
+        executable=["python", "-m"],
+        main_module=path_to_module(module_path),
+      )
 
   root = extract_root_directory(path)
   return Package(executable, root, path, main_module)
@@ -138,8 +145,7 @@ class TempCopy(object):
 
   """
 
-  def __init__(self,
-               mapping: Optional[Dict[Optional[str], Optional[str]]] = None):
+  def __init__(self, mapping: Optional[Dict[Optional[str], Optional[str]]] = None):
     if mapping is None:
       mapping = {}
 
@@ -154,9 +160,10 @@ class TempCopy(object):
     """
     return self._written is not None
 
-  def _sanitize_pair(self, src: Optional[str],
-                     dst: Optional[str]) -> List[Tuple[str, str]]:
-    """ If the source isn't none, returns a singleton with a pair of (from
+  def _sanitize_pair(
+    self, src: Optional[str], dst: Optional[str]
+  ) -> List[Tuple[str, str]]:
+    """If the source isn't none, returns a singleton with a pair of (from
     path, to_path). Else, returns []."""
 
     if src is None:
@@ -165,7 +172,8 @@ class TempCopy(object):
     return [(src, dst or str(uuid.uuid1()))]
 
   def _sanitize_entries(
-      self, mapping: Dict[Optional[str], Optional[str]]) -> Dict[str, str]:
+    self, mapping: Dict[Optional[str], Optional[str]]
+  ) -> Dict[str, str]:
     """Generates a dictionary of source file -> destination file, based on the
     information in the original mapping.
 
@@ -178,8 +186,7 @@ class TempCopy(object):
     processed = [self._sanitize_pair(src, dst) for src, dst in mapping.items()]
     return dict(chain.from_iterable(processed))
 
-  def _expand(self, current_dir: str, mapping: Dict[str,
-                                                    str]) -> Dict[str, str]:
+  def _expand(self, current_dir: str, mapping: Dict[str, str]) -> Dict[str, str]:
     """Expands the mapping that the user sees out into a mapping from absolute
     source to absolute destination.
 
@@ -224,9 +231,7 @@ class TempCopy(object):
       self._written = None
 
 
-def capture_stdout(cmd: List[str],
-                   input_str: Optional[str] = None,
-                   file=None) -> str:
+def capture_stdout(cmd: List[str], input_str: Optional[str] = None, file=None) -> str:
   """Executes the supplied command with the supplied string of std input, then
   streams the output to stdout, and returns it as a string along with the
   process's return code.
@@ -250,16 +255,18 @@ def capture_stdout(cmd: List[str],
   buf = io.StringIO()
   ret_code = None
 
-  with subprocess.Popen(cmd,
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        universal_newlines=False) as p:
+  with subprocess.Popen(
+    cmd,
+    stdin=subprocess.PIPE,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+    universal_newlines=False,
+  ) as p:
     if input_str:
-      p.stdin.write(input_str.encode('utf-8'))
+      p.stdin.write(input_str.encode("utf-8"))
     p.stdin.close()
 
-    out = io.TextIOWrapper(p.stdout, newline='')
+    out = io.TextIOWrapper(p.stdout, newline="")
 
     for line in out:
       buf.write(line)
@@ -283,10 +290,10 @@ def next_free_port(port: int, try_n: int = 1000, max_port=65535):
   if try_n == 0 or port <= max_port:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-      sock.bind(('', port))
+      sock.bind(("", port))
       sock.close()
       return port
     except OSError:
       return next_free_port(port + 1, try_n - 1, max_port=max_port)
   else:
-    raise IOError('no free ports')
+    raise IOError("no free ports")

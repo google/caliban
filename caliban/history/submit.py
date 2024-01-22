@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-'''caliban utilities for job re-submission'''
+"""caliban utilities for job re-submission"""
 
 from typing import List, Optional
 
@@ -25,12 +25,12 @@ from caliban.history.types import JobSpec, Platform
 
 # ----------------------------------------------------------------------------
 def submit_job_specs(
-    specs: List[JobSpec],
-    platform: Platform,
-    project_id: Optional[str] = None,
-    credentials_path: Optional[str] = None,
+  specs: List[JobSpec],
+  platform: Platform,
+  project_id: Optional[str] = None,
+  credentials_path: Optional[str] = None,
 ) -> None:
-  '''submits a job spec'''
+  """submits a job spec"""
 
   if len(specs) == 0:
     return
@@ -40,17 +40,19 @@ def submit_job_specs(
 
   if platform == Platform.CAIP:
     return cloud.submit_job_specs(
-        specs=specs,
-        project_id=project_id,
-        credentials_path=credentials_path,
-        num_specs=len(specs),
+      specs=specs,
+      project_id=project_id,
+      credentials_path=credentials_path,
+      num_specs=len(specs),
     )
 
   if platform == Platform.GKE:
-    return gke_cli.submit_job_specs(args={
-        'cloud_key': credentials_path,
-        'project_id': project_id,
-        'specs': specs,
-    },)
+    return gke_cli.submit_job_specs(
+      args={
+        "cloud_key": credentials_path,
+        "project_id": project_id,
+        "specs": specs,
+      },
+    )
 
   return None

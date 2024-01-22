@@ -24,20 +24,19 @@ import json
 import os
 
 import caliban.util as u
-import caliban.history.types as ht
 from contextlib import contextmanager
 from typing import Dict, Any, List, Optional
 
-CLOUD_SQL_WRAPPER_SCRIPT = 'cloud_sql_proxy.py'
-LAUNCHER_SCRIPT = 'caliban_launcher.py'
+CLOUD_SQL_WRAPPER_SCRIPT = "cloud_sql_proxy.py"
+LAUNCHER_SCRIPT = "caliban_launcher.py"
 RESOURCE_DIR = "/.resources"
-LAUNCHER_CONFIG_FILE = 'caliban_launcher_cfg.json'
+LAUNCHER_CONFIG_FILE = "caliban_launcher_cfg.json"
 LAUNCHER_CONFIG_PATH = os.path.join(RESOURCE_DIR, LAUNCHER_CONFIG_FILE)
-GPU_ENABLED_TAG = 'gpu_enabled'
-TPU_ENABLED_TAG = 'tpu_enabled'
-JOB_NAME_TAG = 'job_name'
-DOCKER_IMAGE_TAG = 'docker_image'
-PLATFORM_TAG = 'platform'
+GPU_ENABLED_TAG = "gpu_enabled"
+TPU_ENABLED_TAG = "tpu_enabled"
+JOB_NAME_TAG = "job_name"
+DOCKER_IMAGE_TAG = "docker_image"
+PLATFORM_TAG = "platform"
 
 
 def cloud_sql_proxy_path() -> Optional[str]:
@@ -58,79 +57,83 @@ def launcher_path() -> Optional[str]:
 
 def _default_launcher_config() -> Dict[str, Any]:
   return {
-      'services': [],
-      'env': {},
+    "services": [],
+    "env": {},
   }
 
 
 def _create_mlflow_config(
-    mlflow_cfg: Optional[Dict[str, Any]] = None,
-    uv_cfg: Optional[Dict[str, Any]] = None,
+  mlflow_cfg: Optional[Dict[str, Any]] = None,
+  uv_cfg: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-  '''generates mlflow configuration dict for launcher script
+  """generates mlflow configuration dict for launcher script
   Args:
   mlflow_cfg: mlflow configuration dict from .calibanconfig.json
   uv_cfg: uv configuration dict from .calibanconfig.json
 
   Returns:
   config dict for launcher script with entries needed for mlflow
-  '''
+  """
 
   if mlflow_cfg is None:
     return _default_launcher_config()
 
   uv_cfg = uv_cfg or {}
-  uv_mlflow_cfg = uv_cfg.get('mlflow') or {}
+  uv_mlflow_cfg = uv_cfg.get("mlflow") or {}
 
-  user = mlflow_cfg['user']
-  pw = mlflow_cfg['password']
-  db = mlflow_cfg['db']
-  project = mlflow_cfg['project']
-  region = mlflow_cfg['region']
-  artifact_root = mlflow_cfg['artifact_root']
-  debug = mlflow_cfg.get('debug', False)
-  pubsub_project = uv_mlflow_cfg.get('pubsub_project', project)
-  pubsub_topic = uv_mlflow_cfg.get('pubsub_topic') or 'mlflow'
+  user = mlflow_cfg["user"]
+  pw = mlflow_cfg["password"]
+  db = mlflow_cfg["db"]
+  project = mlflow_cfg["project"]
+  region = mlflow_cfg["region"]
+  artifact_root = mlflow_cfg["artifact_root"]
+  debug = mlflow_cfg.get("debug", False)
+  pubsub_project = uv_mlflow_cfg.get("pubsub_project", project)
+  pubsub_topic = uv_mlflow_cfg.get("pubsub_topic") or "mlflow"
 
-  socket_path = '/tmp/cloudsql'
-  proxy_path = os.path.join(os.sep, 'usr', 'bin', 'cloud_sql_proxy')
+  socket_path = "/tmp/cloudsql"
+  proxy_path = os.path.join(os.sep, "usr", "bin", "cloud_sql_proxy")
 
-  proxy_config = json.dumps({
-      'proxy': proxy_path,
-      'path': socket_path,
-      'project': project,
-      'region': region,
-      'db': db,
-      'creds': '~/.config/gcloud/application_default_credentials.json',
-      'debug': debug,
-  })
+  proxy_config = json.dumps(
+    {
+      "proxy": proxy_path,
+      "path": socket_path,
+      "project": project,
+      "region": region,
+      "db": db,
+      "creds": "~/.config/gcloud/application_default_credentials.json",
+      "debug": debug,
+    }
+  )
 
   proxy_cmd = [
-      'python',
-      os.path.join(RESOURCE_DIR, CLOUD_SQL_WRAPPER_SCRIPT), proxy_config
+    "python",
+    os.path.join(RESOURCE_DIR, CLOUD_SQL_WRAPPER_SCRIPT),
+    proxy_config,
   ]
 
   tracking_uri = (
-      f'postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={socket_path}/'
-      f'{project}:{region}:{db}/.s.PGSQL.5432')
+    f"postgresql+pg8000://{user}:{pw}@/{db}?unix_sock={socket_path}/"
+    f"{project}:{region}:{db}/.s.PGSQL.5432"
+  )
 
   return {
-      'services': [proxy_cmd],
-      'env': {
-          'MLFLOW_TRACKING_URI': tracking_uri,
-          'MLFLOW_ARTIFACT_ROOT': artifact_root,
-          'UV_MLFLOW_PUBSUB_PROJECT': pubsub_project,
-          'UV_MLFLOW_PUBSUB_TOPIC': pubsub_topic,
-      }
+    "services": [proxy_cmd],
+    "env": {
+      "MLFLOW_TRACKING_URI": tracking_uri,
+      "MLFLOW_ARTIFACT_ROOT": artifact_root,
+      "UV_MLFLOW_PUBSUB_PROJECT": pubsub_project,
+      "UV_MLFLOW_PUBSUB_TOPIC": pubsub_topic,
+    },
   }
 
 
 @contextmanager
 def launcher_config_file(
-    path: str,
-    caliban_config: Optional[Dict[str, Any]] = None,
+  path: str,
+  caliban_config: Optional[Dict[str, Any]] = None,
 ):
-  '''creates a configuration file for the caliban launcher script
+  """creates a configuration file for the caliban launcher script
   This file contains the launcher configuration that does not vary across
   each caliban job being submitted, so it can be copied into the container.
 
@@ -147,7 +150,7 @@ def launcher_config_file(
 
   Yields:
   path to configuration file
-  '''
+  """
 
   caliban_config = caliban_config or {}
 
@@ -155,13 +158,13 @@ def launcher_config_file(
   config_file_path = os.path.join(path, LAUNCHER_CONFIG_FILE)
 
   mlflow_config = _create_mlflow_config(
-      mlflow_cfg=caliban_config.get('mlflow_config'),
-      uv_cfg=caliban_config.get('uv'))
+    mlflow_cfg=caliban_config.get("mlflow_config"), uv_cfg=caliban_config.get("uv")
+  )
 
-  config['services'] += mlflow_config['services']
-  config['env'].update(mlflow_config['env'])
+  config["services"] += mlflow_config["services"]
+  config["env"].update(mlflow_config["env"])
 
-  with open(config_file_path, 'w') as f:
+  with open(config_file_path, "w") as f:
     json.dump(config, f, indent=2)
 
   try:
@@ -173,17 +176,17 @@ def launcher_config_file(
 
 def _mlflow_job_name(index: int, user: str = None) -> str:
   user = user or u.current_user()
-  timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-  return f'{user}-{timestamp}-{index}'
+  timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+  return f"{user}-{timestamp}-{index}"
 
 
 def mlflow_args(
-    caliban_config: Dict[str, Any],
-    experiment_name: str,
-    index: int,
-    tags: Dict[str, Any],
+  caliban_config: Dict[str, Any],
+  experiment_name: str,
+  index: int,
+  tags: Dict[str, Any],
 ) -> List[str]:
-  '''returns mlflow args for caliban launcher
+  """returns mlflow args for caliban launcher
   Args:
 
   caliban_config: caliban configuration dict
@@ -193,13 +196,13 @@ def mlflow_args(
 
   Returns:
   mlflow args list
-  '''
+  """
 
-  if caliban_config.get('mlflow_config') is None:
+  if caliban_config.get("mlflow_config") is None:
     return []
 
-  env = {f'ENVVAR_{k}': v for k, v in tags.items()}
-  env['MLFLOW_EXPERIMENT_NAME'] = experiment_name
-  env['MLFLOW_RUN_NAME'] = _mlflow_job_name(index=index)
+  env = {f"ENVVAR_{k}": v for k, v in tags.items()}
+  env["MLFLOW_EXPERIMENT_NAME"] = experiment_name
+  env["MLFLOW_RUN_NAME"] = _mlflow_job_name(index=index)
 
-  return ['--caliban_config', json.dumps({'env': env})]
+  return ["--caliban_config", json.dumps({"env": env})]

@@ -29,53 +29,53 @@ def _vfn(prefix: str) -> Callable[[str], str]:
   """
 
   def inner(name: str) -> str:
-    return "{}-{}".format(prefix, name.replace('_', '-'))
+    return "{}-{}".format(prefix, name.replace("_", "-"))
 
   return inner
 
 
 US_REGIONS = {
-    "west1",
-    "west2",
-    "west3",
-    "central1",
-    "east1",
-    "east4",
+  "west1",
+  "west2",
+  "west3",
+  "central1",
+  "east1",
+  "east4",
 }
 NA_REGIONS = {
-    "northeast1",
+  "northeast1",
 }
 SA_REGIONS = {
-    "east1",
+  "east1",
 }
 EURO_REGIONS = {
-    "west1",
-    "west2",
-    "west3",
-    "west4",
-    "west6",
-    "north1",
+  "west1",
+  "west2",
+  "west3",
+  "west4",
+  "west6",
+  "north1",
 }
 ASIA_REGIONS = {
-    "south1",
-    "southeast1",
-    "east1",
-    "east2",
-    "northeast1",
-    "northeast2",
-    "northeast3",
+  "south1",
+  "southeast1",
+  "east1",
+  "east2",
+  "northeast1",
+  "northeast2",
+  "northeast3",
 }
 AUSTRALIA_REGIONS = {
-    "southeast1",
+  "southeast1",
 }
 
 # Actual enum types.
-US = Enum('US', u.dict_by(US_REGIONS, _vfn("us")))
-NorthAmerica = Enum('NorthAmerica', u.dict_by(NA_REGIONS, _vfn("northamerica")))
-SouthAmerica = Enum('SouthAmerica', u.dict_by(SA_REGIONS, _vfn("southamerica")))
-Europe = Enum('Europe', u.dict_by(EURO_REGIONS, _vfn("europe")))
-Asia = Enum('Asia', u.dict_by(ASIA_REGIONS, _vfn("asia")))
-Australia = Enum('Australia', u.dict_by(ASIA_REGIONS, _vfn("australia")))
+US = Enum("US", u.dict_by(US_REGIONS, _vfn("us")))
+NorthAmerica = Enum("NorthAmerica", u.dict_by(NA_REGIONS, _vfn("northamerica")))
+SouthAmerica = Enum("SouthAmerica", u.dict_by(SA_REGIONS, _vfn("southamerica")))
+Europe = Enum("Europe", u.dict_by(EURO_REGIONS, _vfn("europe")))
+Asia = Enum("Asia", u.dict_by(ASIA_REGIONS, _vfn("asia")))
+Australia = Enum("Australia", u.dict_by(ASIA_REGIONS, _vfn("australia")))
 Region = Union[US, NorthAmerica, SouthAmerica, Europe, Asia, Australia]
 Zone = str
 
@@ -86,9 +86,7 @@ def valid_regions(zone: Optional[str] = None) -> List[Region]:
 
   """
   if zone is None:
-    return valid_regions("americas") \
-      + valid_regions("europe") \
-      + valid_regions("asia")
+    return valid_regions("americas") + valid_regions("europe") + valid_regions("asia")
   z = zone.lower()
   if z == "americas":
     return list(US) + list(NorthAmerica) + list(SouthAmerica)
@@ -98,20 +96,29 @@ def valid_regions(zone: Optional[str] = None) -> List[Region]:
     return list(Asia) + list(Australia)
   else:
     raise ValueError(
-        "invalid zone: {}. Must be one of 'americas', 'europe', 'asia'.".format(
-            zone))
+      "invalid zone: {}. Must be one of 'americas', 'europe', 'asia'.".format(zone)
+    )
 
 
 # Machines types in Cloud's standard tier.
 STANDARD_MACHINES = {
-    "standard_4", "standard_8", "standard_16", "standard_32", "standard_64",
-    "standard_96"
+  "standard_4",
+  "standard_8",
+  "standard_16",
+  "standard_32",
+  "standard_64",
+  "standard_96",
 }
 
 # Machines types in Cloud's high memory tier.
 HIGHMEM_MACHINES = {
-    "highmem_2", "highmem_4", "highmem_8", "highmem_16", "highmem_32",
-    "highmem_64", "highmem_96"
+  "highmem_2",
+  "highmem_4",
+  "highmem_8",
+  "highmem_16",
+  "highmem_32",
+  "highmem_64",
+  "highmem_96",
 }
 
 # Machines types in Cloud's high CPU tier.
@@ -121,26 +128,29 @@ HIGHCPU_MACHINES = {"highcpu_16", "highcpu_32", "highcpu_64", "highcpu_96"}
 TPU_MACHINES = {"cloud_tpu"}
 
 # Machine types allowed in CPU or GPU modes.
-NON_TPU_MACHINES = STANDARD_MACHINES.union(HIGHMEM_MACHINES).union(
-    HIGHCPU_MACHINES)
+NON_TPU_MACHINES = STANDARD_MACHINES.union(HIGHMEM_MACHINES).union(HIGHCPU_MACHINES)
 
 # Type of physical machine available -> cloud name.
 MachineType = Enum(
-    'MachineType',
-    u.merge(u.dict_by(NON_TPU_MACHINES, _vfn("n1")),
-            u.dict_by(TPU_MACHINES, lambda s: s)))
+  "MachineType",
+  u.merge(
+    u.dict_by(NON_TPU_MACHINES, _vfn("n1")), u.dict_by(TPU_MACHINES, lambda s: s)
+  ),
+)
 
 # Various GPU types currently available on Cloud, mapped to their cloud
 # identifiers.
 GPU = Enum(
-    "GPU", {
-        "K80": "NVIDIA_TESLA_K80",
-        "P4": "NVIDIA_TESLA_P4",
-        "P100": "NVIDIA_TESLA_P100",
-        "T4": "NVIDIA_TESLA_T4",
-        "V100": "NVIDIA_TESLA_V100",
-        "A100": "NVIDIA_TESLA_A100",
-    })
+  "GPU",
+  {
+    "K80": "NVIDIA_TESLA_K80",
+    "P4": "NVIDIA_TESLA_P4",
+    "P100": "NVIDIA_TESLA_P100",
+    "T4": "NVIDIA_TESLA_T4",
+    "V100": "NVIDIA_TESLA_V100",
+    "A100": "NVIDIA_TESLA_A100",
+  },
+)
 
 # TPU types mapped from version to Cloud identifier.
 TPU = Enum("TPU", {"V2": "TPU_V2", "V3": "TPU_V3"})
@@ -155,57 +165,57 @@ Accelerator = Union[GPU, TPU]
 #
 # : Dict[Accelerator, Region]
 ACCELERATOR_REGION_SUPPORT = {
-    TPU.V2: [
-        US.central1,
-        Europe.west4,
-    ],
-    TPU.V3: [
-        US.central1,
-        Europe.west4,
-    ],
-    GPU.K80: [
-        US.west1,
-        US.central1,
-        US.east1,
-        Europe.west1,
-        Asia.east1,
-    ],
-    GPU.P4: [
-        US.west2,
-        US.central1,
-        US.east4,
-        NorthAmerica.northeast1,
-        Europe.west4,
-        Asia.southeast1,
-        Australia.southeast1,
-    ],
-    GPU.P100: [
-        US.west1,
-        US.central1,
-        US.east1,
-        SouthAmerica.east1,
-        Europe.west1,
-        Asia.east1,
-        Australia.southeast1,
-    ],
-    GPU.T4: [
-        US.west1,
-        US.central1,
-        US.east1,
-        SouthAmerica.east1,
-        Europe.west2,
-        Europe.west4,
-        Asia.south1,
-        Asia.southeast1,
-        Asia.northeast1,
-        Asia.northeast3,
-    ],
-    GPU.V100: [
-        US.west1,
-        US.central1,
-        Europe.west4,
-        Asia.east1,
-    ],
+  TPU.V2: [
+    US.central1,
+    Europe.west4,
+  ],
+  TPU.V3: [
+    US.central1,
+    Europe.west4,
+  ],
+  GPU.K80: [
+    US.west1,
+    US.central1,
+    US.east1,
+    Europe.west1,
+    Asia.east1,
+  ],
+  GPU.P4: [
+    US.west2,
+    US.central1,
+    US.east4,
+    NorthAmerica.northeast1,
+    Europe.west4,
+    Asia.southeast1,
+    Australia.southeast1,
+  ],
+  GPU.P100: [
+    US.west1,
+    US.central1,
+    US.east1,
+    SouthAmerica.east1,
+    Europe.west1,
+    Asia.east1,
+    Australia.southeast1,
+  ],
+  GPU.T4: [
+    US.west1,
+    US.central1,
+    US.east1,
+    SouthAmerica.east1,
+    Europe.west2,
+    Europe.west4,
+    Asia.south1,
+    Asia.southeast1,
+    Asia.northeast1,
+    Asia.northeast3,
+  ],
+  GPU.V100: [
+    US.west1,
+    US.central1,
+    Europe.west4,
+    Asia.east1,
+  ],
 }
 
 # Mapping between machine type and the Accelerator type and number of
@@ -217,120 +227,97 @@ ACCELERATOR_REGION_SUPPORT = {
 #
 # : Dict[MachineType, Dict[Accelerator, Set[int]]]
 COMPATIBILITY_TABLE = {
-    MachineType.cloud_tpu: {
-        TPU.V2: {8},
-        TPU.V3: {8}
-    },
-    MachineType.standard_4: {
-        GPU.K80: {1, 2, 4, 8},
-        GPU.P4: {1, 2, 4},
-        GPU.P100: {1, 2, 4},
-        GPU.T4: {1, 2, 4},
-        GPU.V100: {1, 2, 4, 8},
-        GPU.A100: {0}
-    },
-    MachineType.standard_8: {
-        GPU.K80: {1, 2, 4, 8},
-        GPU.P4: {1, 2, 4},
-        GPU.P100: {1, 2, 4},
-        GPU.T4: {1, 2, 4},
-        GPU.V100: {1, 2, 4, 8}
-    },
-    MachineType.standard_16: {
-        GPU.K80: {2, 4, 8},
-        GPU.P4: {1, 2, 4},
-        GPU.P100: {1, 2, 4},
-        GPU.T4: {1, 2, 4},
-        GPU.V100: {2, 4, 8}
-    },
-    MachineType.standard_32: {
-        GPU.K80: {4, 8},
-        GPU.P4: {2, 4},
-        GPU.P100: {2, 4},
-        GPU.T4: {2, 4},
-        GPU.V100: {4, 8}
-    },
-    MachineType.standard_64: {
-        GPU.P4: {4},
-        GPU.T4: {4},
-        GPU.V100: {8}
-    },
-    MachineType.standard_96: {
-        GPU.P4: {4},
-        GPU.T4: {4},
-        GPU.V100: {8}
-    },
-    MachineType.highmem_2: {
-        GPU.K80: {1, 2, 4, 8},
-        GPU.P4: {1, 2, 4},
-        GPU.P100: {1, 2, 4},
-        GPU.T4: {1, 2, 4},
-        GPU.V100: {1, 2, 4, 8}
-    },
-    MachineType.highmem_4: {
-        GPU.K80: {1, 2, 4, 8},
-        GPU.P4: {1, 2, 4},
-        GPU.P100: {1, 2, 4},
-        GPU.T4: {1, 2, 4},
-        GPU.V100: {1, 2, 4, 8}
-    },
-    MachineType.highmem_8: {
-        GPU.K80: {1, 2, 4, 8},
-        GPU.P4: {1, 2, 4},
-        GPU.P100: {1, 2, 4},
-        GPU.T4: {1, 2, 4},
-        GPU.V100: {1, 2, 4, 8}
-    },
-    MachineType.highmem_16: {
-        GPU.K80: {2, 4, 8},
-        GPU.P4: {1, 2, 4},
-        GPU.P100: {1, 2, 4},
-        GPU.T4: {1, 2, 4},
-        GPU.V100: {2, 4, 8}
-    },
-    MachineType.highmem_32: {
-        GPU.K80: {4, 8},
-        GPU.P4: {2, 4},
-        GPU.P100: {2, 4},
-        GPU.T4: {2, 4},
-        GPU.V100: {4, 8}
-    },
-    MachineType.highmem_64: {
-        GPU.P4: {4},
-        GPU.T4: {4},
-        GPU.V100: {8}
-    },
-    MachineType.highmem_96: {
-        GPU.P4: {4},
-        GPU.T4: {4},
-        GPU.V100: {8}
-    },
-    MachineType.highcpu_16: {
-        GPU.K80: {2, 4, 8},
-        GPU.P4: {1, 2, 4},
-        GPU.P100: {1, 2, 4},
-        GPU.T4: {1, 2, 4},
-        GPU.V100: {2, 4, 8}
-    },
-    MachineType.highcpu_32: {
-        GPU.K80: {4, 8},
-        GPU.P4: {2, 4},
-        GPU.P100: {2, 4},
-        GPU.T4: {2, 4},
-        GPU.V100: {4, 8}
-    },
-    MachineType.highcpu_64: {
-        GPU.K80: {8},
-        GPU.P4: {4},
-        GPU.P100: {4},
-        GPU.T4: {4},
-        GPU.V100: {8}
-    },
-    MachineType.highcpu_96: {
-        GPU.P4: {4},
-        GPU.T4: {4},
-        GPU.V100: {8}
-    }
+  MachineType.cloud_tpu: {TPU.V2: {8}, TPU.V3: {8}},
+  MachineType.standard_4: {
+    GPU.K80: {1, 2, 4, 8},
+    GPU.P4: {1, 2, 4},
+    GPU.P100: {1, 2, 4},
+    GPU.T4: {1, 2, 4},
+    GPU.V100: {1, 2, 4, 8},
+    GPU.A100: {0},
+  },
+  MachineType.standard_8: {
+    GPU.K80: {1, 2, 4, 8},
+    GPU.P4: {1, 2, 4},
+    GPU.P100: {1, 2, 4},
+    GPU.T4: {1, 2, 4},
+    GPU.V100: {1, 2, 4, 8},
+  },
+  MachineType.standard_16: {
+    GPU.K80: {2, 4, 8},
+    GPU.P4: {1, 2, 4},
+    GPU.P100: {1, 2, 4},
+    GPU.T4: {1, 2, 4},
+    GPU.V100: {2, 4, 8},
+  },
+  MachineType.standard_32: {
+    GPU.K80: {4, 8},
+    GPU.P4: {2, 4},
+    GPU.P100: {2, 4},
+    GPU.T4: {2, 4},
+    GPU.V100: {4, 8},
+  },
+  MachineType.standard_64: {GPU.P4: {4}, GPU.T4: {4}, GPU.V100: {8}},
+  MachineType.standard_96: {GPU.P4: {4}, GPU.T4: {4}, GPU.V100: {8}},
+  MachineType.highmem_2: {
+    GPU.K80: {1, 2, 4, 8},
+    GPU.P4: {1, 2, 4},
+    GPU.P100: {1, 2, 4},
+    GPU.T4: {1, 2, 4},
+    GPU.V100: {1, 2, 4, 8},
+  },
+  MachineType.highmem_4: {
+    GPU.K80: {1, 2, 4, 8},
+    GPU.P4: {1, 2, 4},
+    GPU.P100: {1, 2, 4},
+    GPU.T4: {1, 2, 4},
+    GPU.V100: {1, 2, 4, 8},
+  },
+  MachineType.highmem_8: {
+    GPU.K80: {1, 2, 4, 8},
+    GPU.P4: {1, 2, 4},
+    GPU.P100: {1, 2, 4},
+    GPU.T4: {1, 2, 4},
+    GPU.V100: {1, 2, 4, 8},
+  },
+  MachineType.highmem_16: {
+    GPU.K80: {2, 4, 8},
+    GPU.P4: {1, 2, 4},
+    GPU.P100: {1, 2, 4},
+    GPU.T4: {1, 2, 4},
+    GPU.V100: {2, 4, 8},
+  },
+  MachineType.highmem_32: {
+    GPU.K80: {4, 8},
+    GPU.P4: {2, 4},
+    GPU.P100: {2, 4},
+    GPU.T4: {2, 4},
+    GPU.V100: {4, 8},
+  },
+  MachineType.highmem_64: {GPU.P4: {4}, GPU.T4: {4}, GPU.V100: {8}},
+  MachineType.highmem_96: {GPU.P4: {4}, GPU.T4: {4}, GPU.V100: {8}},
+  MachineType.highcpu_16: {
+    GPU.K80: {2, 4, 8},
+    GPU.P4: {1, 2, 4},
+    GPU.P100: {1, 2, 4},
+    GPU.T4: {1, 2, 4},
+    GPU.V100: {2, 4, 8},
+  },
+  MachineType.highcpu_32: {
+    GPU.K80: {4, 8},
+    GPU.P4: {2, 4},
+    GPU.P100: {2, 4},
+    GPU.T4: {2, 4},
+    GPU.V100: {4, 8},
+  },
+  MachineType.highcpu_64: {
+    GPU.K80: {8},
+    GPU.P4: {4},
+    GPU.P100: {4},
+    GPU.T4: {4},
+    GPU.V100: {8},
+  },
+  MachineType.highcpu_96: {GPU.P4: {4}, GPU.T4: {4}, GPU.V100: {8}},
 }
 
 # : Dict[Accelerator, Dict[MachineType, Set[int]]]
@@ -353,7 +340,7 @@ def with_advice_suffix(accel: Union[Accelerator, str], s: str) -> str:
 
   """
   if isinstance(accel, str):
-    is_gpu = accel.upper() == 'GPU'
+    is_gpu = accel.upper() == "GPU"
   else:
     is_gpu = accel in GPU
 
@@ -367,15 +354,12 @@ def with_advice_suffix(accel: Union[Accelerator, str], s: str) -> str:
   return """{s}
 For more help, consult this page for valid combinations of {ucase} count, {ucase} type and machine type:
 {url}
-""".format_map({
-      "s": s,
-      "ucase": ucase,
-      "url": url
-  })
+""".format_map({"s": s, "ucase": ucase, "url": url})
 
 
-def accelerator_counts(accel: Accelerator,
-                       machine_type: Optional[MachineType] = None) -> Set[int]:
+def accelerator_counts(
+  accel: Accelerator, machine_type: Optional[MachineType] = None
+) -> Set[int]:
   """Returns the set of Accelerator count numbers valid for the supplied machine
   type.
 
@@ -401,10 +385,14 @@ def validate_accelerator_count(accel: Accelerator, count: int) -> int:
   valid_counts = accelerator_counts(accel)
   if not _AccelCountMT[accel].get(count):
     raise argparse.ArgumentTypeError(
-        with_advice_suffix(
-            accel, "{} {}s of type {} aren't available \
+      with_advice_suffix(
+        accel,
+        "{} {}s of type {} aren't available \
 for any machine type. Try one of the following counts: {}\n".format(
-                count, ucase, accel.name, valid_counts)))
+          count, ucase, accel.name, valid_counts
+        ),
+      )
+    )
 
   return count
 
@@ -418,8 +406,10 @@ def parse_machine_type(s: str) -> MachineType:
     return MachineType(s)
   except ValueError:
     valid_values = u.enum_vals(MachineType)
-    raise argparse.ArgumentTypeError("'{}' isn't a valid machine type. \
-Must be one of {}.".format(s, valid_values))
+    raise argparse.ArgumentTypeError(
+      "'{}' isn't a valid machine type. \
+Must be one of {}.".format(s, valid_values)
+    )
 
 
 def parse_region(s: str) -> Region:
@@ -431,14 +421,13 @@ def parse_region(s: str) -> Region:
     return u.any_of(s, Region)
   except ValueError:
     valid_values = u.enum_vals(valid_regions())
-    raise argparse.ArgumentTypeError("'{}' isn't a valid region. \
-Must be one of {}.".format(s, valid_values))
+    raise argparse.ArgumentTypeError(
+      "'{}' isn't a valid region. \
+Must be one of {}.".format(s, valid_values)
+    )
 
 
-def parse_accelerator_arg(s: str,
-                          mode: str,
-                          suffix: str,
-                          validate_count: bool = True):
+def parse_accelerator_arg(s: str, mode: str, suffix: str, validate_count: bool = True):
   mode = mode.upper()
   assert mode in ("GPU", "TPU"), "Mode must be GPU or TPU."
 
@@ -446,9 +435,10 @@ def parse_accelerator_arg(s: str,
 
   if len(items) != 2:
     raise argparse.ArgumentTypeError(
-        with_advice_suffix(
-            mode,
-            "{} arg '{}' has no 'x' separator.\n{}".format(mode, s, suffix)))
+      with_advice_suffix(
+        mode, "{} arg '{}' has no 'x' separator.\n{}".format(mode, s, suffix)
+      )
+    )
 
   count_s, type_s = items
 
@@ -460,8 +450,10 @@ def parse_accelerator_arg(s: str,
     count = int(count_s)
   except ValueError:
     raise argparse.ArgumentTypeError(
-        with_advice_suffix(
-            mode, "The count '{}' isn't a number!\n{}".format(count_s, suffix)))
+      with_advice_suffix(
+        mode, "The count '{}' isn't a number!\n{}".format(count_s, suffix)
+      )
+    )
 
   # Validate that we have a valid GPU type.
   try:
@@ -471,9 +463,13 @@ def parse_accelerator_arg(s: str,
   except KeyError:
     all_types = list(map(lambda s: s.name, accel_dict))
     raise argparse.ArgumentTypeError(
-        with_advice_suffix(
-            mode, "'{}' isn't a valid {} type. Must be one of {}.\n".format(
-                type_s, mode, all_types)))
+      with_advice_suffix(
+        mode,
+        "'{}' isn't a valid {} type. Must be one of {}.\n".format(
+          type_s, mode, all_types
+        ),
+      )
+    )
 
   if validate_count:
     validate_accelerator_count(accelerator_type, count)
@@ -481,7 +477,7 @@ def parse_accelerator_arg(s: str,
   return accelerator_type, count
 
 
-class GPUSpec(NamedTuple('GPUSpec', [("gpu", GPU), ("count", int)])):
+class GPUSpec(NamedTuple("GPUSpec", [("gpu", GPU), ("count", int)])):
   """Info to generate a GPU."""
 
   METAVAR = "NUMxGPU_TYPE"
@@ -494,8 +490,7 @@ class GPUSpec(NamedTuple('GPUSpec', [("gpu", GPU), ("count", int)])):
     instance.
 
     """
-    gpu, count = parse_accelerator_arg(s, "GPU", GPUSpec._error_suffix,
-                                       **kwargs)
+    gpu, count = parse_accelerator_arg(s, "GPU", GPUSpec._error_suffix, **kwargs)
     return GPUSpec(gpu, count)
 
   @property
@@ -510,15 +505,11 @@ class GPUSpec(NamedTuple('GPUSpec', [("gpu", GPU), ("count", int)])):
     return {"type": self.gpu.value, "count": self.count}
 
   def allowed_machine_types(self) -> Set[MachineType]:
-    """Set of all machine types allowed for this particular combination.
-
-    """
+    """Set of all machine types allowed for this particular combination."""
     return _AccelCountMT[self.gpu].get(self.count, {})
 
   def allowed_regions(self) -> Set[Region]:
-    """Set of all regions allowed for this particular GPU type.
-
-    """
+    """Set of all regions allowed for this particular GPU type."""
     return set(ACCELERATOR_REGION_SUPPORT[self.gpu])
 
   def valid_machine_type(self, machine_type: MachineType) -> bool:
@@ -528,7 +519,7 @@ class GPUSpec(NamedTuple('GPUSpec', [("gpu", GPU), ("count", int)])):
     return region in self.allowed_regions()
 
 
-class TPUSpec(NamedTuple('TPUSpec', [("tpu", TPU), ("count", int)])):
+class TPUSpec(NamedTuple("TPUSpec", [("tpu", TPU), ("count", int)])):
   """Info to generate a TPU."""
 
   METAVAR = "NUMxTPU_TYPE"
@@ -541,8 +532,7 @@ class TPUSpec(NamedTuple('TPUSpec', [("tpu", TPU), ("count", int)])):
     instance.
 
     """
-    tpu, count = parse_accelerator_arg(s, "TPU", TPUSpec._error_suffix,
-                                       **kwargs)
+    tpu, count = parse_accelerator_arg(s, "TPU", TPUSpec._error_suffix, **kwargs)
     return TPUSpec(tpu, count)
 
   @property
@@ -561,9 +551,7 @@ class TPUSpec(NamedTuple('TPUSpec', [("tpu", TPU), ("count", int)])):
     return _AccelCountMT[self.tpu].get(self.count, {})
 
   def allowed_regions(self) -> Set[Region]:
-    """Set of all regions allowed for this particular TPU type.
-
-    """
+    """Set of all regions allowed for this particular TPU type."""
     return set(ACCELERATOR_REGION_SUPPORT[self.tpu])
 
   def valid_machine_type(self, machine_type: MachineType) -> bool:
@@ -578,14 +566,14 @@ class TPUSpec(NamedTuple('TPUSpec', [("tpu", TPU), ("count", int)])):
 # https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs#Job
 # https://cloud.google.com/ai-platform/training/docs/reference/rest/v1/projects.jobs#State
 class JobStatus(Enum):
-  STATE_UNSPECIFIED = 'STATE_UNSPECIFIED'
-  QUEUED = 'QUEUED'
-  PREPARING = 'PREPARING'
-  RUNNING = 'RUNNING'
-  SUCCEEDED = 'SUCCEEDED'
-  FAILED = 'FAILED'
-  CANCELLING = 'CANCELLING'
-  CANCELLED = 'CANCELLED'
+  STATE_UNSPECIFIED = "STATE_UNSPECIFIED"
+  QUEUED = "QUEUED"
+  PREPARING = "PREPARING"
+  RUNNING = "RUNNING"
+  SUCCEEDED = "SUCCEEDED"
+  FAILED = "FAILED"
+  CANCELLING = "CANCELLING"
+  CANCELLED = "CANCELLED"
 
   def is_terminal(self) -> bool:
-    return self.value in ['SUCCEEDED', 'FAILED', 'CANCELLED']
+    return self.value in ["SUCCEEDED", "FAILED", "CANCELLED"]
