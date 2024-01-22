@@ -26,5 +26,7 @@ submitting it remotely.
                            Path to GCloud service account key. (Defaults to
                            $GOOGLE_APPLICATION_CREDENTIALS.)
      --extras EXTRAS       setup.py dependency keys.
+     --no_cache            Disable Docker's caching mechanism and force a
+                           rebuild of the container from scratch.
      -d DIR, --dir DIR     Extra directories to include. List these from large to
                            small to take full advantage of Docker's build cache.

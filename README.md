@@ -2,6 +2,7 @@
 
 [![Build status](https://github.com/google/caliban/workflows/build/badge.svg?branch=master)](https://github.com/google/caliban/actions?query=workflow%3Abuild+branch%3Amaster)
 [![Codecov branch](https://img.shields.io/codecov/c/github/google/caliban/master.svg?maxAge=3600)](https://codecov.io/github/google/caliban)
+[![JOSS](https://joss.theoj.org/papers/c33c8b464103b2fb3b641878722bf8f3/status.svg)](https://joss.theoj.org/papers/c33c8b464103b2fb3b641878722bf8f3)
 [![readthedocs](https://img.shields.io/readthedocs/caliban?maxAge=3600)](https://caliban.readthedocs.io/en/latest/?badge=latest)
 [![caliban version](https://img.shields.io/pypi/v/caliban?maxAge=3600)](https://pypi.org/project/caliban)
 
@@ -464,28 +465,53 @@ sharp edges. Please help by trying out Caliban, [reporting
 bugs](https://github.com/google/caliban/issues), and letting us know what you
 think!
 
-## Contributing
+## Get Involved + Get Support
 
-Please refer to our [Contributor's Guide](CONTRIBUTING.md) for information on
-how to get started contributing to Caliban.
+Pull requests and bug reports are always welcome! Check out our [Contributor's
+Guide](CONTRIBUTING.md) for information on how to get started contributing to
+Caliban.
+
+The TL;DR; is:
+
+- send us a pull request,
+- iterate on the feedback + discussion, and
+- get a +1 from a [Committer](COMMITTERS.md)
+
+in order to get your PR accepted.
+
+Issues should be reported on the [GitHub issue
+tracker](https://github.com/google/caliban/issues).
+
+If you want to discuss an idea for a new feature or ask us a question,
+discussion occurs primarily in the body of [Github
+Issues](https://github.com/google/caliban/issues), though the project is growing
+large enough that we may start a Gitter channel soon.
+
+The current list of active committers (who can +1 a pull request) can be found
+here: [COMMITTERS.md](COMMITTERS.md)
+
+A list of contributors to the project can be found at the project's
+[Contributors](https://github.com/google/caliban/graphs/contributors) page.
 
 ## Citing Caliban
 
-If Caliban helps you in your research, please consider citing the repository:
+If Caliban helps you in your research, please consider citing Caliban's
+associated academic paper:
 
 ```
-@software{caliban2020github,
-  author = {Sam Ritchie and Ambrose Slone and Vinay Ramasesh},
-  title = {{Caliban}: Docker-based job manager for reproducible workflows},
-  url = {http://github.com/google/caliban},
-  version = {0.2.5},
+@article{Ritchie2020,
+  doi = {10.21105/joss.02403},
+  url = {https://doi.org/10.21105/joss.02403},
   year = {2020},
+  publisher = {The Open Journal},
+  volume = {5},
+  number = {53},
+  pages = {2403},
+  author = {Sam Ritchie and Ambrose Slone and Vinay Ramasesh},
+  title = {Caliban: Docker-based job manager for reproducible workflows},
+  journal = {Journal of Open Source Software}
 }
 ```
-
-In the above bibtex entry, the version number is intended to be that of the
-latest tag on github, and the year corresponds to the project's open-source
-release.
 
 ## License
 

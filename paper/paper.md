@@ -43,18 +43,18 @@ much more powerful machine, typically in a Cloud environment. The [imagenet
 dataset](https://www.tensorflow.org/datasets/catalog/imagenet2012) [@deng2009imagenet]
 is 144 GiB, for example, far too large to process on a stock laptop.
 
-Moving between these environments almost always causes tremendous pain. In
-Python, a common language for machine learning research, the researcher installs
-their script's dependencies in a system-wide package registry. The Cloud
-environment can have different dependencies available, or different versions of
-the same dependency; different versions of Python itself; or different software
-drivers, which elicit different behavior from the script that seemed to work
-locally.
+Moving between these environments almost always requires a nontrivial amount of
+effort on the part of the researcher, unrelated to the original research
+question. In Python, a common language for machine learning research, the
+researcher installs their script's dependencies in a system-wide package
+registry. The Cloud environment can have different dependencies available, or
+different versions of the same dependency; different versions of Python itself;
+or different software drivers, which elicit different behavior from the script
+that seemed to work locally.
 
-This environment mismatch introduces tremendous friction into the research
-process. The only way to debug a script that succeeds locally and fails in a
-remote Cloud environment is to attempt to interpret the often-cryptic error
-logs.
+This environment mismatch introduces friction into the research process. The
+only way to debug a script that succeeds locally and fails in a remote Cloud
+environment is to attempt to interpret the often-cryptic error logs.
 
 ## Docker
 
@@ -70,14 +70,14 @@ execute Docker containers that they've built locally.
 
 Packaging research code inside of a Docker container has many benefits for
 reproducibility [@cito2016]. But the process of building a Docker container is
-difficult, error-prone and almost totally orthogonal to the skill set of a
-machine learning researcher. The friction of debugging between local and Cloud
-environments is solved, but only by accepting a not-insignificant baseline level
-of pain into the local development experience.
+difficult, error-prone and orthogonal to the skill set of a machine learning
+researcher. The friction of debugging between local and Cloud environments is
+solved, but only by accepting a not-insignificant baseline level of toil into
+the local development experience.
 
 Projects like [MLFlow](https://mlflow.org/docs/latest/projects.html)
 [@zaharia2018accelerating] attempt to streamline the container creation process,
-but still force the researcher's to absorb much of Docker's mental model.
+but still force the researcher to absorb much of Docker's mental model.
 
 # Caliban and Reproducible Research
 
@@ -87,10 +87,10 @@ research - interactive development, local execution, cloud execution and data
 analysis in a notebook environment.
 
 With Caliban, the researcher executes all code using Caliban's various
-subcommands. This process is, for the researcher, just as easy as executing code
-directly. To prepare a research environment, all they need to do is specify
-required packages in a `requirements.txt` file and Caliban will automatically
-make those dependencies available inside the container.
+subcommands. This process is, for the researcher, identical to the process of
+executing code directly. To prepare a research environment, all they need to do
+is specify required packages in a `requirements.txt` file and Caliban will
+automatically make those dependencies available inside the container.
 
 Behind the scenes, all software execution has moved inside of a Docker
 container. This makes it transparent to move that execution from a local
@@ -99,8 +99,8 @@ prototype running on a workstation to thousands of experimental jobs running on
 Cloud with little to no cognitive load.
 
 This removal of friction allows a researcher the freedom to be creative in ways
-that their psychology simply wouldn't allow, given the typical pain caused by
-moves between environments.
+that their psychology would resist, given the typical pain caused by moves
+between environments.
 
 In addition, Caliban makes it easy to launch multiple jobs with varying
 command-line arguments with a single command, using experiment configuration
@@ -173,5 +173,33 @@ pricing is available to the researcher.
 status`](https://caliban.readthedocs.io/en/latest/cli/caliban_status.html)
 displays information about all jobs submitted by Caliban, and allows a
 researcher to cancel, inspect or resubmit large groups of experiments.
+
+# Related Work
+
+**Reproducible Environments** [Binder](https://mybinder.org/)
+[@Forde2018ReproducingML] is a project that allows a researcher to open up
+Jupyter notebooks hosted in a git repository in a software environment described
+by the repository's `requirements.txt` file. The motivation is similar to
+`caliban notebook`, with the added benefit of being able to interact with a
+notebook in the browser, without any burden of configuring a local machine.
+[repo2docker](https://github.com/jupyter/repo2docker) offers the same ability to
+execute a repository of notebooks in its required environment. This environment
+can be [customized and
+configured](https://repo2docker.readthedocs.io/en/latest/config_files.html#dockerfile-advanced-environment)
+in similar ways to containers build by Caliban.
+
+**Scientific Cloud Computing** A related series of approaches to lowering the
+friction of scientific computing on the Cloud expose primitives to the user that
+can execute both locally, or in parallel on many Cloud machines. A "pure" Python
+function is a function depends only on its inputs. If a scientific experiment is
+built out of pure functions, it becomes possible to write a framework that can
+execute that function in parallel on a large set of distinct inputs in a Cloud
+environment. [Pywren](http://pywren.io/) [@DBLP:journals/corr/JonasVSR17] is a
+project that makes this possible on [AWS
+Lambda](https://aws.amazon.com/lambda/).
+[Cloudknot](https://github.com/nrdg/cloudknot)
+[@adam_richie-halford-proc-scipy-2018] extends this model to functions requiring
+more computational resources. Cloudknot packages code into a Docker image,
+providing the same potential level of configurability as Caliban.
 
 # References

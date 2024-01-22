@@ -20,8 +20,12 @@ and notebooks in a Docker environment.
 
 from __future__ import absolute_import, division, print_function
 
+from datetime import datetime
+import json
+import os
 import subprocess
 import sys
+import traceback
 from typing import Any, Dict, Iterable, List, Optional
 
 import tqdm
@@ -32,7 +36,9 @@ from tqdm.utils import _screen_shape_wrapper
 import caliban.config as c
 import caliban.config.experiment as ce
 import caliban.docker.build as b
+import caliban.util as u
 import caliban.util.fs as ufs
+import caliban.util.metrics as um
 import caliban.util.tqdm as ut
 from caliban.history.types import Experiment, Job, JobSpec, JobStatus, Platform
 from caliban.history.util import (create_experiments, generate_container_spec,
@@ -55,7 +61,8 @@ def _run_cmd(job_mode: c.JobMode,
     run_args = []
 
   runtime = ["--runtime", "nvidia"] if c.gpu(job_mode) else []
-  return ["docker", "run"] + runtime + ["--ipc", "host"] + run_args
+  return ["docker", "run", "--platform", "linux/amd64"
+         ] + runtime + ["--ipc", "host"] + run_args
 
 
 def log_job_spec_instance(job_spec: JobSpec, i: int) -> JobSpec:
@@ -134,6 +141,8 @@ def _create_job_spec_dict(
     experiment: Experiment,
     job_mode: c.JobMode,
     image_id: str,
+    index: int,
+    caliban_config: Dict[str, Any],
     run_args: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
   '''creates a job spec dictionary for a local job'''
@@ -143,7 +152,24 @@ def _create_job_spec_dict(
   terminal_cmds = ["-e", "PYTHONUNBUFFERED=1"] + window_size_env_cmds()
 
   base_cmd = _run_cmd(job_mode, run_args) + terminal_cmds + [image_id]
-  command = base_cmd + ce.experiment_to_args(experiment.kwargs, experiment.args)
+
+  launcher_args = um.mlflow_args(
+      caliban_config=caliban_config,
+      experiment_name=experiment.xgroup.name,
+      index=index,
+      tags={
+          um.GPU_ENABLED_TAG: str(job_mode == c.JobMode.GPU).lower(),
+          um.TPU_ENABLED_TAG: 'false',
+          um.DOCKER_IMAGE_TAG: image_id,
+          um.PLATFORM_TAG: Platform.LOCAL.value,
+      },
+  )
+
+  cmd_args = ce.experiment_to_args(experiment.kwargs, experiment.args)
+
+  # cmd args *must* be last in order for the launcher to pass them through
+  command = base_cmd + launcher_args + cmd_args
+
   return {'command': command, 'container': image_id}
 
 
@@ -151,13 +177,16 @@ def _create_job_spec_dict(
 def execute_jobs(
     job_specs: Iterable[JobSpec],
     dry_run: bool = False,
+    caliban_config: Optional[Dict[str, Any]] = None,
 ):
   '''executes a sequence of jobs based on job specs
 
   Arg:
   job_specs: specifications for jobs to be executed
   dry_run: if True, only print what would be done
+  caliban_config: caliban configuration data
   '''
+  caliban_config = caliban_config or {}
 
   with ut.tqdm_logging() as orig_stream:
     pbar = tqdm.tqdm(logged_job_specs(job_specs),
@@ -228,6 +257,7 @@ def run_experiments(job_mode: c.JobMode,
 
   docker_args = {k: v for k, v in build_image_kwargs.items()}
   docker_args['job_mode'] = job_mode
+  caliban_config = docker_args.get('caliban_config', {})
 
   engine = get_mem_engine() if dry_run else get_sql_engine()
 
@@ -257,15 +287,20 @@ def run_experiments(job_mode: c.JobMode,
                 job_mode=job_mode,
                 run_args=run_args,
                 image_id=image_id,
+                index=i,
+                caliban_config=caliban_config,
             ),
             platform=Platform.LOCAL,
-        ) for x in experiments
+        ) for i, x in enumerate(experiments)
     ]
 
     try:
-      execute_jobs(job_specs=job_specs, dry_run=dry_run)
+      execute_jobs(job_specs=job_specs,
+                   dry_run=dry_run,
+                   caliban_config=caliban_config)
     except Exception as e:
       logging.error(f'exception: {e}')
+      logging.error(f'{traceback.format_exc()}')
       session.commit()  # commit here, otherwise will be rolled back
 
 

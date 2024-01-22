@@ -205,6 +205,14 @@ def stop(args: Dict[str, Any]) -> None:
   xgroup = args.get('xgroup')
   dry_run = args.get('dry_run', False)
 
+  # querying and stopping jobs can take a long time, especially on CAIP,
+  # so we check with the user up-front rather than waiting for our full
+  # query to return
+  if (not dry_run and not user_verify(
+      f'Warning: this will potentially stop many jobs, do you wish to continue?',
+      False)):
+    return
+
   with session_scope(get_sql_engine()) as session:
     running_jobs = session.query(Job).join(Experiment).join(
         ExperimentGroup).filter(
@@ -220,14 +228,7 @@ def stop(args: Dict[str, Any]) -> None:
       logging.info(f'no running jobs found')
       return
 
-    # this is necessary to filter out jobs that have finished but whose status
-    # has not yet been updated in the backing store
-    running_jobs = list(
-        filter(
-            lambda x: update_job_status(x) in
-            [JobStatus.SUBMITTED, JobStatus.RUNNING], running_jobs))
-
-    logging.info(f'the following jobs would be stopped:')
+    logging.info(f'the following jobs will be stopped:')
     for j in running_jobs:
       logging.info(_experiment_command_str(j.experiment))
       logging.info(f'    job {_job_str(j)}')
@@ -235,11 +236,6 @@ def stop(args: Dict[str, Any]) -> None:
     if dry_run:
       logging.info(f'to actually stop these jobs, re-run the command without '
                    f'the --dry_run flag')
-      return
-
-    # make sure
-    if not user_verify(f'do you wish to stop these {len(running_jobs)} jobs?',
-                       False):
       return
 
     for j in running_jobs:

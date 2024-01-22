@@ -1,18 +1,25 @@
 {
   "gpu_versions" : {
-    "cuda100" : ["CUDA=10.0"],
-    "cuda101" : ["CUDA=10.1"]
+    "cuda100" : {"CUDA":"10.0"},
+    "cuda101" : {"CUDA":"10.1"},
+    "cuda110" : {"CUDA":"11.0"}
   },
   "python_versions" : {
-    "py37" : ["PYTHON_VERSION=3.7", "MINICONDA_VERSION=py37_4.8.2"],
-    "py38" : ["PYTHON_VERSION=3.8", "MINICONDA_VERSION=py38_4.8.2"]
+    "py37" : {"PYTHON_VERSION":"3.7", "MINICONDA_VERSION":"py37_4.8.2"},
+    "py38" : {"PYTHON_VERSION":"3.8", "MINICONDA_VERSION":"py38_4.8.2"}
+  },
+  "base_images" : {
+    "ubuntu1804" : {"BASE_IMAGE":"ubuntu:18.04", "UBUNTU_VERSION":"18.04"},
+    "ubuntu2004" : {"BASE_IMAGE":"ubuntu:20.04", "UBUNTU_VERSION":"20.04"}
   },
   "images" : [
-    {"python" : "py37"},
-    {"python" : "py38"},
-    {"python" : "py37", "gpu" : "cuda100"},
-    {"python" : "py37", "gpu" : "cuda101"},
-    {"python" : "py38", "gpu" : "cuda100"},
-    {"python" : "py38", "gpu" : "cuda101"}
+    {"base_image": "ubuntu1804", "python" : "py37"},
+    {"base_image": "ubuntu1804", "python" : "py38"},
+    {"base_image": "ubuntu1804", "python" : "py37", "gpu" : "cuda100"},
+    {"base_image": "ubuntu1804", "python" : "py37", "gpu" : "cuda101"},
+    {"base_image": "ubuntu1804", "python" : "py38", "gpu" : "cuda100"},
+    {"base_image": "ubuntu1804", "python" : "py38", "gpu" : "cuda101"},
+    {"base_image": "ubuntu2004", "python" : "py37"},
+    {"base_image": "ubuntu2004", "python" : "py38"}
   ]
 }

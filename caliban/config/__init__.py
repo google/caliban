@@ -137,7 +137,17 @@ MLFlowConfig = {
     'db': str,
     'user': str,
     'password': str,
-    'artifact_root': str
+    'artifact_root': str,
+    s.Optional('debug'): bool,
+}
+
+UVMLFlowConfig = {
+    s.Optional('pubsub_project'): str,  # default = mlflow_config.project
+    s.Optional('pubsub_topic', default='mlflow'): str,
+}
+
+UVConfig = {
+    s.Optional('mlflow'): UVMLFlowConfig,
 }
 
 # Config items that are project-specific, and don't belong in a global
@@ -160,6 +170,7 @@ SystemConfig = {
     s.Optional("default_mode", default=JobMode.CPU): s.Use(JobMode.parse),
     s.Optional("gcloud", default={}): GCloudConfig,
     s.Optional("mlflow_config", default=None): MLFlowConfig,
+    s.Optional("uv", default={}): UVConfig,
 }
 
 # The final, parsed calibanconfig.

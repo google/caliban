@@ -16,11 +16,21 @@
 """unit tests for gke utilities"""
 import random
 import unittest
-from typing import List
+from typing import List, Optional, Dict
 from unittest import mock
+import uuid
+import json
+import os
+import tempfile
+import yaml
 
 import hypothesis.strategies as st
 from hypothesis import given, settings
+from kubernetes.client.api_client import ApiClient
+from kubernetes.client import V1Job
+import pytest
+import argparse
+import google
 
 import caliban.platform.cloud.types as ct
 import caliban.platform.gke.constants as k
@@ -72,6 +82,42 @@ class UtilTestSuite(unittest.TestCase):
       self.assertTrue(valid == (spec.count <= gpu_limits[spec.gpu]))
 
     return
+
+  # --------------------------------------------------------------------------
+  def test_validate_gpu_spec_against_limits_deterministic(self):
+    '''deterministic test to make sure we get full coverage'''
+
+    # gpu not supported
+    cfg = {
+        'gpu_spec': ct.GPUSpec(ct.GPU.K80, 1),
+        'gpu_limits': {
+            ct.GPU.P100: 1
+        },
+        'limit_type': 'zone',
+    }
+    assert not util.validate_gpu_spec_against_limits(**cfg)
+
+    # request above limit
+    cfg = {
+        'gpu_spec': ct.GPUSpec(ct.GPU.K80, 2),
+        'gpu_limits': {
+            ct.GPU.P100: 1,
+            ct.GPU.K80: 1,
+        },
+        'limit_type': 'zone',
+    }
+    assert not util.validate_gpu_spec_against_limits(**cfg)
+
+    # valid request
+    cfg = {
+        'gpu_spec': ct.GPUSpec(ct.GPU.K80, 1),
+        'gpu_limits': {
+            ct.GPU.P100: 1,
+            ct.GPU.K80: 1,
+        },
+        'limit_type': 'zone',
+    }
+    assert util.validate_gpu_spec_against_limits(**cfg)
 
   # --------------------------------------------------------------------------
   def test_nvidia_daemonset_url(self):
@@ -226,7 +272,7 @@ class UtilTestSuite(unittest.TestCase):
                                                'name',
                                                list(conds),
                                                0,
-                                               spinner=False))
+                                               spinner=True))
     else:
       self.assertIsNone(
           util.wait_for_operation(api, 'name', list(conds), 0, spinner=False))
@@ -311,6 +357,10 @@ class UtilTestSuite(unittest.TestCase):
 
     # idempotency check
     self.assertEqual(sanitized, util.sanitize_job_name(sanitized))
+
+    # ensure coverage, first char must be alnum, last must be alnum
+    x = '_' + sanitized + '-'
+    assert valid(util.sanitize_job_name(x))
 
     return
 
@@ -567,12 +617,16 @@ class UtilTestSuite(unittest.TestCase):
       values=everything(),
   ))
   def test_nonnull_dict(self, input_dict):
+    input_dict[str(uuid.uuid1())] = {'x': None, 'y': 7}  # ensure coverage
+    input_dict[str(uuid.uuid1())] = [1, 2, None, 3]
     self._validate_nonnull_dict(util.nonnull_dict(input_dict), input_dict)
     return
 
   # --------------------------------------------------------------------------
   @given(st.lists(everything()))
   def test_nonnull_list(self, input_list):
+    input_list.append({'x': None, 'y': 7})  # ensure coverage
+    input_list.append([1, 2, None, 3])  # ensure coverage
     self._validate_nonnull_list(util.nonnull_list(input_list), input_list)
     return
 
@@ -617,3 +671,332 @@ class UtilTestSuite(unittest.TestCase):
     # normal execution
     api.execute = _normal
     self.assertEqual(zones, util.get_zones_in_region(api, 'p', region))
+
+
+# ----------------------------------------------------------------------------
+def test_dashboard_cluster_url():
+  cfg = {
+      'cluster_id': 'foo',
+      'zone': 'us-central1-a',
+      'project_id': 'bar',
+  }
+
+  url = util.dashboard_cluster_url(**cfg)
+
+  assert url is not None
+  assert url == (f'{k.DASHBOARD_CLUSTER_URL}/{cfg["zone"]}/{cfg["cluster_id"]}'
+                 f'?project={cfg["project_id"]}')
+
+
+# ----------------------------------------------------------------------------
+def test_get_tpu_drivers(monkeypatch):
+
+  class MockApi():
+
+    def __init__(self,
+                 drivers: Optional[Dict[str, Dict[str, List[str]]]] = None):
+      self._drivers = drivers
+
+    def projects(self):
+      return self
+
+    def locations(self):
+      return self
+
+    def tensorflowVersions(self):
+      return self
+
+    def list(self, parent):
+      return self
+
+    def execute(self):
+      return self._drivers
+
+  # test no response behavior
+  cfg = {'tpu_api': MockApi(), 'project_id': 'foo', 'zone': 'us-central1-a'}
+
+  assert util.get_tpu_drivers(**cfg) is None
+
+  # test valid response
+  drivers = ['foo', 'bar']
+  cfg['tpu_api'] = MockApi(
+      drivers={'tensorflowVersions': [{
+          'version': x
+      } for x in drivers]})
+
+  assert util.get_tpu_drivers(**cfg) == drivers
+
+
+# ----------------------------------------------------------------------------
+def test_resource_limits_from_quotas():
+
+  # valid, all quota > 0
+  counts = {'cpu': 1, 'nvidia-tesla-p100': 2, 'memory': k.MAX_GB_PER_CPU}
+  quotas = [('CPUS', counts['cpu']),
+            ('NVIDIA_P100_GPUS', counts['nvidia-tesla-p100']), ('bogus', 5)]
+  cfg = {'quotas': [{'metric': x[0], 'limit': x[1]} for x in quotas]}
+
+  q = util.resource_limits_from_quotas(**cfg)
+  assert len(q) == len(counts)
+  for d in q:
+    assert counts[d['resourceType']] == int(d['maximum'])
+
+  # valid, gpu quota == 0
+  counts = {'cpu': 1, 'nvidia-tesla-p100': 0, 'memory': k.MAX_GB_PER_CPU}
+  quotas = [('CPUS', counts['cpu']),
+            ('NVIDIA_P100_GPUS', counts['nvidia-tesla-p100'])]
+  cfg = {'quotas': [{'metric': x[0], 'limit': x[1]} for x in quotas]}
+
+  q = util.resource_limits_from_quotas(**cfg)
+  assert len(q) == len(counts) - 1
+  for d in q:
+    assert d['resourceType'] != 'nvidia-tesla-p100'
+    assert counts[d['resourceType']] == int(d['maximum'])
+
+
+# ----------------------------------------------------------------------------
+def test_job_to_dict():
+  j = V1Job(api_version='abc', kind='foo')
+  d = util.job_to_dict(j)
+
+  assert d is not None
+  assert isinstance(d, dict)
+  assert d == ApiClient().sanitize_for_serialization(j)
+
+
+# ----------------------------------------------------------------------------
+def test_job_str():
+  j = V1Job(api_version='abc', kind='foo')
+  s = util.job_str(j)
+  assert s is not None
+  assert isinstance(s, str)
+
+
+# ----------------------------------------------------------------------------
+def test_validate_job_filename():
+  for x in k.VALID_JOB_FILE_EXT:
+    fname = str(uuid.uuid1()) + f'.{x}'
+    s = util.validate_job_filename(fname)
+    assert s == fname
+
+  with pytest.raises(argparse.ArgumentTypeError):
+    fname = str(uuid.uuid1()) + '.' + str(uuid.uuid1())
+    util.validate_job_filename(fname)
+
+
+# ----------------------------------------------------------------------------
+def test_export_job():
+  with tempfile.TemporaryDirectory() as tmpdir:
+
+    j = V1Job(api_version='abc', kind='foo')
+    nnd = util.nonnull_dict(util.job_to_dict(j))
+
+    fname = os.path.join(tmpdir, 'foo.json')
+    assert util.export_job(j, fname)
+    assert os.path.exists(fname)
+    with open(fname, 'r') as f:
+      x = json.load(f)
+    assert x == nnd
+
+    fname = os.path.join(tmpdir, 'foo.yaml')
+    assert util.export_job(j, fname)
+    assert os.path.exists(fname)
+    with open(fname, 'r') as f:
+      x = yaml.safe_load(f)
+    assert x == nnd
+
+    fname = os.path.join(tmpdir, 'foo.xyz')
+    assert not util.export_job(j, fname)
+
+
+# ----------------------------------------------------------------------------
+def test_application_default_credentials_path(monkeypatch):
+  adc = 'foo'
+  # monkeypatch can't set things in underscore-prefixed modules, so we
+  # cheat a bit here
+  monkeypatch.setattr(util, 'get_application_default_credentials_path',
+                      lambda: adc)
+  assert util.application_default_credentials_path() == adc
+
+
+# ----------------------------------------------------------------------------
+def test_default_credentials(monkeypatch):
+
+  class MockCreds():
+
+    def refresh(self, req):
+      pass
+
+  creds = MockCreds()
+  project_id = 'project-foo'
+
+  def mock_default(scopes):
+    return (creds, project_id)
+
+  monkeypatch.setattr(google.auth, 'default', mock_default)
+  monkeypatch.setattr(google.auth.transport.requests, 'Request', lambda: None)
+
+  cd = util.default_credentials()
+
+  assert cd.credentials == creds
+  assert cd.project_id == project_id
+
+
+# ----------------------------------------------------------------------------
+def test_credentials_from_file(monkeypatch):
+
+  class MockCreds():
+
+    def refresh(self, req):
+      pass
+
+  creds = MockCreds()
+  project_id = 'foo-project'
+
+  def mock_from_service_account_file(f, scopes):
+    return creds
+
+  def mock_load_credentials_from_file(f):
+    return (creds, project_id)
+
+  monkeypatch.setattr(google.auth.transport.requests, 'Request', lambda: None)
+  monkeypatch.setattr(google.oauth2.service_account.Credentials,
+                      'from_service_account_file',
+                      mock_from_service_account_file)
+
+  # ugh, I feel dirty, but monkeypatching google.auth._default.load_credentials_from_file
+  # doesn't work
+  monkeypatch.setattr(util, 'load_credentials_from_file',
+                      mock_load_credentials_from_file)
+
+  # test service account file
+  creds_type = util._SERVICE_ACCOUNT_TYPE
+  with tempfile.TemporaryDirectory() as tmpdir:
+    creds_dict = {'type': creds_type, 'project_id': project_id}
+
+    creds_file = os.path.join(tmpdir, 'creds.json')
+    with open(creds_file, 'w') as f:
+      json.dump(creds_dict, f)
+
+    cd = util.credentials_from_file(creds_file)
+    assert cd.credentials == creds
+    assert cd.project_id == project_id
+
+  # test authorized user file
+  creds_type = util._AUTHORIZED_USER_TYPE
+  with tempfile.TemporaryDirectory() as tmpdir:
+    creds_dict = {'type': creds_type, 'project_id': project_id}
+
+    creds_file = os.path.join(tmpdir, 'creds.json')
+    with open(creds_file, 'w') as f:
+      json.dump(creds_dict, f)
+
+    cd = util.credentials_from_file(creds_file)
+    assert cd.credentials == creds
+    assert cd.project_id == project_id
+
+  # test invalid file
+  creds_type = str(uuid.uuid1())
+  with tempfile.TemporaryDirectory() as tmpdir:
+    creds_dict = {'type': creds_type, 'project_id': project_id}
+
+    creds_file = os.path.join(tmpdir, 'creds.json')
+    with open(creds_file, 'w') as f:
+      json.dump(creds_dict, f)
+
+    cd = util.credentials_from_file(creds_file)
+    assert cd.credentials is None
+    assert cd.project_id is None
+
+
+# ----------------------------------------------------------------------------
+def test_credentials(monkeypatch):
+
+  class MockCreds():
+
+    def refresh(self, req):
+      pass
+
+  creds = MockCreds()
+  project_id = 'project-foo'
+
+  def mock_default(scopes):
+    return (creds, project_id)
+
+  def mock_from_service_account_file(f, scopes):
+    return creds
+
+  monkeypatch.setattr(google.auth, 'default', mock_default)
+  monkeypatch.setattr(google.auth.transport.requests, 'Request', lambda: None)
+  monkeypatch.setattr(google.oauth2.service_account.Credentials,
+                      'from_service_account_file',
+                      mock_from_service_account_file)
+
+  # test default creds
+  cd = util.credentials()
+  assert cd.credentials == creds
+  assert cd.project_id == project_id
+
+  # test creds file
+  creds_type = util._SERVICE_ACCOUNT_TYPE
+  with tempfile.TemporaryDirectory() as tmpdir:
+    creds_dict = {'type': creds_type, 'project_id': project_id}
+
+    creds_file = os.path.join(tmpdir, 'creds.json')
+    with open(creds_file, 'w') as f:
+      json.dump(creds_dict, f)
+
+    cd = util.credentials(creds_file)
+    assert cd.credentials == creds
+    assert cd.project_id == project_id
+
+
+# ----------------------------------------------------------------------------
+def test_parse_job_file():
+
+  # test invalid file extension
+  with tempfile.TemporaryDirectory() as tmpdir:
+    cfg = {'foo': 1, 'bar': '2'}
+    fname = os.path.join(tmpdir, f'job.{str(uuid.uuid1())}')
+    with open(fname, 'w') as f:
+      json.dump(cfg, f)
+
+    assert os.path.exists(fname)
+    d = util.parse_job_file(fname)
+    assert d is None
+
+  # test missing file
+  d = util.parse_job_file(f'{str(uuid.uuid1())}.json')
+  assert d is None
+
+  # test json file
+  with tempfile.TemporaryDirectory() as tmpdir:
+    cfg = {'foo': 1, 'bar': '2'}
+    fname = os.path.join(tmpdir, f'job.json')
+    with open(fname, 'w') as f:
+      json.dump(cfg, f)
+
+    assert os.path.exists(fname)
+    d = util.parse_job_file(fname)
+    assert d == cfg
+
+  # test yaml file
+  with tempfile.TemporaryDirectory() as tmpdir:
+    cfg = {'foo': 1, 'bar': '2'}
+    fname = os.path.join(tmpdir, f'job.yaml')
+    with open(fname, 'w') as f:
+      yaml.dump(cfg, f)
+
+    assert os.path.exists(fname)
+    d = util.parse_job_file(fname)
+    assert d == cfg
+
+  # test bad formatting
+  with tempfile.TemporaryDirectory() as tmpdir:
+    fname = os.path.join(tmpdir, f'job.json')
+    with open(fname, 'w') as f:
+      f.write('this is invalid json')
+
+    assert os.path.exists(fname)
+    d = util.parse_job_file(fname)
+    assert d is None

@@ -3,7 +3,8 @@ What's the Base Docker Image?
 
 Caliban's modes build docker images using a dynamically generated ``Dockerfile``.
 You'll see this ``Dockerfile`` stream to stdout when you run any of Caliban's
-commands.
+commands. You can specify the base image you wish to use in your ``.calibanconfig.json``
+file as described :ref:`here<calibanconfig>`.
 
 In addition to the isolation Docker provides, the images set up a Python virtual
 environment inside of each container. This guarantees you a truly blank slate;
@@ -12,26 +13,38 @@ libraries that will be present. No more version clashes or surprises.
 
 Caliban uses a set of base images covering a set of common combinations of
 python and cuda versions. You can find our base images
-`here <https://pantheon.corp.google.com/gcr/images/blueshift-playground/GLOBAL/blueshift>`_.
+`here <https://gcr.io/blueshift-playground/blueshift>`_.
 The format of our base image names is ``gcr.io/blueshift-playground/blueshift:TAG``,
 where ``TAG`` describes the configuration of the base image.
 
-For example, ``gcr.io/blueshift-playground/blueshift:gpu-cuda100-py37`` is a
-base image that has CUDA 10.0 and python 3.7, while
-``gcr.io/blueshift-playground/blueshift:cpu-py38`` is a base image that has
-no CUDA support and uses python 3.8.
+For example, ``gcr.io/blueshift-playground/blueshift:gpu-ubuntu1804-py38-cuda101`` is a
+gpu base image that uses Ubuntu 18.04, CUDA 10.1 and python 3.8, while
+``gcr.io/blueshift-playground/blueshift:cpu-ubuntu2004-py38`` is a cpu-only Ubuntu 20.04
+base image that has no CUDA support and uses python 3.8.
 
-Our current matrix of supported combinations:
+Our current supported combinations:
 
-+-----------+------------+------------+
-|           | python 3.7 | python 3.8 |
-+-----------+------------+------------+
-| no cuda   |    yes     |    yes     |
-+-----------+------------+------------+
-| cuda 10.0 |    yes     |    yes     |
-+-----------+------------+------------+
-| cuda 10.1 |    yes     |    yes     |
-+-----------+------------+------------+
++--------------+------------+------------+
+| Ubuntu 18.04 | python 3.7 | python 3.8 |
++--------------+------------+------------+
+|   no cuda    |    yes     |    yes     |
++--------------+------------+------------+
+|   cuda 10.0  |    yes     |    yes     |
++--------------+------------+------------+
+|   cuda 10.1  |    yes     |    yes     |
++--------------+------------+------------+
+
+
++--------------+------------+------------+
+| Ubuntu 20.04 | python 3.7 | python 3.8 |
++--------------+------------+------------+
+|   no cuda    |    yes     |    yes     |
++--------------+------------+------------+
+|   cuda 10.0  |    no      |     no     |
++--------------+------------+------------+
+|   cuda 10.1  |    no      |     no     |
++--------------+------------+------------+
+
 
 These images are automatically updated, and if you have an image combination that
 we don't support, please file an issue and we'll consider adding it to our set
@@ -84,7 +97,7 @@ command:
 
 .. code-block:: bash
 
-   gcloud builds submit .
+   gcloud builds submit --project=<destination project> --config=cloudbuild.json .
 
 By default this uses your default project and the ``cloudbuild.json`` file in your current
 directory. If you are pushing the images to a different project than your ``gcloud`` default,

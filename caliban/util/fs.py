@@ -254,8 +254,7 @@ def capture_stdout(cmd: List[str],
                         stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
-                        universal_newlines=False,
-                        bufsize=1) as p:
+                        universal_newlines=False) as p:
     if input_str:
       p.stdin.write(input_str.encode('utf-8'))
     p.stdin.close()
