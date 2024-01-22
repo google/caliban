@@ -4,7 +4,7 @@ TPUs on AI Platform
 .. NOTE:: This documentation is currently quite sparse; expect a tutorial soon.
 
 .. IMPORTANT:: Unlike on Cloud, TPUs on AI Platform only support (as of
-   Dec 2019) Tensorflow versions 1.13 and 1.14. No Jax, no Pytorch.
+   Dec 2019) Tensorflow versions 1.13 and 1.14. No JAX, no Pytorch.
 
 Caliban has Tensorflow version 2.1 hardcoded internally. Once the range of
 possible values expands we'll make this customizable.

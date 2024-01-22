@@ -53,14 +53,14 @@ you can build and use your own specialized image.
 
 The dockerfiles we use to generate our supported images can be found
 `here <https://github.com/google/caliban/tree/master/dockerfiles>`_. We create
-base gpu images from the `Dockerfile.gpu <https://github.com/google/caliban/blob/master/dockerfiles/Dockerfile.gpu>`_
+base gpu images from the `Dockerfile.gpu <https://github.com/google/caliban/blob/main/dockerfiles/Dockerfile.gpu>`_
 file, and then use these as base images for creating full GPU images with
-support for specific python versions using this `Dockerfile <https://github.com/google/caliban/blob/master/dockerfiles/Dockerfile>`_.
+support for specific python versions using this `Dockerfile <https://github.com/google/caliban/blob/main/dockerfiles/Dockerfile>`_.
 
 We base our gpu base images on the `nvidia/cuda <https://hub.docker.com/r/nvidia/cuda/>`_
 images, which contain the relevant CUDA drivers required for GPU use. The virtual
 environment inside of the Caliban container isolates you from these low-level details,
-so you can install any tensorflow version you like, or use Jax or Pytorch or any
+so you can install any tensorflow version you like, or use JAX or Pytorch or any
 other system.
 
 Details for Maintainers
@@ -69,11 +69,11 @@ Details for Maintainers
 We utilize Google's `Cloud Build <http://cloud.google.com/cloud-build/docs>`_ service
 to build Caliban's base images. Our Cloud Build configuration file that controls
 our image generation can be found in the source repository
-`here <https://github.com/google/caliban/blob/master/cloudbuild.json>`_.
+`here <https://github.com/google/caliban/blob/main/cloudbuild.json>`_.
 
 This file can quickly get lengthy and difficult to maintain, so we generate this file
-using `a script <https://github.com/google/caliban/blob/master/scripts/cloudbuild.py>`_
-and `a configuration file <https://github.com/google/caliban/blob/master/scripts/cloudbuild_config.json>`_.
+using `a script <https://github.com/google/caliban/blob/main/scripts/cloudbuild.py>`_
+and `a configuration file <https://github.com/google/caliban/blob/main/scripts/cloudbuild_config.json>`_.
 In the configuration file, we specify our supported CUDA versions, our supported
 python versions, and a list of the combinations we use in our supported images.
 For our CUDA and python versions, we specify a list of build-args that we then
