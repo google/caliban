@@ -74,18 +74,13 @@ def load_json(path):
     return commentjson.load(f)
 
 
-# TODO Once a release with this patch happens:
-# https://github.com/keleshev/schema/pull/238,, Change `Or` to `Schema`. This
-# problem only occurs for callable validators.
-
-Directory = s.Or(
+Directory = s.Schema(
     os.path.isdir,
-    False,
     error="""Directory '{}' doesn't exist in this directory. Check yourself!""")
 
-File = s.Or(lambda path: os.path.isfile(os.path.expanduser(path)),
-            False,
-            error="""File '{}' isn't a valid file on your system. Try again!""")
+File = s.Schema(
+    lambda path: os.path.isfile(os.path.expanduser(path)),
+    error="""File '{}' isn't a valid file on your system. Try again!""")
 
 Json = s.And(
     File,

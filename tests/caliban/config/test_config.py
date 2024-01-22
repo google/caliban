@@ -125,7 +125,7 @@ def test_extract_cloud_key(monkeypatch):
     monkeypatch.delenv(k)
 
   # initial missing case.
-  assert c.extract_cloud_key({}) == None
+  assert c.extract_cloud_key({}) is None
 
   monkeypatch.setenv(k, "key.json")
 
@@ -138,8 +138,8 @@ def test_extract_cloud_key(monkeypatch):
 
 def test_base_image():
   # If NO base image is specified, None is returned.
-  assert c.base_image({}, c.JobMode.CPU) == None
-  assert c.base_image({}, c.JobMode.GPU) == None
+  assert c.base_image({}, c.JobMode.CPU) is None
+  assert c.base_image({}, c.JobMode.GPU) is None
 
   dlvm = c.CalibanConfig.validate({"base_image": "dlvm:pytorch-{}-1.4"})
 

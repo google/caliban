@@ -77,10 +77,10 @@ def _dlvm_config(job_mode: JobMode) -> Dict[str, str]:
   """
   mode = job_mode.lower()
 
-  def with_version(s: str, version: Optional[str], sep: str) -> Tuple[str, str]:
+  def with_version(s: str, version: Optional[str], sep: str) -> str:
     return f"{s}{sep}{version}" if version else s
 
-  def image(lib: str, version: Optional[str]) -> str:
+  def image(lib: str, version: Optional[str]) -> Tuple[str, str]:
     base = f"gcr.io/deeplearning-platform-release/{lib}-{mode}"
     k = with_version(f"dlvm:{lib}-{mode}", version, "-")
     v = with_version(base, version.replace('.', '-') if version else None, ".")

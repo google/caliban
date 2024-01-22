@@ -27,8 +27,11 @@ def test_directory(tmpdir):
   assert us.Directory.validate(tmpdir) == tmpdir
 
   # random dirs that I made up dont!
-  with pytest.raises(s.SchemaError):
+  with pytest.raises(s.SchemaError) as e:
     assert us.Directory.validate('random')
+
+  # Check that the formatting string works.
+  assert e.match("Directory 'random' doesn't exist")
 
 
 def test_file():
@@ -37,5 +40,8 @@ def test_file():
     assert us.File.validate(tmp.name) == tmp.name
 
   # random paths that I made up dont!
-  with pytest.raises(s.SchemaError):
+  with pytest.raises(s.SchemaError) as e:
     assert us.File.validate('random')
+
+  # Check that the formatting string works.
+  assert e.match("File 'random' isn't")
