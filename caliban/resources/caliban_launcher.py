@@ -20,7 +20,7 @@ job.
 
 import argparse
 import copy
-import google.auth
+from importlib.util import find_spec
 import json
 import logging
 import os
@@ -153,7 +153,13 @@ def _ensure_non_null_project(env):
 
   project_id = None
   try:
-    _, project_id = google.auth.default()
+    if find_spec("google.auth") is not None:
+      import google.auth
+
+      _, project_id = google.auth.default()
+    else:
+      project_id = None
+
   except Exception:
     project_id = None
 
