@@ -38,7 +38,8 @@ import caliban.util.metrics as um
 
 t = Terminal()
 
-DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
+# DEV_CONTAINER_ROOT = "gcr.io/blueshift-playground/blueshift"
+DEV_CONTAINER_ROOT = "docker.io/eschnett/carpetx-caliban"
 DEFAULT_GPU_TAG = "gpu-ubuntu1804-py37-cuda101"
 DEFAULT_CPU_TAG = "cpu-ubuntu1804-py37"
 TF_VERSIONS = {"2.2.0", "1.12.3", "1.14.0", "1.15.0"}

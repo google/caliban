@@ -34,6 +34,8 @@ import caliban.platform.gke.cli
 import caliban.platform.notebook as pn
 import caliban.platform.run as pr
 import caliban.platform.shell as ps
+import caliban.platform.slurm as slurm
+import caliban.platform.slurm.cli
 import caliban.util.schema as cs
 
 ll.getLogger("caliban.main").setLevel(logging.ERROR)
@@ -52,6 +54,9 @@ def run_app(arg_input):
 
   if command == "cluster":
     return gke.cli.run_cli_command(args)
+
+  if command == "slurm":
+    return slurm.cli.run_cli_command(args)
 
   job_mode = cli.resolve_job_mode(args)
   docker_args = cli.generate_docker_args(job_mode, args)
